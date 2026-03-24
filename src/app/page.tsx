@@ -28,10 +28,10 @@ export default function WelcomePage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
 
-  // If already authenticated, redirect
+  // If already authenticated or redirecting after sign-up, show spinner
   if ((isAuthenticated && !isLoading) || isRedirecting) {
-    if (!isRedirecting) {
-      router.replace("/setup/household");
+    if (!isRedirecting && typeof window !== "undefined") {
+      window.location.href = "/setup/household";
     }
     return (
       <div className="app-container min-h-screen flex items-center justify-center">
@@ -51,9 +51,9 @@ export default function WelcomePage() {
         password,
         flow: isSignUp ? "signUp" : "signIn",
       });
-      // Set redirecting state to prevent re-render from flashing the form
+      // Set redirecting state and do a full page nav to avoid SPA race conditions
       setIsRedirecting(true);
-      router.replace("/setup/household");
+      window.location.href = "/setup/household";
       return; // Don't reset isSubmitting
     } catch (err) {
       console.error("Auth failed:", err);
