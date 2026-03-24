@@ -1,7 +1,0 @@
-Replace these with real icons:
-- icon-192.png (192x192)
-- icon-512.png (512x512)
-- apple-touch-icon.png (180x180)
-- favicon.ico (32x32)
-
-Use emerald green (#1a9d5c) with a plate/utensils design.

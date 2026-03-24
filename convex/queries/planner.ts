@@ -1,0 +1,126 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { query } from "../_generated/server";
+import { v } from "convex/values";
+
+export const getMyMealPlan = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return null;
+
+    const householdId = profile.householdId;
+    const plans = await ctx.db
+      .query("weeklyMealPlans")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+
+    const activePlan =
+      plans
+        .filter((plan) => plan.status === "active")
+        .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+
+    if (!activePlan) return null;
+
+    const meals = await ctx.db
+      .query("plannedMeals")
+      .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", activePlan._id))
+      .collect();
+
+    const mealsWithRecipes = await Promise.all(
+      meals
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map(async (meal) => {
+          const recipe = await ctx.db.get(meal.recipeId);
+          if (!recipe) return null;
+
+          return {
+            ...meal,
+            recipe,
+          };
+        })
+    );
+
+    return {
+      plan: activePlan,
+      meals: mealsWithRecipes.filter((meal) => meal !== null),
+    };
+  },
+});
+
+export const getMyRecipeSuggestions = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return [];
+
+    const householdId = profile.householdId;
+    const recipes = await ctx.db
+      .query("recipeSuggestions")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+
+    return recipes.sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const getMealPlanById = query({
+  args: {
+    mealPlanId: v.id("weeklyMealPlans"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return null;
+
+    const householdId = profile.householdId;
+    const plan = await ctx.db.get(args.mealPlanId);
+
+    if (!plan || plan.householdId !== householdId) {
+      return null;
+    }
+
+    const meals = await ctx.db
+      .query("plannedMeals")
+      .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", plan._id))
+      .collect();
+
+    const mealsWithRecipes = await Promise.all(
+      meals
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .map(async (meal) => {
+          const recipe = await ctx.db.get(meal.recipeId);
+          if (!recipe) return null;
+
+          return {
+            ...meal,
+            recipe,
+          };
+        })
+    );
+
+    return {
+      plan,
+      meals: mealsWithRecipes.filter((meal) => meal !== null),
+    };
+  },
+});
