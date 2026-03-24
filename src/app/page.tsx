@@ -57,11 +57,17 @@ export default function WelcomePage() {
       return; // Don't reset isSubmitting
     } catch (err) {
       console.error("Auth failed:", err);
-      setError(
-        isSignUp
-          ? "Could not create account. Email may already be in use."
-          : "Invalid email or password."
-      );
+      const message =
+        err instanceof Error ? err.message : String(err);
+      if (isSignUp) {
+        if (message.toLowerCase().includes("already")) {
+          setError("An account with this email already exists. Try signing in instead.");
+        } else {
+          setError(`Could not create account: ${message}`);
+        }
+      } else {
+        setError("Invalid email or password.");
+      }
       setIsSubmitting(false);
     }
   };
