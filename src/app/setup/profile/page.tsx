@@ -55,19 +55,18 @@ export default function ProfileSetupPage() {
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const addFamilyMemberMutation = useMutation(api.mutations.profiles.addFamilyMember);
 
-  // Get current user's profile from Convex
-  const authId = typeof window !== "undefined" ? localStorage.getItem("fp_authId") || "" : "";
-  const myProfile = useQuery(api.queries.profiles.getMyProfile, authId ? { authId } : "skip");
+  // Get current user's profile from Convex (uses server-side auth context, no args needed)
+  const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
 
   // Step 1: Your profile
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
 
-  // Pre-fill name from localStorage
+  // Pre-fill name from profile if available
   useEffect(() => {
-    const storedName = typeof window !== "undefined" ? localStorage.getItem("fp_userName") || "" : "";
-    if (storedName && !name) setName(storedName);
-  }, []);
+    if (myProfile?.name && !name) setName(myProfile.name);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myProfile]);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
 
   // Step 2: Allergies & dislikes
@@ -128,7 +127,8 @@ export default function ProfileSetupPage() {
     setIsLoading(true);
     setError("");
     try {
-      const householdId = localStorage.getItem("fp_householdId") as Id<"households"> | null;
+      // Get householdId from the user's profile if available, or from localStorage as fallback
+      const householdId = (myProfile?.householdId ?? localStorage.getItem("fp_householdId")) as Id<"households"> | null;
 
       // Update the current user's profile if we have it
       if (myProfile?._id) {

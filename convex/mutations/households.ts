@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
@@ -18,21 +19,44 @@ export const createHousehold = mutation({
     userName: v.string(),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Not authenticated");
+    }
+
+    const authId = userId as string;
+    if (args.authId !== authId) {
+      throw new Error("Auth mismatch");
+    }
+
+    const existing = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+
+    if (existing) {
+      throw new Error("You already belong to a household");
+    }
+
+    const user = await ctx.db.get(userId);
+    const email = user?.email ?? args.email;
+    const userName =
+      args.userName || user?.name || email.split("@")[0] || "User";
     const inviteCode = generateInviteCode();
 
     const householdId = await ctx.db.insert("households", {
       name: args.name,
-      createdBy: args.authId,
+      createdBy: authId,
       inviteCode,
       createdAt: Date.now(),
     });
 
     // Create admin profile for the creator
     await ctx.db.insert("userProfiles", {
-      authId: args.authId,
+      authId,
       householdId,
-      name: args.userName,
-      email: args.email,
+      name: userName,
+      email,
       role: "admin",
       isChild: false,
       dietaryPreferences: [],
@@ -53,6 +77,16 @@ export const joinHousehold = mutation({
     userName: v.string(),
   },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Not authenticated");
+    }
+
+    const authId = userId as string;
+    if (args.authId !== authId) {
+      throw new Error("Auth mismatch");
+    }
+
     const household = await ctx.db
       .query("households")
       .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode))
@@ -65,18 +99,23 @@ export const joinHousehold = mutation({
     // Check if user already in household
     const existing = await ctx.db
       .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
       .first();
 
     if (existing) {
       throw new Error("You already belong to a household");
     }
 
+    const user = await ctx.db.get(userId);
+    const email = user?.email ?? args.email;
+    const userName =
+      args.userName || user?.name || email.split("@")[0] || "User";
+
     await ctx.db.insert("userProfiles", {
-      authId: args.authId,
+      authId,
       householdId: household._id,
-      name: args.userName,
-      email: args.email,
+      name: userName,
+      email,
       role: "member",
       isChild: false,
       dietaryPreferences: [],

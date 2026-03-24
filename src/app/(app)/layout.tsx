@@ -1,7 +1,9 @@
+import { AuthGuard } from "@/components/auth/AuthGuard";
+
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <AuthGuard>{children}</AuthGuard>;
 }

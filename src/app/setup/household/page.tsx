@@ -2,18 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation } from "convex/react";
+import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Home, Users, ArrowRight, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
 type Step = "choice" | "create" | "join" | "created";
 
 export default function HouseholdSetupPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const [step, setStep] = useState<Step>("choice");
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -22,8 +29,16 @@ export default function HouseholdSetupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const createHousehold = useMutation(api.mutations.households.createHousehold);
+  const createHousehold = useMutation(
+    api.mutations.households.createHousehold
+  );
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
+
+  // Redirect to login if not authenticated
+  if (!authLoading && !isAuthenticated) {
+    router.replace("/");
+    return null;
+  }
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,25 +46,24 @@ export default function HouseholdSetupPage() {
     setIsLoading(true);
     setError("");
     try {
-      // Get temp user identity from localStorage (set on welcome page)
-      const tempAuthId = localStorage.getItem("fp_authId") || crypto.randomUUID();
-      const email = localStorage.getItem("fp_email") || "";
-      const userName = localStorage.getItem("fp_userName") || "User";
-      localStorage.setItem("fp_authId", tempAuthId);
-
+      // Use a placeholder authId — the real identity comes from the server-side auth context
+      // TODO: Update mutations to use ctx.auth.getUserIdentity() instead of client-passed authId
       const result = await createHousehold({
         name: householdName,
-        authId: tempAuthId,
-        email,
-        userName,
+        authId: "authenticated-user",
+        email: "",
+        userName: "User",
       });
-      // Store household info for downstream pages
       localStorage.setItem("fp_householdId", result.householdId);
       setGeneratedCode(result.inviteCode);
       setStep("created");
     } catch (err) {
       console.error("Create household failed:", err);
-      setError(err instanceof Error ? err.message : "Failed to create household. Please try again.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create household. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -61,22 +75,21 @@ export default function HouseholdSetupPage() {
     setIsLoading(true);
     setError("");
     try {
-      const tempAuthId = localStorage.getItem("fp_authId") || crypto.randomUUID();
-      const email = localStorage.getItem("fp_email") || "";
-      const userName = localStorage.getItem("fp_userName") || "User";
-      localStorage.setItem("fp_authId", tempAuthId);
-
       const result = await joinHousehold({
         inviteCode,
-        authId: tempAuthId,
-        email,
-        userName,
+        authId: "authenticated-user",
+        email: "",
+        userName: "User",
       });
       localStorage.setItem("fp_householdId", result.householdId);
       router.push("/setup/profile");
     } catch (err) {
       console.error("Join household failed:", err);
-      setError(err instanceof Error ? err.message : "Invalid invite code or failed to join.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Invalid invite code or failed to join."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +100,14 @@ export default function HouseholdSetupPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container min-h-screen flex flex-col items-center justify-center px-6">
@@ -107,7 +128,9 @@ export default function HouseholdSetupPage() {
         {step === "choice" && (
           <div className="space-y-4">
             <div className="text-center mb-6">
-              <h1 className="text-2xl font-bold mb-2">Set Up Your Household</h1>
+              <h1 className="text-2xl font-bold mb-2">
+                Set Up Your Household
+              </h1>
               <p className="text-muted-foreground">
                 Create a new household or join an existing one.
               </p>

@@ -1,32 +1,69 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 import { UtensilsCrossed, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
 export default function WelcomePage() {
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { signIn } = useAuthActions();
+  const { isAuthenticated, isLoading } = useConvexAuth();
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // If already authenticated, redirect
+  if (isAuthenticated && !isLoading) {
+    router.push("/setup/household");
+    return null;
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    setIsLoading(true);
+    if (!email || !password) return;
+    setIsSubmitting(true);
+    setError("");
     try {
-      // Store email + generate temp auth ID for pre-auth flow
-      // TODO: Replace with real Convex Auth magic link when configured
-      const authId = localStorage.getItem("fp_authId") || crypto.randomUUID();
-      localStorage.setItem("fp_authId", authId);
-      localStorage.setItem("fp_email", email);
-      localStorage.setItem("fp_userName", email.split("@")[0]);
-      window.location.href = "/setup/household";
-    } catch {
-      setIsLoading(false);
+      await signIn("password", {
+        email,
+        password,
+        flow: isSignUp ? "signUp" : "signIn",
+      });
+      router.push("/setup/household");
+    } catch (err) {
+      console.error("Auth failed:", err);
+      setError(
+        isSignUp
+          ? "Could not create account. Email may already be in use."
+          : "Invalid email or password."
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="app-container min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container min-h-screen flex flex-col items-center justify-center px-6">
@@ -53,16 +90,25 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      {/* Sign In Card */}
+      {/* Auth Card */}
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-4">
-          <CardTitle className="text-lg">Get Started</CardTitle>
+          <CardTitle className="text-lg">
+            {isSignUp ? "Create Account" : "Welcome Back"}
+          </CardTitle>
           <CardDescription>
-            Sign in with your email to start planning
+            {isSignUp
+              ? "Sign up to start planning meals"
+              : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignIn} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -75,28 +121,49 @@ export default function WelcomePage() {
                 className="h-12"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                className="h-12"
+              />
+            </div>
             <Button
               type="submit"
               className="w-full h-12 text-base"
               size="lg"
-              disabled={isLoading}
+              disabled={isSubmitting}
             >
-              {isLoading ? (
+              {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  Sending link...
+                  {isSignUp ? "Creating account..." : "Signing in..."}
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
-                  Continue
+                  {isSignUp ? "Create Account" : "Sign In"}
                   <ArrowRight className="h-4 w-4" />
                 </span>
               )}
             </Button>
           </form>
-          <p className="text-xs text-center text-muted-foreground mt-4">
-            We&apos;ll send you a magic link to sign in — no password needed.
-          </p>
+          <button
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setError("");
+            }}
+            className="w-full text-center text-sm text-muted-foreground mt-4 hover:text-foreground transition-colors"
+          >
+            {isSignUp
+              ? "Already have an account? Sign in"
+              : "Don't have an account? Sign up"}
+          </button>
         </CardContent>
       </Card>
     </div>

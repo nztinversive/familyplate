@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 
@@ -19,11 +20,17 @@ export const getHouseholdByInviteCode = query({
 });
 
 export const getMyHousehold = query({
-  args: { authId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+
+    const authId = userId as string;
     const profile = await ctx.db
       .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
       .first();
 
     if (!profile) return null;

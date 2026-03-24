@@ -1,12 +1,49 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+
+    const user = await ctx.db.get(userId);
+    if (user === null) {
+      return null;
+    }
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+
+    return {
+      userId,
+      authId,
+      email: user.email ?? "",
+      userName: user.name ?? user.email?.split("@")[0] ?? "User",
+      householdId: profile?.householdId ?? null,
+      profileId: profile?._id ?? null,
+    };
+  },
+});
+
 export const getMyProfile = query({
-  args: { authId: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+
+    const authId = userId as string;
     return await ctx.db
       .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
       .first();
   },
 });
