@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
@@ -25,12 +25,19 @@ export default function WelcomePage() {
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
 
   // If already authenticated, redirect
-  if (isAuthenticated && !isLoading) {
-    router.push("/setup/household");
-    return null;
+  if ((isAuthenticated && !isLoading) || isRedirecting) {
+    if (!isRedirecting) {
+      router.replace("/setup/household");
+    }
+    return (
+      <div className="app-container min-h-screen flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +51,10 @@ export default function WelcomePage() {
         password,
         flow: isSignUp ? "signUp" : "signIn",
       });
-      router.push("/setup/household");
+      // Set redirecting state to prevent re-render from flashing the form
+      setIsRedirecting(true);
+      router.replace("/setup/household");
+      return; // Don't reset isSubmitting
     } catch (err) {
       console.error("Auth failed:", err);
       setError(
@@ -52,7 +62,6 @@ export default function WelcomePage() {
           ? "Could not create account. Email may already be in use."
           : "Invalid email or password."
       );
-    } finally {
       setIsSubmitting(false);
     }
   };
