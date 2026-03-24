@@ -46,13 +46,8 @@ export default function HouseholdSetupPage() {
     setIsLoading(true);
     setError("");
     try {
-      // Use a placeholder authId — the real identity comes from the server-side auth context
-      // TODO: Update mutations to use ctx.auth.getUserIdentity() instead of client-passed authId
       const result = await createHousehold({
         name: householdName,
-        authId: "authenticated-user",
-        email: "",
-        userName: "User",
       });
       localStorage.setItem("fp_householdId", result.householdId);
       setGeneratedCode(result.inviteCode);
@@ -77,9 +72,6 @@ export default function HouseholdSetupPage() {
     try {
       const result = await joinHousehold({
         inviteCode,
-        authId: "authenticated-user",
-        email: "",
-        userName: "User",
       });
       localStorage.setItem("fp_householdId", result.householdId);
       router.push("/setup/profile");

@@ -14,9 +14,6 @@ function generateInviteCode(): string {
 export const createHousehold = mutation({
   args: {
     name: v.string(),
-    authId: v.string(),
-    email: v.string(),
-    userName: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -25,10 +22,11 @@ export const createHousehold = mutation({
     }
 
     const authId = userId as string;
-    if (args.authId !== authId) {
-      throw new Error("Auth mismatch");
-    }
+    const user = await ctx.db.get(userId);
+    const email = user?.email ?? "";
+    const userName = user?.name || email.split("@")[0] || "User";
 
+    // Check if user already has a profile/household
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_authId", (q) => q.eq("authId", authId))
@@ -38,10 +36,6 @@ export const createHousehold = mutation({
       throw new Error("You already belong to a household");
     }
 
-    const user = await ctx.db.get(userId);
-    const email = user?.email ?? args.email;
-    const userName =
-      args.userName || user?.name || email.split("@")[0] || "User";
     const inviteCode = generateInviteCode();
 
     const householdId = await ctx.db.insert("households", {
@@ -51,7 +45,6 @@ export const createHousehold = mutation({
       createdAt: Date.now(),
     });
 
-    // Create admin profile for the creator
     await ctx.db.insert("userProfiles", {
       authId,
       householdId,
@@ -72,9 +65,6 @@ export const createHousehold = mutation({
 export const joinHousehold = mutation({
   args: {
     inviteCode: v.string(),
-    authId: v.string(),
-    email: v.string(),
-    userName: v.string(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -83,9 +73,9 @@ export const joinHousehold = mutation({
     }
 
     const authId = userId as string;
-    if (args.authId !== authId) {
-      throw new Error("Auth mismatch");
-    }
+    const user = await ctx.db.get(userId);
+    const email = user?.email ?? "";
+    const userName = user?.name || email.split("@")[0] || "User";
 
     const household = await ctx.db
       .query("households")
@@ -96,7 +86,6 @@ export const joinHousehold = mutation({
       throw new Error("Invalid invite code");
     }
 
-    // Check if user already in household
     const existing = await ctx.db
       .query("userProfiles")
       .withIndex("by_authId", (q) => q.eq("authId", authId))
@@ -105,11 +94,6 @@ export const joinHousehold = mutation({
     if (existing) {
       throw new Error("You already belong to a household");
     }
-
-    const user = await ctx.db.get(userId);
-    const email = user?.email ?? args.email;
-    const userName =
-      args.userName || user?.name || email.split("@")[0] || "User";
 
     await ctx.db.insert("userProfiles", {
       authId,
