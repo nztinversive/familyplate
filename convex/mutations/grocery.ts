@@ -184,6 +184,16 @@ export const generateFromPlan = mutation({
           : a.category.localeCompare(b.category)
       );
 
+    // Replace existing grocery list for this meal plan instead of creating duplicates
+    const existingLists = await ctx.db
+      .query("groceryLists")
+      .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", mealPlan._id))
+      .collect();
+
+    for (const existing of existingLists) {
+      await ctx.db.delete(existing._id);
+    }
+
     return await ctx.db.insert("groceryLists", {
       householdId,
       mealPlanId: mealPlan._id,
