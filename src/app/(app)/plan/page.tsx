@@ -1,25 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
-  CalendarDays,
-  Sparkles,
-  CheckCircle2,
   Ban,
+  CalendarDays,
+  CheckCircle2,
   ChefHat,
   Clock3,
-  Shuffle,
   RefreshCw,
+  Shuffle,
+  Sparkles,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const STATUS_LABELS: Record<string, string> = {
@@ -39,8 +47,13 @@ function formatWeekRange(weekStartDate: string) {
   const start = new Date(`${weekStartDate}T12:00:00`);
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
-  const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  return `${fmt(start)} – ${fmt(end)}`;
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `${fmt(start)} - ${fmt(end)}`;
+}
+
+function formatIngredientAmount(quantity: number, unit: string) {
+  return `${quantity} ${unit}`;
 }
 
 export default function PlanPage() {
@@ -55,11 +68,18 @@ export default function PlanPage() {
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("week");
+  const [selectedRecipeId, setSelectedRecipeId] = useState<Id<"recipeSuggestions"> | null>(
+    null
+  );
 
   const cookedCount = mealPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
 
   const usedRecipeIds = new Set(mealPlan?.meals.map((m) => m.recipe._id) ?? []);
   const recipePool = (recipeSuggestions ?? []).filter((r) => !usedRecipeIds.has(r._id));
+  const selectedRecipe =
+    mealPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
+    recipeSuggestions?.find((recipe) => recipe._id === selectedRecipeId) ??
+    null;
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
@@ -102,15 +122,11 @@ export default function PlanPage() {
           title="Weekly Plan"
           subtitle={
             mealPlan?.plan
-              ? `${formatWeekRange(mealPlan.plan.weekStartDate)} • ${cookedCount}/7 cooked`
+              ? `${formatWeekRange(mealPlan.plan.weekStartDate)} - ${cookedCount}/7 cooked`
               : "Dinner planning"
           }
           action={
-            <Button
-              size="sm"
-              onClick={() => void handleGeneratePlan()}
-              disabled={isGenerating}
-            >
+            <Button size="sm" onClick={() => void handleGeneratePlan()} disabled={isGenerating}>
               <Sparkles className="mr-2 h-4 w-4" />
               {isGenerating ? "Generating..." : mealPlan ? "Regenerate" : "Generate Plan"}
             </Button>
@@ -144,11 +160,7 @@ export default function PlanPage() {
               </CardContent>
             </Card>
 
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="week">Week</TabsTrigger>
                 <TabsTrigger value="recipes">Recipe Pool</TabsTrigger>
@@ -166,7 +178,11 @@ export default function PlanPage() {
                     <Card key={meal._id} className="overflow-hidden">
                       <CardContent className="space-y-4 p-4">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-1">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 space-y-1 rounded-sm text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            onClick={() => setSelectedRecipeId(meal.recipe._id)}
+                          >
                             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                               {formatDateLabel(meal.date)}
                             </p>
@@ -176,7 +192,7 @@ export default function PlanPage() {
                             <p className="text-sm text-muted-foreground">
                               {meal.recipe.description}
                             </p>
-                          </div>
+                          </button>
                           <Badge
                             variant={
                               meal.status === "cooked"
@@ -200,9 +216,7 @@ export default function PlanPage() {
                             <Clock3 className="mr-1 h-3 w-3" />
                             {meal.recipe.estimatedTime} min
                           </Badge>
-                          <Badge variant="outline">
-                            Serves {meal.recipe.servings}
-                          </Badge>
+                          <Badge variant="outline">Serves {meal.recipe.servings}</Badge>
                         </div>
 
                         <div className="grid grid-cols-3 gap-2">
@@ -258,16 +272,12 @@ export default function PlanPage() {
                                     type="button"
                                     className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-accent disabled:opacity-50"
                                     disabled={isBusy}
-                                    onClick={() =>
-                                      void handleSwapMeal(meal._id, recipe._id)
-                                    }
+                                    onClick={() => void handleSwapMeal(meal._id, recipe._id)}
                                   >
                                     <div>
-                                      <p className="text-sm font-medium">
-                                        {recipe.title}
-                                      </p>
+                                      <p className="text-sm font-medium">{recipe.title}</p>
                                       <p className="text-xs text-muted-foreground">
-                                        {recipe.estimatedTime} min • {recipe.effortLevel}
+                                        {recipe.estimatedTime} min - {recipe.effortLevel}
                                       </p>
                                     </div>
                                     <RefreshCw className="h-4 w-4 text-muted-foreground" />
@@ -315,6 +325,108 @@ export default function PlanPage() {
           </>
         )}
       </div>
+
+      <Dialog
+        open={selectedRecipeId !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedRecipeId(null);
+        }}
+      >
+        <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+          {selectedRecipe && (
+            <>
+              <DialogHeader className="border-b px-4 pb-4 pt-5 sm:px-6">
+                <DialogTitle className="pr-8 text-left text-xl">
+                  {selectedRecipe.title}
+                </DialogTitle>
+                <DialogDescription className="pr-8 text-left">
+                  {selectedRecipe.description}
+                </DialogDescription>
+                <div className="flex flex-wrap gap-2 pt-3">
+                  <Badge variant="outline" className="capitalize">
+                    <ChefHat className="mr-1 h-3 w-3" />
+                    {selectedRecipe.effortLevel}
+                  </Badge>
+                  <Badge variant="outline">
+                    <Clock3 className="mr-1 h-3 w-3" />
+                    {selectedRecipe.estimatedTime} min
+                  </Badge>
+                  <Badge variant="outline">Serves {selectedRecipe.servings}</Badge>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 overflow-y-auto px-4 py-4 sm:px-6">
+                <section className="space-y-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                    Ingredients
+                  </h4>
+                  <div className="space-y-2">
+                    {selectedRecipe.ingredients.map((ingredient) => (
+                      <div
+                        key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
+                        className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 px-3 py-3"
+                      >
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">{ingredient.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={ingredient.inPantry ? "secondary" : "outline"}
+                          className="shrink-0"
+                        >
+                          {ingredient.inPantry ? "In pantry" : "Need to buy"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                    Instructions
+                  </h4>
+                  <ol className="space-y-3">
+                    {selectedRecipe.instructions.map((step, index) => (
+                      <li
+                        key={`${selectedRecipe._id}-step-${index + 1}`}
+                        className="flex items-start gap-3 rounded-xl bg-muted/40 px-3 py-3"
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-sm font-semibold">
+                          {index + 1}
+                        </div>
+                        <p className="text-sm leading-6">{step}</p>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+
+                <section className="space-y-3 pb-1">
+                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                    Tags
+                  </h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedRecipe.tags.map((tag) => (
+                      <Badge key={tag} variant="outline">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <div className="border-t px-4 py-4 sm:px-6">
+                <DialogClose asChild>
+                  <Button variant="outline" className="w-full">
+                    Close
+                  </Button>
+                </DialogClose>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppShell>
   );
 }
@@ -333,7 +445,8 @@ function EmptyPlanState({
       </div>
       <h3 className="mb-1 text-lg font-semibold">No meal plan yet</h3>
       <p className="mb-6 max-w-[260px] text-sm text-muted-foreground">
-        Generate a full seven-night dinner lineup, then mark meals cooked or skipped as the week moves.
+        Generate a full seven-night dinner lineup, then mark meals cooked or skipped as the
+        week moves.
       </p>
       <Button onClick={onGenerate} disabled={isGenerating}>
         <Sparkles className="mr-2 h-4 w-4" />

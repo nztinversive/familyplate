@@ -159,6 +159,10 @@ const PLACEHOLDER_DINNERS = [
   },
 ];
 
+function normalizeIngredientName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 function getStartOfWeek(date: Date) {
   const start = new Date(date);
   const day = start.getDay();
@@ -181,14 +185,20 @@ export const generatePlaceholderPlan = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const authId = userId as string;
     const profile = await ctx.db
       .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .withIndex("by_authId", (q) => q.eq("authId", userId as string))
       .first();
     if (!profile) throw new Error("No profile found");
 
     const householdId = profile.householdId;
+    const pantryItems = await ctx.db
+      .query("pantryItems")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+    const pantryNames = new Set(
+      pantryItems.map((item) => normalizeIngredientName(item.name))
+    );
     const existingPlans = await ctx.db
       .query("weeklyMealPlans")
       .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
@@ -203,6 +213,17 @@ export const generatePlaceholderPlan = mutation({
     const weekStart = getStartOfWeek(new Date());
     const weekStartDate = formatDate(weekStart);
     const createdAt = Date.now();
+    const dinners = PLACEHOLDER_DINNERS.map((dinner, index) => ({
+      ...dinner,
+      pantryScore: dinner.ingredients.reduce((score, ingredient) => {
+        return pantryNames.has(normalizeIngredientName(ingredient.name))
+          ? score + 1
+          : score;
+      }, 0),
+      originalIndex: index,
+    }))
+      .sort((a, b) => b.pantryScore - a.pantryScore || a.originalIndex - b.originalIndex)
+      .slice(0, 7);
 
     const mealPlanId = await ctx.db.insert("weeklyMealPlans", {
       householdId,
@@ -211,16 +232,20 @@ export const generatePlaceholderPlan = mutation({
       createdAt,
     });
 
-    for (let index = 0; index < PLACEHOLDER_DINNERS.length; index += 1) {
-      const dinner = PLACEHOLDER_DINNERS[index];
+    for (let index = 0; index < dinners.length; index += 1) {
+      const dinner = dinners[index];
       const mealDate = new Date(weekStart);
       mealDate.setDate(weekStart.getDate() + index);
+      const ingredients = dinner.ingredients.map((ingredient) => ({
+        ...ingredient,
+        inPantry: pantryNames.has(normalizeIngredientName(ingredient.name)),
+      }));
 
       const recipeId = await ctx.db.insert("recipeSuggestions", {
         householdId,
         title: dinner.title,
         description: dinner.description,
-        ingredients: dinner.ingredients,
+        ingredients,
         instructions: dinner.instructions,
         effortLevel: dinner.effortLevel,
         estimatedTime: dinner.estimatedTime,
