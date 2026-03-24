@@ -1,0 +1,62 @@
+import { mutation } from "../_generated/server";
+import { v } from "convex/values";
+
+export const updateProfile = mutation({
+  args: {
+    profileId: v.id("userProfiles"),
+    name: v.optional(v.string()),
+    age: v.optional(v.number()),
+    weight: v.optional(v.number()),
+    activityLevel: v.optional(
+      v.union(
+        v.literal("sedentary"),
+        v.literal("moderate"),
+        v.literal("active")
+      )
+    ),
+    dietaryPreferences: v.optional(v.array(v.string())),
+    allergies: v.optional(v.array(v.string())),
+    dislikes: v.optional(v.array(v.string())),
+    goals: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { profileId, ...updates } = args;
+    const cleanUpdates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        cleanUpdates[key] = value;
+      }
+    }
+    await ctx.db.patch(profileId, cleanUpdates);
+    return profileId;
+  },
+});
+
+export const addFamilyMember = mutation({
+  args: {
+    householdId: v.id("households"),
+    name: v.string(),
+    isChild: v.boolean(),
+    age: v.optional(v.number()),
+    dietaryPreferences: v.array(v.string()),
+    allergies: v.array(v.string()),
+    dislikes: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const profileId = await ctx.db.insert("userProfiles", {
+      authId: "", // managed profile, no auth
+      householdId: args.householdId,
+      name: args.name,
+      email: "",
+      role: "member",
+      isChild: args.isChild,
+      age: args.age,
+      dietaryPreferences: args.dietaryPreferences,
+      allergies: args.allergies,
+      dislikes: args.dislikes,
+      createdAt: Date.now(),
+    });
+
+    return profileId;
+  },
+});
