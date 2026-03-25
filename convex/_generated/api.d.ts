@@ -9,6 +9,7 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as cleanup from "../cleanup.js";
 import type * as http from "../http.js";
 import type * as mutations_grocery from "../mutations/grocery.js";
 import type * as mutations_households from "../mutations/households.js";
@@ -29,6 +30,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  cleanup: typeof cleanup;
   http: typeof http;
   "mutations/grocery": typeof mutations_grocery;
   "mutations/households": typeof mutations_households;
