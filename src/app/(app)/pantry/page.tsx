@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import {
+  Camera,
   Package,
   Plus,
   Search,
@@ -16,11 +17,24 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  BarcodeScanner,
+  type BarcodeScannerResult,
+} from "@/components/pantry/BarcodeScanner";
 
 type StorageLocation = "pantry" | "fridge" | "freezer";
+
+type AddItemFormValues = BarcodeScannerResult;
 
 const CATEGORIES = [
   "Produce",
@@ -39,6 +53,10 @@ export default function PantryPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | StorageLocation>("all");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [prefillValues, setPrefillValues] = useState<AddItemFormValues | undefined>(
+    undefined
+  );
 
   // Get current user's profile to find household
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -57,6 +75,21 @@ export default function PantryPage() {
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const openBlankForm = () => {
+    setPrefillValues(undefined);
+    setShowAddForm(true);
+  };
+
+  const closeAddForm = () => {
+    setShowAddForm(false);
+    setPrefillValues(undefined);
+  };
+
+  const handleScannerResult = (result: BarcodeScannerResult) => {
+    setPrefillValues(result);
+    setShowAddForm(true);
+  };
+
   return (
     <AppShell
       header={
@@ -68,9 +101,19 @@ export default function PantryPage() {
               : undefined
           }
           action={
-            <Button size="icon" onClick={() => setShowAddForm(true)}>
-              <Plus className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowScanner(true)}
+                aria-label="Scan barcode"
+              >
+                <Camera className="h-5 w-5" />
+              </Button>
+              <Button size="icon" onClick={openBlankForm} aria-label="Add pantry item">
+                <Plus className="h-5 w-5" />
+              </Button>
+            </div>
           }
         />
       }
@@ -80,7 +123,8 @@ export default function PantryPage() {
         {showAddForm && householdId && (
           <AddItemForm
             householdId={householdId}
-            onClose={() => setShowAddForm(false)}
+            initialValues={prefillValues}
+            onClose={closeAddForm}
           />
         )}
 
@@ -117,7 +161,7 @@ export default function PantryPage() {
         ) : filteredItems.length === 0 ? (
           <EmptyState
             location={activeTab === "all" ? undefined : activeTab}
-            onAdd={() => setShowAddForm(true)}
+            onAdd={openBlankForm}
           />
         ) : (
           <div className="space-y-2">
@@ -187,6 +231,21 @@ export default function PantryPage() {
             ))}
           </div>
         )}
+
+        <Dialog open={showScanner} onOpenChange={setShowScanner}>
+          <DialogContent className="max-w-md gap-0 overflow-hidden p-0 sm:rounded-2xl">
+            <DialogHeader className="px-4 pt-4">
+              <DialogTitle className="sr-only">Barcode scanner</DialogTitle>
+              <DialogDescription className="sr-only">
+                Scan a product barcode to pre-fill a pantry item.
+              </DialogDescription>
+            </DialogHeader>
+            <BarcodeScanner
+              onClose={() => setShowScanner(false)}
+              onScan={handleScannerResult}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </AppShell>
   );
@@ -194,9 +253,11 @@ export default function PantryPage() {
 
 function AddItemForm({
   householdId,
+  initialValues,
   onClose,
 }: {
   householdId: string;
+  initialValues?: AddItemFormValues;
   onClose: () => void;
 }) {
   const addItem = useMutation(api.mutations.pantry.addItem);
@@ -204,9 +265,24 @@ function AddItemForm({
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("items");
   const [category, setCategory] = useState("Other");
+  const [barcode, setBarcode] = useState("");
   const [location, setLocation] = useState<StorageLocation>("pantry");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setName(initialValues?.name ?? "");
+    setQuantity(initialValues?.quantity ?? "1");
+    setUnit(initialValues?.unit ?? "items");
+    setCategory(
+      initialValues?.category && CATEGORIES.includes(initialValues.category)
+        ? initialValues.category
+        : "Other"
+    );
+    setBarcode(initialValues?.barcode ?? "");
+    setLocation("pantry");
+    setError("");
+  }, [initialValues]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,13 +290,17 @@ function AddItemForm({
     setIsSubmitting(true);
     setError("");
     try {
+      const trimmedUnit = unit.trim() || "items";
+      const trimmedBarcode = barcode.trim();
+
       await addItem({
         householdId: householdId as any,
         name: name.trim(),
         quantity: parseFloat(quantity) || 1,
-        unit,
+        unit: trimmedUnit,
         category,
         storageLocation: location,
+        ...(trimmedBarcode ? { barcode: trimmedBarcode } : {}),
       });
       onClose();
     } catch (err) {
@@ -240,6 +320,17 @@ function AddItemForm({
             <X className="h-4 w-4" />
           </Button>
         </div>
+        {initialValues?.message && (
+          <div className="mb-3 rounded-lg border bg-muted/40 p-3 text-sm">
+            <div className="flex items-center gap-2">
+              <Badge variant={initialValues.found ? "secondary" : "outline"}>
+                {initialValues.found ? "Scanned product" : "Barcode captured"}
+              </Badge>
+              {barcode && <span className="text-xs text-muted-foreground">{barcode}</span>}
+            </div>
+            <p className="mt-2 text-muted-foreground">{initialValues.message}</p>
+          </div>
+        )}
         {error && (
           <div className="mb-3 p-2 rounded bg-destructive/10 text-destructive text-sm">
             {error}
@@ -255,6 +346,16 @@ function AddItemForm({
               onChange={(e) => setName(e.target.value)}
               required
               autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="barcode">Barcode</Label>
+            <Input
+              id="barcode"
+              placeholder="Scan or enter a barcode"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              inputMode="numeric"
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
