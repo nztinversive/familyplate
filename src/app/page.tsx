@@ -59,14 +59,21 @@ export default function WelcomePage() {
       console.error("Auth failed:", err);
       const message =
         err instanceof Error ? err.message : String(err);
+      const lower = message.toLowerCase();
       if (isSignUp) {
-        if (message.toLowerCase().includes("already")) {
-          setError("An account with this email already exists. Try signing in instead.");
+        // Convex wraps errors — client often only sees "Server Error",
+        // so treat any signUp failure as potentially "account exists"
+        if (lower.includes("already") || lower.includes("server error")) {
+          setError("An account with this email may already exist. Try signing in instead.");
         } else {
           setError(`Could not create account: ${message}`);
         }
       } else {
-        setError("Invalid email or password.");
+        if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")) {
+          setError("Invalid email or password.");
+        } else {
+          setError("Could not sign in. Please try again.");
+        }
       }
       setIsSubmitting(false);
     }
