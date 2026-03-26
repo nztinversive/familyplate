@@ -203,7 +203,7 @@ export default function GroceryPage() {
                                 : "border-muted-foreground/30"
                             }`}
                             disabled={busyIndex === item.index}
-                            onClick={() => void handleToggle(groceryList._id, item.index)}
+                            onClick={() => groceryList && void handleToggle(groceryList._id, item.index)}
                           >
                             {item.checked && <Check className="h-3 w-3" />}
                           </button>
@@ -224,7 +224,7 @@ export default function GroceryPage() {
                             size="icon"
                             className="h-8 w-8 shrink-0 text-destructive"
                             disabled={busyIndex === item.index}
-                            onClick={() => void handleRemove(groceryList._id, item.index)}
+                            onClick={() => groceryList && void handleRemove(groceryList._id, item.index)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>

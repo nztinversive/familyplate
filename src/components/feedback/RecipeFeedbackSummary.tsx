@@ -26,7 +26,7 @@ export function RecipeFeedbackSummary({ recipeId }: RecipeFeedbackSummaryProps) 
       tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
     }
   }
-  const topTags = [...tagCounts.entries()]
+  const topTags = Array.from(tagCounts.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
     .map(([tag]) => tag);
