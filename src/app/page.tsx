@@ -31,7 +31,7 @@ export default function WelcomePage() {
   // If already authenticated or redirecting after sign-up, show spinner
   if ((isAuthenticated && !isLoading) || isRedirecting) {
     if (!isRedirecting && typeof window !== "undefined") {
-      window.location.href = "/setup/household";
+      window.location.href = "/pantry";
     }
     return (
       <div className="app-container min-h-screen flex items-center justify-center">
@@ -53,7 +53,7 @@ export default function WelcomePage() {
       });
       // Set redirecting state and do a full page nav to avoid SPA race conditions
       setIsRedirecting(true);
-      window.location.href = "/setup/household";
+      window.location.href = "/pantry";
       return; // Don't reset isSubmitting
     } catch (err) {
       console.error("Auth failed:", err);
