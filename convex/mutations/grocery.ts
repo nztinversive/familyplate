@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
@@ -80,21 +81,38 @@ function inferCategory(name: string) {
   return "Other";
 }
 
+async function getViewerProfile(ctx: MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new Error("Not authenticated");
+
+  const authId = userId as string;
+  const profile = await ctx.db
+    .query("userProfiles")
+    .withIndex("by_authId", (q) => q.eq("authId", authId))
+    .first();
+
+  if (!profile) throw new Error("No profile found");
+  return profile;
+}
+
+async function getLatestListForHousehold(
+  ctx: MutationCtx,
+  householdId: Id<"households">
+) {
+  const lists = await ctx.db
+    .query("groceryLists")
+    .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+    .collect();
+
+  return lists.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+}
+
 export const generateFromPlan = mutation({
   args: {
     mealPlanId: v.optional(v.id("weeklyMealPlans")),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const authId = userId as string;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .first();
-    if (!profile) throw new Error("No profile found");
-
+    const profile = await getViewerProfile(ctx);
     const householdId = profile.householdId;
     let mealPlan = args.mealPlanId ? await ctx.db.get(args.mealPlanId) : null;
 
@@ -209,16 +227,7 @@ export const toggleItem = mutation({
     itemIndex: v.number(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const authId = userId as string;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .first();
-    if (!profile) throw new Error("No profile found");
-
+    const profile = await getViewerProfile(ctx);
     const householdId = profile.householdId;
     const groceryList = await ctx.db.get(args.groceryListId);
     if (!groceryList || groceryList.householdId !== householdId) {
@@ -247,16 +256,7 @@ export const addCustomItem = mutation({
     category: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const authId = userId as string;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .first();
-    if (!profile) throw new Error("No profile found");
-
+    const profile = await getViewerProfile(ctx);
     const householdId = profile.householdId;
     const groceryList = await ctx.db.get(args.groceryListId);
     if (!groceryList || groceryList.householdId !== householdId) {
@@ -283,22 +283,63 @@ export const addCustomItem = mutation({
   },
 });
 
+export const addMyCustomItem = mutation({
+  args: {
+    name: v.string(),
+    quantity: v.number(),
+    unit: v.string(),
+    category: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const profile = await getViewerProfile(ctx);
+    const householdId = profile.householdId;
+    const latestList = await getLatestListForHousehold(ctx, householdId);
+
+    if (!latestList) {
+      const groceryListId = await ctx.db.insert("groceryLists", {
+        householdId,
+        items: [
+          {
+            name: args.name.trim(),
+            quantity: roundQuantity(args.quantity),
+            unit: args.unit.trim(),
+            category: args.category.trim(),
+            checked: false,
+          },
+        ],
+        createdAt: Date.now(),
+      });
+
+      return groceryListId;
+    }
+
+    const items = [
+      ...latestList.items,
+      {
+        name: args.name.trim(),
+        quantity: roundQuantity(args.quantity),
+        unit: args.unit.trim(),
+        category: args.category.trim(),
+        checked: false,
+      },
+    ].sort((a, b) =>
+      a.category === b.category
+        ? a.name.localeCompare(b.name)
+        : a.category.localeCompare(b.category)
+    );
+
+    await ctx.db.patch(latestList._id, { items });
+    return latestList._id;
+  },
+});
+
 export const removeItem = mutation({
   args: {
     groceryListId: v.id("groceryLists"),
     itemIndex: v.number(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
-    const authId = userId as string;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .first();
-    if (!profile) throw new Error("No profile found");
-
+    const profile = await getViewerProfile(ctx);
     const householdId = profile.householdId;
     const groceryList = await ctx.db.get(args.groceryListId);
     if (!groceryList || groceryList.householdId !== householdId) {

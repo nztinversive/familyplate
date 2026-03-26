@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -52,6 +52,17 @@ function formatWeekRange(weekStartDate: string) {
   return `${fmt(start)} - ${fmt(end)}`;
 }
 
+function parseDate(dateStr: string) {
+  return new Date(`${dateStr}T12:00:00`);
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
 }
@@ -73,6 +84,23 @@ export default function PlanPage() {
   );
 
   const cookedCount = mealPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
+  const weekSchedule = useMemo(() => {
+    if (!mealPlan?.plan) return [];
+
+    const mealsByDate = new Map(mealPlan.meals.map((meal) => [meal.date, meal]));
+    const weekStart = parseDate(mealPlan.plan.weekStartDate);
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      const dateKey = formatDateKey(date);
+
+      return {
+        dateKey,
+        meal: mealsByDate.get(dateKey) ?? null,
+      };
+    });
+  }, [mealPlan]);
 
   const usedRecipeIds = new Set(mealPlan?.meals.map((m) => m.recipe._id) ?? []);
   const recipePool = (recipeSuggestions ?? []).filter((r) => !usedRecipeIds.has(r._id));
@@ -167,7 +195,28 @@ export default function PlanPage() {
               </TabsList>
 
               <TabsContent value="week" className="space-y-3">
-                {mealPlan.meals.map((meal) => {
+                {weekSchedule.map(({ dateKey, meal }) => {
+                  if (!meal) {
+                    return (
+                      <Card key={dateKey} className="overflow-hidden border-dashed">
+                        <CardContent className="space-y-4 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                {formatDateLabel(dateKey)}
+                              </p>
+                              <h3 className="text-lg font-semibold leading-tight">Dinner</h3>
+                              <p className="text-sm text-muted-foreground">
+                                No meal assigned yet for this day.
+                              </p>
+                            </div>
+                            <Badge variant="outline">Open</Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  }
+
                   const swapOptions = recipePool.filter(
                     (recipe) => recipe._id !== meal.recipe._id
                   );
@@ -186,9 +235,12 @@ export default function PlanPage() {
                             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                               {formatDateLabel(meal.date)}
                             </p>
-                            <h3 className="text-lg font-semibold leading-tight">
-                              {meal.recipe.title}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold leading-tight">
+                                {meal.recipe.title}
+                              </h3>
+                              <Badge variant="outline">Dinner</Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {meal.recipe.description}
                             </p>

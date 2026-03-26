@@ -1,6 +1,20 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { mutation } from "../_generated/server";
+import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+
+async function getViewerProfile(ctx: MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new Error("Not authenticated");
+
+  const authId = userId as string;
+  const profile = await ctx.db
+    .query("userProfiles")
+    .withIndex("by_authId", (q) => q.eq("authId", authId))
+    .first();
+
+  if (!profile) throw new Error("No profile found");
+  return profile;
+}
 
 export const addItem = mutation({
   args: {
@@ -18,18 +32,8 @@ export const addItem = mutation({
     barcode: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
+    const profile = await getViewerProfile(ctx);
 
-    // Get the user's profile to use as addedBy
-    const authId = userId as string;
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", authId))
-      .first();
-    if (!profile) throw new Error("No profile found");
-
-    // Verify user belongs to this household
     if (profile.householdId !== args.householdId) {
       throw new Error("Not a member of this household");
     }
@@ -64,21 +68,41 @@ export const updateItem = mutation({
       )
     ),
     expirationDate: v.optional(v.number()),
+    clearExpirationDate: v.optional(v.boolean()),
+    barcode: v.optional(v.string()),
+    clearBarcode: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
+    const profile = await getViewerProfile(ctx);
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
-
-    const { itemId, ...updates } = args;
-    const cleanUpdates: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) cleanUpdates[key] = value;
+    if (item.householdId !== profile.householdId) {
+      throw new Error("Item does not belong to your household");
     }
 
-    await ctx.db.patch(args.itemId, cleanUpdates);
+    const updatedItem: typeof item = {
+      ...item,
+      ...(args.name !== undefined ? { name: args.name } : {}),
+      ...(args.quantity !== undefined ? { quantity: args.quantity } : {}),
+      ...(args.unit !== undefined ? { unit: args.unit } : {}),
+      ...(args.category !== undefined ? { category: args.category } : {}),
+      ...(args.storageLocation !== undefined
+        ? { storageLocation: args.storageLocation }
+        : {}),
+      ...(args.barcode !== undefined ? { barcode: args.barcode } : {}),
+    };
+
+    if (args.expirationDate !== undefined) {
+      updatedItem.expirationDate = args.expirationDate;
+    } else if (args.clearExpirationDate) {
+      delete updatedItem.expirationDate;
+    }
+
+    if (args.clearBarcode) {
+      delete updatedItem.barcode;
+    }
+
+    await ctx.db.replace(args.itemId, updatedItem);
     return args.itemId;
   },
 });
@@ -88,11 +112,12 @@ export const deleteItem = mutation({
     itemId: v.id("pantryItems"),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Not authenticated");
-
+    const profile = await getViewerProfile(ctx);
     const item = await ctx.db.get(args.itemId);
     if (!item) throw new Error("Item not found");
+    if (item.householdId !== profile.householdId) {
+      throw new Error("Item does not belong to your household");
+    }
 
     await ctx.db.delete(args.itemId);
   },

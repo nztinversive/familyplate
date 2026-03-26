@@ -37,12 +37,18 @@ export const getMyMealPlan = query({
       meals
         .sort((a, b) => a.date.localeCompare(b.date))
         .map(async (meal) => {
-          const recipe = await ctx.db.get(meal.recipeId);
+          const [recipe, alternatives] = await Promise.all([
+            ctx.db.get(meal.recipeId),
+            Promise.all(
+              meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+            ),
+          ]);
           if (!recipe) return null;
 
           return {
             ...meal,
             recipe,
+            alternatives: alternatives.filter((alternative) => alternative !== null),
           };
         })
     );
@@ -108,12 +114,18 @@ export const getMealPlanById = query({
       meals
         .sort((a, b) => a.date.localeCompare(b.date))
         .map(async (meal) => {
-          const recipe = await ctx.db.get(meal.recipeId);
+          const [recipe, alternatives] = await Promise.all([
+            ctx.db.get(meal.recipeId),
+            Promise.all(
+              meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+            ),
+          ]);
           if (!recipe) return null;
 
           return {
             ...meal,
             recipe,
+            alternatives: alternatives.filter((alternative) => alternative !== null),
           };
         })
     );
@@ -121,6 +133,49 @@ export const getMealPlanById = query({
     return {
       plan,
       meals: mealsWithRecipes.filter((meal) => meal !== null),
+    };
+  },
+});
+
+export const getMealDetail = query({
+  args: {
+    mealId: v.id("plannedMeals"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return null;
+
+    const meal = await ctx.db.get(args.mealId);
+    if (!meal) return null;
+
+    const plan = await ctx.db.get(meal.mealPlanId);
+    if (!plan || plan.householdId !== profile.householdId) {
+      return null;
+    }
+
+    const [recipe, alternatives] = await Promise.all([
+      ctx.db.get(meal.recipeId),
+      Promise.all(
+        meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+      ),
+    ]);
+
+    if (!recipe) {
+      return null;
+    }
+
+    return {
+      meal,
+      plan,
+      recipe,
+      alternatives: alternatives.filter((alternative) => alternative !== null),
     };
   },
 });

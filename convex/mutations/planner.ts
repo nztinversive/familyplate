@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
+import { normalizeIngredientName } from "../lib/mealPlanning";
 
 const PLACEHOLDER_DINNERS = [
   {
@@ -159,10 +160,6 @@ const PLACEHOLDER_DINNERS = [
   },
 ];
 
-function normalizeIngredientName(name: string) {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
 function getStartOfWeek(date: Date) {
   const start = new Date(date);
   const day = start.getDay();
@@ -251,6 +248,9 @@ export const generatePlaceholderPlan = mutation({
         estimatedTime: dinner.estimatedTime,
         servings: dinner.servings,
         tags: dinner.tags,
+        usedPantryItems: ingredients
+          .filter((ingredient) => ingredient.inPantry)
+          .map((ingredient) => ingredient.name),
         source: "curated",
         createdAt: createdAt + index,
       });
@@ -258,6 +258,7 @@ export const generatePlaceholderPlan = mutation({
       await ctx.db.insert("plannedMeals", {
         mealPlanId,
         recipeId,
+        alternativeRecipeIds: [],
         date: formatDate(mealDate),
         mealType: "dinner",
         status: "planned",
