@@ -51,6 +51,21 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
         return;
       }
 
+      // Wait for the DOM element to be available (Dialog animation)
+      await new Promise<void>((resolve) => {
+        const check = () => {
+          if (document.getElementById(scannerId)) {
+            resolve();
+          } else {
+            requestAnimationFrame(check);
+          }
+        };
+        // Small initial delay for Dialog mount
+        setTimeout(check, 150);
+      });
+
+      if (!isMounted) return;
+
       try {
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import(
           "html5-qrcode"
@@ -71,7 +86,7 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
         scannerRef.current = scanner;
 
         await scanner.start(
-          { facingMode: { ideal: "environment" } },
+          { facingMode: "environment" },
           {
             fps: 10,
             aspectRatio: 1.777778,
@@ -106,7 +121,7 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
                 unit: "items",
                 found: false,
                 message:
-                  "We scanned the barcode, but couldn’t reach Open Food Facts. You can finish the item manually.",
+                  "We scanned the barcode, but couldn't reach Open Food Facts. You can finish the item manually.",
               });
               onClose();
             }
@@ -363,5 +378,5 @@ function getCameraErrorMessage(error: unknown) {
     return "No camera was found on this device, or it is currently unavailable.";
   }
 
-  return "We couldn’t start the camera. Try again or add the item manually.";
+  return `We couldn't start the camera. Try again or add the item manually. (${message})`;
 }
