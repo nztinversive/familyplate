@@ -51,7 +51,7 @@ export async function generateStructuredJson<T>({
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       temperature: 0.7,
       messages: [
         { role: "system", content: systemPrompt },
