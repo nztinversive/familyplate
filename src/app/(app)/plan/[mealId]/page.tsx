@@ -8,6 +8,8 @@ import { ArrowDownToLine, ArrowLeft, CheckCircle2, ChefHat, Clock3, RefreshCw, S
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { MealFeedbackCard } from "@/components/feedback/MealFeedbackCard";
+import { RecipeFeedbackSummary } from "@/components/feedback/RecipeFeedbackSummary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -141,6 +143,8 @@ export default function MealDetailPage({
                     ))}
                   </div>
                 )}
+
+                <RecipeFeedbackSummary recipeId={mealDetail.recipe._id} />
               </CardContent>
             </Card>
 
@@ -256,6 +260,10 @@ export default function MealDetailPage({
               </CardContent>
             </Card>
           </>
+        )}
+
+        {mealDetail && mealDetail.meal.status === "cooked" && (
+          <MealFeedbackCard recipeId={mealDetail.recipe._id} />
         )}
       </div>
     </AppShell>
