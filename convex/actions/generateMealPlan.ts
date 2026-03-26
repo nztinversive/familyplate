@@ -1,7 +1,9 @@
+"use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
+import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
 import {
   daysUntilExpiration,
   getWeekDates,
@@ -10,6 +12,7 @@ import {
 } from "../lib/mealPlanning";
 import {
   generateStructuredJson,
+  type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
 
@@ -66,12 +69,35 @@ const recipeSchema = {
   ],
 } as const;
 
-export const generateMealPlan = action({
+type MealProfile = Pick<
+  Doc<"userProfiles">,
+  "name" | "dietaryPreferences" | "allergies" | "dislikes"
+>;
+type PantryForPrompt = Pick<
+  Doc<"pantryItems">,
+  | "name"
+  | "quantity"
+  | "unit"
+  | "category"
+  | "storageLocation"
+  | "expirationDate"
+  | "addedAt"
+>;
+type HouseholdGenerationContext = {
+  household: Pick<Doc<"households">, "name">;
+  pantryItems: PantryForPrompt[];
+  profiles: MealProfile[];
+};
+
+export const generateMealPlan: ReturnType<typeof action> = action({
   args: {
     weekStartDate: v.string(),
     householdId: v.id("households"),
   },
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args: { weekStartDate: string; householdId: Id<"households"> }
+  ): Promise<{ mealPlanId: Id<"weeklyMealPlans"> }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("You must be signed in to generate a meal plan.");
@@ -82,14 +108,16 @@ export const generateMealPlan = action({
 
       const authId = userId as string;
       const context = await ctx.runQuery(
-        internal["internal/planner"].getHouseholdGenerationContext,
+        api.internal.planner.getHouseholdGenerationContext,
         {
           authId,
           householdId: args.householdId,
         }
-      );
+      ) as HouseholdGenerationContext;
 
-      const pantryItems = sortPantryItemsForPrompt(context.pantryItems);
+      const pantryItems = sortPantryItemsForPrompt<PantryForPrompt>(
+        context.pantryItems as PantryForPrompt[]
+      );
       const weekDates = getWeekDates(args.weekStartDate);
       const householdSize = Math.max(context.profiles.length, 1);
 
@@ -112,8 +140,7 @@ export const generateMealPlan = action({
               .join("\n")
           : "- No pantry items logged yet.";
 
-      const profilesSummary = context.profiles
-        .map((profile) => {
+      const profilesSummary = context.profiles.map((profile: MealProfile) => {
           const dietaryPreferences =
             profile.dietaryPreferences.length > 0
               ? profile.dietaryPreferences.join(", ")
@@ -129,8 +156,8 @@ export const generateMealPlan = action({
 
       const response = await generateStructuredJson<{
         dinners: Array<{
-          primary: typeof recipeSchema;
-          alternatives: Array<typeof recipeSchema>;
+          primary: RawRecipe;
+          alternatives: Array<RawRecipe>;
         }>;
       }>({
         schemaName: "familyplate_weekly_dinner_plan",
@@ -187,27 +214,37 @@ export const generateMealPlan = action({
       }
 
       const meals = response.dinners.map((dinner, index) => {
+          const primary = sanitizeRecipe(
+            dinner.primary,
+            pantryItems,
+            householdSize
+          );
+
         if (!Array.isArray(dinner.alternatives) || dinner.alternatives.length !== 2) {
           throw new Error(`Dinner ${index + 1} did not include exactly two alternatives.`);
         }
 
         return {
           date: weekDates[index],
-          primary: sanitizeRecipe(dinner.primary as never, pantryItems, householdSize),
+          primary,
           alternatives: dinner.alternatives.map((alternative) =>
-            sanitizeRecipe(alternative as never, pantryItems, householdSize)
+            sanitizeRecipe(
+              alternative,
+              pantryItems,
+              householdSize
+            )
           ),
         };
       });
 
-      const mealPlanId = await ctx.runMutation(
-        internal["internal/planner"].saveGeneratedMealPlan,
+      const mealPlanId = (await ctx.runMutation(
+        api.internal.planner.saveGeneratedMealPlan,
         {
           householdId: args.householdId,
           weekStartDate: args.weekStartDate,
           meals,
         }
-      );
+      )) as Id<"weeklyMealPlans">;
 
       return {
         mealPlanId,

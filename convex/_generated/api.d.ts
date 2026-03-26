@@ -8,8 +8,14 @@
  * @module
  */
 
+import type * as actions_generateGroceryList from "../actions/generateGroceryList.js";
+import type * as actions_generateMealPlan from "../actions/generateMealPlan.js";
+import type * as actions_swapMeal from "../actions/swapMeal.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as internal_planner from "../internal/planner.js";
+import type * as lib_mealPlanning from "../lib/mealPlanning.js";
+import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
 import type * as mutations_grocery from "../mutations/grocery.js";
 import type * as mutations_households from "../mutations/households.js";
 import type * as mutations_pantry from "../mutations/pantry.js";
@@ -28,8 +34,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "actions/generateGroceryList": typeof actions_generateGroceryList;
+  "actions/generateMealPlan": typeof actions_generateMealPlan;
+  "actions/swapMeal": typeof actions_swapMeal;
   auth: typeof auth;
   http: typeof http;
+  "internal/planner": typeof internal_planner;
+  "lib/mealPlanning": typeof lib_mealPlanning;
+  "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
   "mutations/grocery": typeof mutations_grocery;
   "mutations/households": typeof mutations_households;
   "mutations/pantry": typeof mutations_pantry;

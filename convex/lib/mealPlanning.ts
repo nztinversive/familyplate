@@ -21,6 +21,11 @@ export type GeneratedMealSlot = {
   alternatives: GeneratedRecipe[];
 };
 
+type PantryItemSortMetadata = {
+  expirationDate?: number;
+  addedAt?: number;
+};
+
 export function normalizeIngredientName(value: string) {
   return value
     .trim()
@@ -219,18 +224,25 @@ export function getUsedPantryItemsFromIngredients(
   );
 }
 
-export function sortPantryItemsForPrompt<
-  T extends { expirationDate?: number; addedAt?: number }
->(items: T[]) {
+export function sortPantryItemsForPrompt<T>(
+  items: T[]
+) {
+  const getExpirationDate = (item: T): number | undefined =>
+    (item as PantryItemSortMetadata).expirationDate;
+  const getAddedAt = (item: T): number => (item as PantryItemSortMetadata).addedAt ?? 0;
+
   return [...items].sort((a, b) => {
-    if (a.expirationDate && b.expirationDate) {
-      return a.expirationDate - b.expirationDate;
+    const aExpiration = getExpirationDate(a);
+    const bExpiration = getExpirationDate(b);
+
+    if (aExpiration && bExpiration) {
+      return aExpiration - bExpiration;
     }
 
-    if (a.expirationDate) return -1;
-    if (b.expirationDate) return 1;
+    if (aExpiration) return -1;
+    if (bExpiration) return 1;
 
-    return (b.addedAt ?? 0) - (a.addedAt ?? 0);
+    return getAddedAt(b) - getAddedAt(a);
   });
 }
 
