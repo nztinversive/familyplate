@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { normalizeIngredientName } from "../lib/mealPlanning";
 import { validateRecipeAllergens } from "../lib/allergenCheck";
+import { checkRecipeForDislikes } from "../lib/recipeSafety";
 
 const PLACEHOLDER_DINNERS = [
   {
@@ -191,7 +192,7 @@ export const generatePlaceholderPlan = mutation({
 
     const householdId = profile.householdId;
 
-    // Collect ALL household allergies and dislikes
+    // Collect ALL household allergies and dislikes separately
     const allProfiles = await ctx.db
       .query("userProfiles")
       .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
@@ -199,8 +200,16 @@ export const generatePlaceholderPlan = mutation({
     const allAllergies = Array.from(
       new Set(
         allProfiles
-          .flatMap((p) => [...(p.allergies ?? []), ...(p.dislikes ?? [])])
+          .flatMap((p) => p.allergies ?? [])
           .map((a) => a.toLowerCase().trim())
+          .filter(Boolean)
+      )
+    );
+    const allDislikes = Array.from(
+      new Set(
+        allProfiles
+          .flatMap((p) => p.dislikes ?? [])
+          .map((d) => d.toLowerCase().trim())
           .filter(Boolean)
       )
     );
@@ -226,28 +235,38 @@ export const generatePlaceholderPlan = mutation({
     const weekStart = getStartOfWeek(new Date());
     const weekStartDate = formatDate(weekStart);
     const createdAt = Date.now();
-    // Filter out placeholder dinners that contain allergens, and strip violating ingredients
+    // Filter out placeholder dinners that contain allergens OR dislikes
     const safeDinners = PLACEHOLDER_DINNERS.map((dinner, index) => {
-      if (allAllergies.length === 0) return { ...dinner, originalIndex: index, safe: true };
-
-      const violations = validateRecipeAllergens(
-        dinner.ingredients,
-        allAllergies
-      );
-
-      if (violations.length > 0) {
-        // If more than half the ingredients are allergens, skip the whole recipe
+      // Check allergens
+      if (allAllergies.length > 0) {
+        const violations = validateRecipeAllergens(
+          dinner.ingredients,
+          allAllergies
+        );
         if (violations.length > dinner.ingredients.length / 2) {
           return { ...dinner, originalIndex: index, safe: false };
         }
-        // Otherwise strip the violating ingredients
-        const violatingNames = new Set(violations.map((v) => v.ingredient));
-        return {
-          ...dinner,
-          ingredients: dinner.ingredients.filter((ing) => !violatingNames.has(ing.name)),
-          originalIndex: index,
-          safe: true,
-        };
+        if (violations.length > 0) {
+          const violatingNames = new Set(violations.map((v) => v.ingredient));
+          return {
+            ...dinner,
+            ingredients: dinner.ingredients.filter((ing) => !violatingNames.has(ing.name)),
+            originalIndex: index,
+            safe: true,
+          };
+        }
+      }
+
+      // Check dislikes — if recipe contains disliked items, skip entirely
+      if (allDislikes.length > 0) {
+        const dislikeHits = checkRecipeForDislikes(
+          dinner.title,
+          dinner.ingredients,
+          allDislikes
+        );
+        if (dislikeHits.length > 0) {
+          return { ...dinner, originalIndex: index, safe: false };
+        }
       }
 
       return { ...dinner, originalIndex: index, safe: true };
