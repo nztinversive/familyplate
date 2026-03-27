@@ -107,7 +107,9 @@ export function checkIngredientForAllergens(
 ): string | null {
   const normalized = normalizeForCheck(ingredientName);
 
-  for (const term of allergenTerms) {
+  const termsArray = Array.from(allergenTerms);
+  for (let i = 0; i < termsArray.length; i++) {
+    const term = termsArray[i];
     if (
       normalized === term ||
       normalized.includes(term) ||
