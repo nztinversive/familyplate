@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 
 const ingredientValidator = v.object({
   name: v.string(),
@@ -398,6 +399,7 @@ export const getQuickDinnerContext = internalQuery({
     ]);
 
     return {
+      householdId: membership.householdId,
       pantryItems: pantryItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,
@@ -409,6 +411,148 @@ export const getQuickDinnerContext = internalQuery({
         allergies: p.allergies ?? [],
         dislikes: p.dislikes ?? [],
       })),
+    };
+  },
+});
+
+/**
+ * Fetch all meal feedback for a household and return a structured summary
+ * that can be injected into AI prompts for smarter meal planning.
+ */
+export const getHouseholdFeedbackSummary = internalQuery({
+  args: {
+    householdId: v.id("households"),
+  },
+  handler: async (ctx, args) => {
+    // Get all recipes for this household
+    const recipes = await ctx.db
+      .query("recipeSuggestions")
+      .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+      .collect();
+
+    if (recipes.length === 0) return { summary: "", favorites: [], disliked: [] };
+
+    // Get all feedback for each recipe
+    const allFeedback: Array<{
+      recipeTitle: string;
+      rating: number;
+      liked: boolean;
+      tags: string[];
+      notes?: string;
+    }> = [];
+
+    for (const recipe of recipes) {
+      const feedback = await ctx.db
+        .query("mealFeedback")
+        .withIndex("by_recipeId", (q) => q.eq("recipeId", recipe._id))
+        .collect();
+
+      for (const f of feedback) {
+        allFeedback.push({
+          recipeTitle: recipe.title,
+          rating: f.rating,
+          liked: f.liked,
+          tags: f.tags,
+          notes: f.notes,
+        });
+      }
+    }
+
+    if (allFeedback.length === 0) return { summary: "", favorites: [], disliked: [] };
+
+    // Aggregate by recipe
+    const recipeStats = new Map<
+      string,
+      { totalRating: number; count: number; liked: number; disliked: number; tags: string[]; notes: string[] }
+    >();
+
+    for (const f of allFeedback) {
+      const existing = recipeStats.get(f.recipeTitle) ?? {
+        totalRating: 0,
+        count: 0,
+        liked: 0,
+        disliked: 0,
+        tags: [],
+        notes: [],
+      };
+      existing.totalRating += f.rating;
+      existing.count += 1;
+      if (f.liked) existing.liked += 1;
+      else existing.disliked += 1;
+      existing.tags.push(...f.tags);
+      if (f.notes) existing.notes.push(f.notes);
+      recipeStats.set(f.recipeTitle, existing);
+    }
+
+    // Sort by average rating
+    const sorted = Array.from(recipeStats.entries())
+      .map(([title, stats]) => ({
+        title,
+        avgRating: Math.round((stats.totalRating / stats.count) * 10) / 10,
+        count: stats.count,
+        liked: stats.liked,
+        disliked: stats.disliked,
+        topTags: Array.from(
+          stats.tags.reduce((acc, tag) => {
+            acc.set(tag, (acc.get(tag) ?? 0) + 1);
+            return acc;
+          }, new Map<string, number>())
+        )
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([tag]) => tag),
+        notes: stats.notes.slice(0, 2), // keep at most 2 notes to limit token usage
+      }))
+      .sort((a, b) => b.avgRating - a.avgRating);
+
+    const favorites = sorted.filter((r) => r.avgRating >= 4).slice(0, 5);
+    const disliked = sorted.filter((r) => r.avgRating <= 2).slice(0, 5);
+
+    // Build a text summary for the AI prompt
+    const lines: string[] = [];
+
+    if (favorites.length > 0) {
+      lines.push("HOUSEHOLD FAVORITES (make more meals like these):");
+      for (const f of favorites) {
+        const tagStr = f.topTags.length > 0 ? ` [tags: ${f.topTags.join(", ")}]` : "";
+        const noteStr = f.notes.length > 0 ? ` — "${f.notes[0]}"` : "";
+        lines.push(`- "${f.title}" (avg ${f.avgRating}/5, ${f.liked} liked)${tagStr}${noteStr}`);
+      }
+    }
+
+    if (disliked.length > 0) {
+      lines.push("");
+      lines.push("DISLIKED MEALS (avoid similar recipes):");
+      for (const d of disliked) {
+        const tagStr = d.topTags.length > 0 ? ` [tags: ${d.topTags.join(", ")}]` : "";
+        const noteStr = d.notes.length > 0 ? ` — "${d.notes[0]}"` : "";
+        lines.push(`- "${d.title}" (avg ${d.avgRating}/5, ${d.disliked} disliked)${tagStr}${noteStr}`);
+      }
+    }
+
+    // Tag frequency across all feedback
+    const globalTags = new Map<string, number>();
+    for (const f of allFeedback) {
+      for (const tag of f.tags) {
+        globalTags.set(tag, (globalTags.get(tag) ?? 0) + 1);
+      }
+    }
+    const frequentTags = Array.from(globalTags.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+
+    if (frequentTags.length > 0) {
+      lines.push("");
+      lines.push("MOST COMMON FEEDBACK TAGS:");
+      for (const [tag, count] of frequentTags) {
+        lines.push(`- "${tag}" (${count}x)`);
+      }
+    }
+
+    return {
+      summary: lines.join("\n"),
+      favorites: favorites.map((f) => f.title),
+      disliked: disliked.map((d) => d.title),
     };
   },
 });

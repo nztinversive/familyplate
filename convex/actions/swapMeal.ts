@@ -85,7 +85,7 @@ type PantryForPrompt = Pick<
   | "addedAt"
 >;
 type SwapContext = {
-  household: Pick<Doc<"households">, "name">;
+  household: Pick<Doc<"households">, "_id" | "name">;
   meal: Pick<
     Doc<"plannedMeals">,
     "_id" | "mealPlanId" | "recipeId" | "date" | "mealType" | "status"
@@ -115,6 +115,12 @@ export const swapMeal: ReturnType<typeof action> = action({
         authId,
         mealId: args.mealId,
       }) as SwapContext;
+
+      // Fetch feedback history for smarter suggestions
+      const feedbackSummary = await ctx.runQuery(
+        api.internal.planner.getHouseholdFeedbackSummary,
+        { householdId: context.household._id }
+      ) as { summary: string; favorites: string[]; disliked: string[] };
 
       const pantryItems = sortPantryItemsForPrompt<PantryForPrompt>(
         context.pantryItems as PantryForPrompt[]
@@ -201,6 +207,15 @@ export const swapMeal: ReturnType<typeof action> = action({
           "",
           "Household preferences:",
           profilesSummary || "- No profile preferences provided.",
+          ...(feedbackSummary.summary
+            ? [
+                "",
+                "Past meal feedback:",
+                feedbackSummary.summary,
+                "",
+                "Use feedback to guide choices: lean toward styles similar to favorites, avoid styles similar to disliked meals.",
+              ]
+            : []),
         ].join("\n"),
       });
 

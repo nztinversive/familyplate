@@ -27,11 +27,17 @@ export const suggestFromPantry = action({
     const pantryContext = await ctx.runQuery(
       api.internal.planner.getQuickDinnerContext,
       { authId }
-    ) as { pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
+    ) as { householdId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
 
     if (!pantryContext.pantryItems || pantryContext.pantryItems.length === 0) {
       return { suggestions: [] };
     }
+
+    // Fetch feedback history
+    const feedbackSummary = await ctx.runQuery(
+      api.internal.planner.getHouseholdFeedbackSummary,
+      { householdId: pantryContext.householdId as any }
+    ) as { summary: string; favorites: string[]; disliked: string[] };
 
     const pantryList = pantryContext.pantryItems
       .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
@@ -61,9 +67,13 @@ For each recipe, list ALL ingredients needed. Mark which ones are already in the
 
 Return exactly 3 suggestions with varied effort levels (one easy, one medium, one harder).`;
 
+    const feedbackNote = feedbackSummary.summary
+      ? `\n\nPast meal feedback from the household:\n${feedbackSummary.summary}\n\nUse this feedback to guide your suggestions — lean toward styles similar to favorites.`
+      : "";
+
     const userPrompt = `Here are the items currently in my pantry:
 
-${pantryList}${allergyNote}${dislikeNote}
+${pantryList}${allergyNote}${dislikeNote}${feedbackNote}
 
 Suggest 3 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives.`;
 

@@ -141,6 +141,12 @@ export const generateMealPlan: ReturnType<typeof action> = action({
         )
       );
 
+      // Fetch meal feedback history for smarter planning
+      const feedbackSummary = await ctx.runQuery(
+        api.internal.planner.getHouseholdFeedbackSummary,
+        { householdId: args.householdId }
+      ) as { summary: string; favorites: string[]; disliked: string[] };
+
       const pantrySummary =
         pantryItems.length > 0
           ? pantryItems
@@ -227,6 +233,15 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           "",
           "Household preferences:",
           profilesSummary || "- No profile preferences provided.",
+          ...(feedbackSummary.summary
+            ? [
+                "",
+                "Past meal feedback from the household:",
+                feedbackSummary.summary,
+                "",
+                "Use this feedback to guide your choices: make more meals SIMILAR to favorites (same cuisines, proteins, styles) and AVOID styles similar to disliked meals. Pay attention to feedback tags.",
+              ]
+            : []),
         ].join("\n"),
       });
 
