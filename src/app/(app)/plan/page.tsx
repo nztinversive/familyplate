@@ -235,6 +235,31 @@ export default function PlanPage() {
     }
   };
 
+  const handleMoveMealSelect = async (targetMealId: Id<"plannedMeals">) => {
+    if (!movingMealId || movingMealId === targetMealId) {
+      setMovingMealId(null);
+      return;
+    }
+    setBusyMealId(movingMealId);
+    try {
+      await swapMealDates({ mealId: movingMealId, targetMealId });
+      setMovingMealId(null);
+    } finally {
+      setBusyMealId(null);
+    }
+  };
+
+  const handleToggleSavedRecipe = async (recipeId: Id<"recipeSuggestions">) => {
+    setSavingRecipeId(recipeId);
+    try {
+      const isSaved = savedRecipes?.some((s) => s.recipeId === recipeId);
+      if (isSaved) await unsaveRecipe({ recipeId });
+      else await saveRecipe({ recipeId });
+    } finally {
+      setSavingRecipeId(null);
+    }
+  };
+
   return (
     <AppShell
       header={
@@ -285,6 +310,19 @@ export default function PlanPage() {
             <p className="text-xs text-muted-foreground mt-1">
               Analyzing your pantry, preferences, and past feedback
             </p>
+          </div>
+        )}
+
+        {/* Move mode banner */}
+        {movingMealId && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between animate-fade-in">
+            <div className="flex items-center gap-2">
+              <ArrowLeftRight className="h-4 w-4 text-primary" />
+              <p className="text-sm font-medium text-primary">Tap another meal to swap dates</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setMovingMealId(null)} className="h-7 px-2 text-xs">
+              Cancel
+            </Button>
           </div>
         )}
 
@@ -346,9 +384,13 @@ export default function PlanPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="week">Week</TabsTrigger>
-                <TabsTrigger value="recipes">Recipe Pool</TabsTrigger>
+                <TabsTrigger value="recipes">Recipes</TabsTrigger>
+                <TabsTrigger value="cookbook" className="gap-1">
+                  <BookOpen className="h-3 w-3" />
+                  Cookbook
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="week" className="space-y-3">
@@ -390,6 +432,8 @@ export default function PlanPage() {
                   );
                   const isBusy = busyMealId === meal._id;
                   const isSwapOpen = swappingMealId === meal._id;
+                  const isMoveSource = movingMealId === meal._id;
+                  const isMoveTarget = movingMealId !== null && movingMealId !== meal._id;
                   const StatusIcon = STATUS_ICONS[meal.status] ?? CalendarDays;
 
                   return (
@@ -403,14 +447,14 @@ export default function PlanPage() {
                             : today
                               ? "status-planned ring-1 ring-primary/20"
                               : "status-planned"
-                      }`}
+                      } ${isMoveSource ? "ring-2 ring-primary/40" : ""} ${isMoveTarget ? "ring-2 ring-primary cursor-pointer" : ""}`}
                     >
                       <CardContent className="p-0">
                         {/* Main content area */}
                         <button
                           type="button"
                           className="w-full p-4 pb-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg"
-                          onClick={() => setSelectedRecipeId(meal.recipe._id)}
+                          onClick={() => movingMealId ? void handleMoveMealSelect(meal._id) : openRecipeDialog(meal.recipe)}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1 space-y-1">
@@ -473,11 +517,26 @@ export default function PlanPage() {
                               );
                             })}
                           </div>
+                          {mealPlan.meals.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSwappingMealId(null);
+                                setMovingMealId(isMoveSource ? null : meal._id);
+                              }}
+                              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                isMoveSource ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"
+                              }`}
+                            >
+                              <ArrowLeftRight className="h-3 w-3" />
+                            </button>
+                          )}
                           {swapOptions.length > 0 && (
                             <button
-                              onClick={() =>
-                                setSwappingMealId(isSwapOpen ? null : meal._id)
-                              }
+                              onClick={() => {
+                                setMovingMealId(null);
+                                setSwappingMealId(isSwapOpen ? null : meal._id);
+                              }}
                               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/60 transition-colors"
                             >
                               <Shuffle className="h-3 w-3" />
@@ -558,6 +617,66 @@ export default function PlanPage() {
                   </Card>
                 ))}
               </TabsContent>
+
+              <TabsContent value="cookbook" className="space-y-3">
+                {cookbookRecipes.length === 0 ? (
+                  <Card className="overflow-hidden border-dashed">
+                    <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                        <BookOpen className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold">Your cookbook is empty</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Tap the heart on any recipe to save it here.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  cookbookRecipes.map((saved, index) => (
+                    <Card
+                      key={saved._id}
+                      className={`overflow-hidden opacity-0 animate-fade-in card-interactive stagger-${index + 1}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => openRecipeDialog(saved.recipe)}
+                          >
+                            <h3 className="font-semibold leading-tight">{saved.recipe.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
+                              {saved.recipe.description}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                                {getEffortIcon(saved.recipe.effortLevel)} {saved.recipe.effortLevel}
+                              </span>
+                              <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                                <Clock3 className="h-3 w-3" />
+                                {saved.recipe.estimatedTime}m
+                              </span>
+                            </div>
+                          </button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-xl text-primary hover:text-primary"
+                            disabled={savingRecipeId === saved.recipe._id}
+                            onClick={() => void handleToggleSavedRecipe(saved.recipe._id)}
+                            aria-label="Remove from cookbook"
+                          >
+                            <Heart className="h-4 w-4 fill-current" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
             </Tabs>
           </>
         )}
@@ -566,19 +685,34 @@ export default function PlanPage() {
       <Dialog
         open={selectedRecipeId !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedRecipeId(null);
+          if (!open) closeRecipeDialog();
         }}
       >
         <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom">
           {selectedRecipe && (
             <>
               <DialogHeader className="border-b px-5 pb-4 pt-6 sm:px-6">
-                <DialogTitle className="pr-8 text-left text-xl tracking-tight">
-                  {selectedRecipe.title}
-                </DialogTitle>
-                <DialogDescription className="pr-8 text-left">
-                  {selectedRecipe.description}
-                </DialogDescription>
+                <div className="flex items-start gap-3 pr-8">
+                  <div className="min-w-0 flex-1">
+                    <DialogTitle className="text-left text-xl tracking-tight">
+                      {selectedRecipe.title}
+                    </DialogTitle>
+                    <DialogDescription className="text-left mt-1">
+                      {selectedRecipe.description}
+                    </DialogDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 rounded-xl"
+                    disabled={savingRecipeId === selectedRecipe._id || isSelectedRecipeSaved === undefined}
+                    onClick={() => void handleToggleSavedRecipe(selectedRecipe._id)}
+                    aria-label={isSelectedRecipeSaved ? "Remove from cookbook" : "Save to cookbook"}
+                  >
+                    <Heart className={`h-5 w-5 ${isSelectedRecipeSaved ? "fill-current text-primary" : "text-muted-foreground"}`} />
+                  </Button>
+                </div>
                 <div className="flex flex-wrap gap-2 pt-3">
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium capitalize">
                     {getEffortIcon(selectedRecipe.effortLevel)} {selectedRecipe.effortLevel}
@@ -594,6 +728,32 @@ export default function PlanPage() {
               </DialogHeader>
 
               <div className="space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+                {selectedRecipe.nutrition && (
+                  <section className="space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      Nutrition <span className="normal-case font-normal">(per serving)</span>
+                    </h4>
+                    <div className="grid grid-cols-4 gap-2">
+                      <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Cal</p>
+                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.calories, "")}</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Protein</p>
+                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.protein, "g")}</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Carbs</p>
+                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.carbs, "g")}</p>
+                      </div>
+                      <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fat</p>
+                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.fat, "g")}</p>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
                 <section className="space-y-3">
                   <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Ingredients
