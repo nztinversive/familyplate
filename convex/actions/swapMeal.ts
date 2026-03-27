@@ -176,11 +176,13 @@ export const swapMeal: ReturnType<typeof action> = action({
           required: ["alternatives"],
         },
         systemPrompt:
-          "You generate alternate family dinner ideas for a single meal slot. Respect dietary restrictions, use pantry ingredients first, and avoid repeating meals already planned for the week. Return only valid JSON matching the schema.",
+          "You generate alternate family dinner ideas for a single meal slot. Use pantry ingredients first, and avoid repeating meals already planned for the week. Return only valid JSON matching the schema.\n\nCRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. If someone is allergic to milk, do NOT use milk, cream, butter, cheese, yogurt, whey, or ANY dairy derivative. If someone is allergic to wheat, do NOT use flour, bread, pasta, soy sauce, or ANY wheat-containing ingredient. Apply this same logic to ALL listed allergies. Also avoid all listed dislikes entirely. There are no exceptions.",
         userPrompt: [
           `Refresh the dinner options for ${context.meal.date} in the household "${context.household.name}".`,
           `The currently selected dinner is "${context.recipe.title}". Generate exactly three replacement alternatives.`,
           `Serve ${householdSize} people.`,
+          "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen.",
+          "Also completely avoid all listed dislikes.",
           "Use pantry items first, especially anything nearing expiration.",
           "Do not repeat the current dinner or the other planned dinners this week.",
           "Keep the alternatives distinct from each other in cuisine or flavor profile.",

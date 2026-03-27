@@ -16,6 +16,7 @@ import type * as actions_swapMeal from "../actions/swapMeal.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as internal_planner from "../internal/planner.js";
+import type * as lib_allergenCheck from "../lib/allergenCheck.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
 import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
 import type * as mutations_feedback from "../mutations/feedback.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   http: typeof http;
   "internal/planner": typeof internal_planner;
+  "lib/allergenCheck": typeof lib_allergenCheck;
   "lib/mealPlanning": typeof lib_mealPlanning;
   "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
   "mutations/feedback": typeof mutations_feedback;

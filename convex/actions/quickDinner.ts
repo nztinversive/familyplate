@@ -45,15 +45,25 @@ export const suggestFromPantry = action({
       .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
       .join("\n");
 
-    const restrictions = pantryContext.profiles
-      .flatMap((p) => [...p.allergies, ...p.dislikes])
+    const allergies = pantryContext.profiles
+      .flatMap((p) => p.allergies)
       .filter(Boolean);
 
-    const restrictionNote = restrictions.length > 0
-      ? `\n\nIMPORTANT: Avoid these ingredients (allergies/dislikes): ${restrictions.join(", ")}`
+    const dislikes = pantryContext.profiles
+      .flatMap((p) => p.dislikes)
+      .filter(Boolean);
+
+    const allergyNote = allergies.length > 0
+      ? `\n\nCRITICAL SAFETY - ALLERGIES (life-threatening, NEVER use these or any derivative): ${allergies.join(", ")}. If allergic to milk, that means NO milk, cream, butter, cheese, yogurt, whey, or ANY dairy. If allergic to wheat, that means NO flour, bread, pasta, tortillas, soy sauce, or ANY wheat product. Apply this logic to ALL listed allergies.`
+      : "";
+
+    const dislikeNote = dislikes.length > 0
+      ? `\n\nDISLIKES (completely avoid): ${dislikes.join(", ")}`
       : "";
 
     const systemPrompt = `You are a practical home cooking assistant. Given a list of pantry items, suggest 3 dinner recipes that can be made primarily with what is available. Prioritize recipes that use the most pantry items. Each recipe should be realistic and family-friendly.
+
+CRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. This includes ALL derivatives and hidden forms of the allergen. There are no exceptions. Also completely avoid all listed dislikes.
 
 For each recipe, list ALL ingredients needed. Mark which ones are already in the pantry (inPantry: true) and which are missing (inPantry: false). Keep missing items to common staples (salt, pepper, oil, water) when possible.
 
@@ -61,9 +71,9 @@ Return exactly 3 suggestions with varied effort levels (one easy, one medium, on
 
     const userPrompt = `Here are the items currently in my pantry:
 
-${pantryList}${restrictionNote}
+${pantryList}${allergyNote}${dislikeNote}
 
-Suggest 3 dinner recipes I can make tonight using primarily these ingredients.`;
+Suggest 3 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives.`;
 
     const schema = {
       type: "object" as const,

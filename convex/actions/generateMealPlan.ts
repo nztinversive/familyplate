@@ -188,12 +188,13 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           required: ["dinners"],
         },
         systemPrompt:
-          "You are a pragmatic family meal planner. Create realistic weeknight dinner plans that prioritize pantry usage, strictly respect allergies and dietary restrictions, and vary cuisines and proteins across the week. Return only valid JSON that matches the schema.",
+          "You are a pragmatic family meal planner. Create realistic weeknight dinner plans that prioritize pantry usage and vary cuisines and proteins across the week. Return only valid JSON that matches the schema.\n\nCRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. If someone is allergic to milk, do NOT use milk, cream, butter, cheese, yogurt, whey, or ANY dairy derivative. If someone is allergic to wheat, do NOT use flour, bread, pasta, soy sauce, or ANY wheat-containing ingredient. Apply this same logic to ALL listed allergies. Also avoid all listed dislikes entirely. There are no exceptions.",
         userPrompt: [
           `Build a seven-night dinner plan for the household "${context.household.name}" starting on ${args.weekStartDate}.`,
           `Plan for ${householdSize} servings by default unless a recipe clearly needs a different whole-number serving count.`,
           "Use pantry items first, especially items closest to expiration.",
-          "Respect every listed allergy, dislike, and dietary preference across the whole household.",
+          "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen. Allergies are life-threatening.",
+          "Also completely avoid all listed dislikes.",
           "Vary cuisine, main protein, cooking method, and flavor profile across the week.",
           "Keep dinners family-friendly and practical for home cooks.",
           "Most dinners should be 20-50 minutes. A few medium-effort meals are fine.",
