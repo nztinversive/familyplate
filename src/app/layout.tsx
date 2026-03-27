@@ -15,8 +15,8 @@ export const metadata: Metadata = {
     title: "FamilyPlate",
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/apple-touch-icon.png",
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 
