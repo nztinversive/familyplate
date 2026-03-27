@@ -97,44 +97,44 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="app-container min-h-screen flex flex-col items-center justify-center px-6 welcome-gradient">
+    <div className="app-container min-h-screen flex flex-col items-center px-6 py-8 welcome-gradient overflow-y-auto">
       {/* Logo & branding */}
-      <div className="flex flex-col items-center text-center mb-8 animate-fade-in-up">
-        <div className="relative mb-6">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-            <UtensilsCrossed className="h-10 w-10 text-white" />
+      <div className="flex flex-col items-center text-center mb-6 animate-fade-in-up">
+        <div className="relative mb-4">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+            <UtensilsCrossed className="h-8 w-8 text-white" />
           </div>
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-accent flex items-center justify-center shadow-md">
-            <Sparkles className="h-3 w-3 text-white" />
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-accent flex items-center justify-center shadow-md">
+            <Sparkles className="h-2.5 w-2.5 text-white" />
           </div>
         </div>
-        <h1 className="text-4xl font-bold tracking-tight mb-2">FamilyPlate</h1>
-        <p className="text-muted-foreground text-base max-w-[280px] leading-relaxed">
+        <h1 className="text-3xl font-bold tracking-tight mb-1">FamilyPlate</h1>
+        <p className="text-muted-foreground text-sm max-w-[280px] leading-relaxed">
           Smart dinner planning for your whole family. Less waste, more flavor.
         </p>
       </div>
 
       {/* Feature pills */}
-      <div className="flex gap-3 mb-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+      <div className="flex gap-2.5 mb-6 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
         {FEATURES.map((feature) => {
           const Icon = feature.icon;
           return (
             <div
               key={feature.label}
-              className="flex flex-col items-center gap-1.5 rounded-2xl bg-card border px-4 py-3 shadow-sm"
+              className="flex flex-col items-center gap-1 rounded-xl bg-card border px-3 py-2.5 shadow-sm"
             >
-              <div className="h-8 w-8 rounded-xl bg-primary/8 flex items-center justify-center">
-                <Icon className="h-4 w-4 text-primary" />
+              <div className="h-7 w-7 rounded-lg bg-primary/8 flex items-center justify-center">
+                <Icon className="h-3.5 w-3.5 text-primary" />
               </div>
-              <span className="text-xs font-semibold">{feature.label}</span>
-              <span className="text-[10px] text-muted-foreground">{feature.desc}</span>
+              <span className="text-[11px] font-semibold">{feature.label}</span>
+              <span className="text-[9px] text-muted-foreground">{feature.desc}</span>
             </div>
           );
         })}
       </div>
 
       {/* Auth card */}
-      <Card className="w-full max-w-sm border-0 shadow-xl shadow-foreground/5 opacity-0 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
+      <Card className="w-full max-w-sm border-0 shadow-xl shadow-foreground/5 opacity-0 animate-fade-in-up flex-shrink-0" style={{ animationDelay: "0.3s" }}>
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-lg">
             {isSignUp ? "Create Account" : "Welcome Back"}
