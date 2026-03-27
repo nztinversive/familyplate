@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Clock3,
   Flame,
+  ListChecks,
   RefreshCw,
   Shuffle,
   Sparkles,
@@ -101,8 +102,11 @@ export default function PlanPage() {
   const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
+  const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingGrocery, setIsGeneratingGrocery] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("week");
@@ -141,9 +145,9 @@ export default function PlanPage() {
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
+    setGenerateError(null);
     try {
       if (currentUser?.householdId) {
-        // Use AI-powered generation with full dislike/allergy enforcement
         const today = new Date();
         const day = today.getDay();
         const diff = day === 0 ? -6 : 1 - day;
@@ -156,9 +160,11 @@ export default function PlanPage() {
           householdId: currentUser.householdId,
         });
       } else {
-        // Fallback to placeholder if no household
         await generatePlanFallback({});
       }
+    } catch (err) {
+      console.error("Plan generation failed:", err);
+      setGenerateError("Something went wrong generating your plan. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -201,14 +207,47 @@ export default function PlanPage() {
           }
           action={
             <Button size="sm" onClick={() => void handleGeneratePlan()} disabled={isGenerating} className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              {isGenerating ? "Generating..." : mealPlan ? "Regenerate" : "Generate"}
+              {isGenerating ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {isGenerating ? "Creating plan..." : mealPlan ? "Regenerate" : "Generate"}
             </Button>
           }
         />
       }
     >
       <div className="space-y-4 px-4 py-4 page-transition">
+        {/* Error banner */}
+        {generateError && (
+          <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 animate-fade-in">
+            <p className="text-sm text-destructive font-medium">{generateError}</p>
+            <button
+              type="button"
+              className="text-xs text-destructive/70 underline mt-1"
+              onClick={() => setGenerateError(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Generating overlay */}
+        {isGenerating && (
+          <div className="rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 p-6 text-center animate-fade-in">
+            <div className="mb-3 flex justify-center">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+              </div>
+            </div>
+            <h3 className="text-sm font-semibold text-foreground/80">Creating your personalized plan...</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Analyzing your pantry, preferences, and past feedback
+            </p>
+          </div>
+        )}
+
         {!mealPlan || !recipeSuggestions ? (
           mealPlan === undefined || recipeSuggestions === undefined ? (
             <div className="space-y-3 pt-2">
@@ -245,6 +284,25 @@ export default function PlanPage() {
                 <span className="text-xs text-muted-foreground">{cookedCount} cooked</span>
                 <span className="text-xs text-muted-foreground">{mealPlan.meals.filter(m => m.status === "skipped").length} skipped</span>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full mt-3 gap-2"
+                disabled={isGeneratingGrocery}
+                onClick={async () => {
+                  setIsGeneratingGrocery(true);
+                  try {
+                    await generateGroceryList({});
+                  } catch (err) {
+                    console.error("Grocery list generation failed:", err);
+                  } finally {
+                    setIsGeneratingGrocery(false);
+                  }
+                }}
+              >
+                <ListChecks className="h-4 w-4" />
+                {isGeneratingGrocery ? "Generating..." : "Generate Grocery List"}
+              </Button>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -595,8 +653,12 @@ function EmptyPlanState({
         week moves.
       </p>
       <Button onClick={onGenerate} disabled={isGenerating} size="lg" className="gap-2">
-        <Sparkles className="h-4 w-4" />
-        {isGenerating ? "Generating..." : "Generate Plan"}
+        {isGenerating ? (
+          <RefreshCw className="h-4 w-4 animate-spin" />
+        ) : (
+          <Sparkles className="h-4 w-4" />
+        )}
+        {isGenerating ? "Creating plan..." : "Generate Plan"}
       </Button>
     </div>
   );

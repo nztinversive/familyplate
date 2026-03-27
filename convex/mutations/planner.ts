@@ -359,7 +359,45 @@ export const updateMealStatus = mutation({
       throw new Error("Meal does not belong to your household");
     }
 
+    const previousStatus = meal.status;
     await ctx.db.patch(args.mealId, { status: args.status });
+
+    // Pantry deduction: when marking as "cooked" (from non-cooked), subtract recipe ingredients
+    if (args.status === "cooked" && previousStatus !== "cooked") {
+      const recipe = await ctx.db.get(meal.recipeId);
+      if (recipe) {
+        const pantryItems = await ctx.db
+          .query("pantryItems")
+          .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+          .collect();
+
+        for (const ingredient of recipe.ingredients) {
+          if (!ingredient.inPantry) continue;
+
+          const normalizedIngName = normalizeIngredientName(ingredient.name);
+
+          // Find matching pantry item
+          const pantryItem = pantryItems.find((item) => {
+            const normalizedPantryName = normalizeIngredientName(item.name);
+            return (
+              normalizedPantryName === normalizedIngName ||
+              normalizedPantryName.includes(normalizedIngName) ||
+              normalizedIngName.includes(normalizedPantryName)
+            );
+          });
+
+          if (pantryItem) {
+            const newQuantity = Math.max(0, pantryItem.quantity - ingredient.quantity);
+            if (newQuantity <= 0) {
+              await ctx.db.delete(pantryItem._id);
+            } else {
+              await ctx.db.patch(pantryItem._id, { quantity: newQuantity });
+            }
+          }
+        }
+      }
+    }
+
     return args.mealId;
   },
 });
