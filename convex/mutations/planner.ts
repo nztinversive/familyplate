@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { normalizeIngredientName } from "../lib/mealPlanning";
+import { validateRecipeAllergens } from "../lib/allergenCheck";
 
 const PLACEHOLDER_DINNERS = [
   {
@@ -189,6 +190,21 @@ export const generatePlaceholderPlan = mutation({
     if (!profile) throw new Error("No profile found");
 
     const householdId = profile.householdId;
+
+    // Collect ALL household allergies and dislikes
+    const allProfiles = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+    const allAllergies = Array.from(
+      new Set(
+        allProfiles
+          .flatMap((p) => [...(p.allergies ?? []), ...(p.dislikes ?? [])])
+          .map((a) => a.toLowerCase().trim())
+          .filter(Boolean)
+      )
+    );
+
     const pantryItems = await ctx.db
       .query("pantryItems")
       .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
@@ -210,14 +226,40 @@ export const generatePlaceholderPlan = mutation({
     const weekStart = getStartOfWeek(new Date());
     const weekStartDate = formatDate(weekStart);
     const createdAt = Date.now();
-    const dinners = PLACEHOLDER_DINNERS.map((dinner, index) => ({
+    // Filter out placeholder dinners that contain allergens, and strip violating ingredients
+    const safeDinners = PLACEHOLDER_DINNERS.map((dinner, index) => {
+      if (allAllergies.length === 0) return { ...dinner, originalIndex: index, safe: true };
+
+      const violations = validateRecipeAllergens(
+        dinner.ingredients,
+        allAllergies
+      );
+
+      if (violations.length > 0) {
+        // If more than half the ingredients are allergens, skip the whole recipe
+        if (violations.length > dinner.ingredients.length / 2) {
+          return { ...dinner, originalIndex: index, safe: false };
+        }
+        // Otherwise strip the violating ingredients
+        const violatingNames = new Set(violations.map((v) => v.ingredient));
+        return {
+          ...dinner,
+          ingredients: dinner.ingredients.filter((ing) => !violatingNames.has(ing.name)),
+          originalIndex: index,
+          safe: true,
+        };
+      }
+
+      return { ...dinner, originalIndex: index, safe: true };
+    }).filter((d) => d.safe);
+
+    const dinners = safeDinners.map((dinner) => ({
       ...dinner,
       pantryScore: dinner.ingredients.reduce((score, ingredient) => {
         return pantryNames.has(normalizeIngredientName(ingredient.name))
           ? score + 1
           : score;
       }, 0),
-      originalIndex: index,
     }))
       .sort((a, b) => b.pantryScore - a.pantryScore || a.originalIndex - b.originalIndex)
       .slice(0, 7);

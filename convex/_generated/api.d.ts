@@ -20,6 +20,7 @@ import type * as lib_allergenCheck from "../lib/allergenCheck.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
 import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
 import type * as migrations_cleanAllergens from "../migrations/cleanAllergens.js";
+import type * as migrations_debugData from "../migrations/debugData.js";
 import type * as mutations_feedback from "../mutations/feedback.js";
 import type * as mutations_grocery from "../mutations/grocery.js";
 import type * as mutations_households from "../mutations/households.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/mealPlanning": typeof lib_mealPlanning;
   "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
   "migrations/cleanAllergens": typeof migrations_cleanAllergens;
+  "migrations/debugData": typeof migrations_debugData;
   "mutations/feedback": typeof mutations_feedback;
   "mutations/grocery": typeof mutations_grocery;
   "mutations/households": typeof mutations_households;
