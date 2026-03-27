@@ -10,6 +10,7 @@
 
 import type * as actions_generateGroceryList from "../actions/generateGroceryList.js";
 import type * as actions_generateMealPlan from "../actions/generateMealPlan.js";
+import type * as actions_sendInviteEmail from "../actions/sendInviteEmail.js";
 import type * as actions_swapMeal from "../actions/swapMeal.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
@@ -38,6 +39,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "actions/generateGroceryList": typeof actions_generateGroceryList;
   "actions/generateMealPlan": typeof actions_generateMealPlan;
+  "actions/sendInviteEmail": typeof actions_sendInviteEmail;
   "actions/swapMeal": typeof actions_swapMeal;
   auth: typeof auth;
   http: typeof http;

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Copy, LogOut, Mail, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
@@ -42,9 +42,11 @@ export default function SettingsPage() {
     currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
   );
   const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
+  const sendInviteEmail = useAction(api.actions.sendInviteEmail.sendInviteEmail);
 
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberName, setMemberName] = useState("");
+  const [memberEmail, setMemberEmail] = useState("");
   const [memberIsChild, setMemberIsChild] = useState(false);
   const [memberAge, setMemberAge] = useState("");
   const [memberDietary, setMemberDietary] = useState("");
@@ -52,14 +54,17 @@ export default function SettingsPage() {
   const [memberDislikes, setMemberDislikes] = useState("");
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [emailSent, setEmailSent] = useState<string | null>(null);
 
   const resetMemberForm = () => {
     setMemberName("");
+    setMemberEmail("");
     setMemberIsChild(false);
     setMemberAge("");
     setMemberDietary("");
     setMemberAllergies("");
     setMemberDislikes("");
+    setEmailSent(null);
   };
 
   const handleAddMember = async () => {
@@ -75,6 +80,25 @@ export default function SettingsPage() {
         allergies: memberAllergies ? memberAllergies.split(",").map((s) => s.trim()).filter(Boolean) : [],
         dislikes: memberDislikes ? memberDislikes.split(",").map((s) => s.trim()).filter(Boolean) : [],
       });
+
+      // Send invite email if email was provided
+      if (memberEmail.trim() && !memberIsChild && household?.inviteCode) {
+        try {
+          const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.onrender.com";
+          await sendInviteEmail({
+            toEmail: memberEmail.trim(),
+            memberName: memberName.trim(),
+            inviterName: profile?.name ?? currentUser.userName ?? "Someone",
+            householdName: household.name,
+            inviteCode: household.inviteCode,
+            appUrl,
+          });
+          setEmailSent(memberEmail.trim());
+        } catch (emailErr) {
+          console.error("Failed to send invite email:", emailErr);
+        }
+      }
+
       resetMemberForm();
       setShowAddMember(false);
     } catch (err) {
@@ -292,6 +316,18 @@ export default function SettingsPage() {
                 placeholder="e.g. Sarah"
                 required
                 autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="member-email">Email (optional)</Label>
+              <Input
+                id="member-email"
+                type="email"
+                value={memberEmail}
+                onChange={(e) => setMemberEmail(e.target.value)}
+                placeholder="They'll get an invite with the household code"
+                disabled={memberIsChild}
               />
             </div>
 
