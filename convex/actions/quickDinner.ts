@@ -3,6 +3,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
+import { validateRecipeAllergens } from "../lib/allergenCheck";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
 
 type QuickSuggestion = {
@@ -128,7 +129,34 @@ Suggest 3 dinner recipes I can make tonight using primarily these ingredients. R
         userPrompt,
       });
 
-      return { suggestions: response.suggestions.slice(0, 3) };
+      // Server-side allergen enforcement
+      const allAllergies = pantryContext.profiles
+        .flatMap((p) => p.allergies)
+        .map((a) => a.toLowerCase().trim())
+        .filter(Boolean);
+
+      const safeSuggestions = response.suggestions.slice(0, 3).map((suggestion) => {
+        if (allAllergies.length > 0) {
+          const violations = validateRecipeAllergens(suggestion.ingredients, allAllergies);
+          if (violations.length > 0) {
+            console.warn(
+              `Allergen violation in quick dinner "${suggestion.name}": ` +
+              violations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
+            );
+            suggestion.ingredients = suggestion.ingredients.filter(
+              (ing) => !violations.some((v) => v.ingredient === ing.name)
+            );
+            // Also remove from missingItems
+            const violatingNames = new Set(violations.map((v) => v.ingredient.toLowerCase()));
+            suggestion.missingItems = suggestion.missingItems.filter(
+              (item) => !violatingNames.has(item.toLowerCase())
+            );
+          }
+        }
+        return suggestion;
+      });
+
+      return { suggestions: safeSuggestions };
     } catch (err) {
       console.error("Quick dinner suggestion failed:", err);
       throw new Error("Unable to generate dinner suggestions right now.");

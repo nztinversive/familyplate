@@ -5,6 +5,7 @@ import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { daysUntilExpiration, sortPantryItemsForPrompt } from "../lib/mealPlanning";
+import { validateRecipeAllergens } from "../lib/allergenCheck";
 import {
   generateStructuredJson,
   type RawRecipe,
@@ -207,9 +208,34 @@ export const swapMeal: ReturnType<typeof action> = action({
         throw new Error("OpenAI did not return three alternatives.");
       }
 
-      const alternatives = response.alternatives.map((alternative) =>
-        sanitizeRecipe(alternative, pantryItems, householdSize)
+      // Collect all household allergies for server-side enforcement
+      const allAllergies = Array.from(
+        new Set(
+          context.profiles
+            .flatMap((p: MealProfile) => p.allergies ?? [])
+            .map((a: string) => a.toLowerCase().trim())
+            .filter(Boolean)
+        )
       );
+
+      const alternatives = response.alternatives.map((alternative) => {
+        const sanitized = sanitizeRecipe(alternative, pantryItems, householdSize);
+
+        if (allAllergies.length > 0) {
+          const violations = validateRecipeAllergens(sanitized.ingredients, allAllergies);
+          if (violations.length > 0) {
+            console.warn(
+              `Allergen violation in swap alternative "${sanitized.name}": ` +
+              violations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
+            );
+            sanitized.ingredients = sanitized.ingredients.filter(
+              (ing) => !violations.some((v) => v.ingredient === ing.name)
+            );
+          }
+        }
+
+        return sanitized;
+      });
 
       await ctx.runMutation(
         api.internal.planner.saveMealAlternatives,
