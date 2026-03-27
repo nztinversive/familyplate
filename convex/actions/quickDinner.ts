@@ -2,7 +2,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
-import type { Doc } from "../_generated/dataModel";
 import { validateRecipeAllergens } from "../lib/allergenCheck";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
 
@@ -25,14 +24,6 @@ export const suggestFromPantry = action({
 
     const authId = userId as string;
 
-    // Get context via internal query
-    const context = await ctx.runQuery(
-      api.internal.planner.getHouseholdGenerationContext,
-      { authId, householdId: undefined as any }
-    ).catch(() => null);
-
-    // Fallback: get pantry items via a simpler path
-    // We need a dedicated internal query for this
     const pantryContext = await ctx.runQuery(
       api.internal.planner.getQuickDinnerContext,
       { authId }

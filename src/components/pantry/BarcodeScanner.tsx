@@ -33,11 +33,18 @@ const UPC_EAN_FORMATS = [
 export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
   const scannerRef = useRef<Html5QrcodeInstance | null>(null);
   const handledScanRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  const onScanRef = useRef(onScan);
   const scannerId = `barcode-scanner-${useId().replace(/:/g, "")}`;
 
   const [isStarting, setIsStarting] = useState(true);
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    onScanRef.current = onScan;
+  }, [onClose, onScan]);
 
   useEffect(() => {
     let isMounted = true;
@@ -109,11 +116,11 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
             try {
               const product = await lookupProduct(decodedText);
               if (!isMounted) return;
-              onScan(product);
-              onClose();
+              onScanRef.current(product);
+              onCloseRef.current();
             } catch {
               if (!isMounted) return;
-              onScan({
+              onScanRef.current({
                 barcode: decodedText,
                 name: "",
                 category: "Other",
@@ -123,7 +130,7 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
                 message:
                   "We scanned the barcode, but couldn't reach Open Food Facts. You can finish the item manually.",
               });
-              onClose();
+              onCloseRef.current();
             }
           },
           () => {

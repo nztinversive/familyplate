@@ -41,14 +41,13 @@ export default function GroceryPage() {
   const addMyCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const removeItem = useMutation(api.mutations.grocery.removeItem);
   const addToPantry = useMutation(api.mutations.pantry.addItem);
-  const [addedToPantry, setAddedToPantry] = useState<Set<number>>(new Set());
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "remaining" | "checked">("all");
 
-  const items = groceryList?.items ?? [];
+  const items = useMemo(() => groceryList?.items ?? [], [groceryList?.items]);
   const checkedCount = items.filter((item) => item.checked).length;
   const totalCount = items.length;
   const progressPct = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
@@ -89,6 +88,7 @@ export default function GroceryPage() {
 
   const handleAddToPantry = async (item: { name: string; quantity: number; unit: string; category: string }, itemIndex: number) => {
     if (!groceryList) return;
+    setBusyIndex(itemIndex);
     try {
       await addToPantry({
         householdId: groceryList.householdId,
@@ -98,9 +98,11 @@ export default function GroceryPage() {
         category: item.category,
         storageLocation: "pantry",
       });
-      setAddedToPantry((prev) => new Set(prev).add(itemIndex));
+      await removeItem({ groceryListId: groceryList._id, itemIndex });
     } catch (err) {
       console.error("Failed to add to pantry:", err);
+    } finally {
+      setBusyIndex(null);
     }
   };
 
@@ -238,22 +240,17 @@ export default function GroceryPage() {
                               {item.quantity} {item.unit}
                             </p>
                           </div>
-                          {item.checked && !addedToPantry.has(item.index) && (
+                          {item.checked && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-7 shrink-0 gap-1 text-xs text-primary"
+                              disabled={busyIndex === item.index}
                               onClick={() => void handleAddToPantry(item, item.index)}
                             >
                               <Package className="h-3 w-3" />
-                              Pantry
+                              {busyIndex === item.index ? "Moving..." : "Pantry"}
                             </Button>
-                          )}
-                          {addedToPantry.has(item.index) && (
-                            <Badge variant="secondary" className="shrink-0 text-xs">
-                              <Check className="mr-1 h-3 w-3" />
-                              Added
-                            </Badge>
                           )}
                           <Button
                             variant="ghost"
