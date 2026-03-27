@@ -40,7 +40,7 @@ export const getMyMealPlan = query({
           const [recipe, alternatives] = await Promise.all([
             ctx.db.get(meal.recipeId),
             Promise.all(
-              meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+              (meal.alternativeRecipeIds ?? []).map((recipeId) => ctx.db.get(recipeId))
             ),
           ]);
           if (!recipe) return null;
@@ -117,7 +117,7 @@ export const getMealPlanById = query({
           const [recipe, alternatives] = await Promise.all([
             ctx.db.get(meal.recipeId),
             Promise.all(
-              meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+              (meal.alternativeRecipeIds ?? []).map((recipeId) => ctx.db.get(recipeId))
             ),
           ]);
           if (!recipe) return null;
@@ -163,7 +163,7 @@ export const getMealDetail = query({
     const [recipe, alternatives] = await Promise.all([
       ctx.db.get(meal.recipeId),
       Promise.all(
-        meal.alternativeRecipeIds.map((recipeId) => ctx.db.get(recipeId))
+        (meal.alternativeRecipeIds ?? []).map((recipeId) => ctx.db.get(recipeId))
       ),
     ]);
 

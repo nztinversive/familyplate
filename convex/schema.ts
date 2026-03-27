@@ -80,7 +80,7 @@ export default defineSchema({
     estimatedTime: v.number(),
     servings: v.number(),
     tags: v.array(v.string()),
-    usedPantryItems: v.array(v.string()),
+    usedPantryItems: v.optional(v.array(v.string())),
     source: v.union(v.literal("ai"), v.literal("curated")),
     createdAt: v.number(),
   }).index("by_householdId", ["householdId"]),
@@ -101,7 +101,7 @@ export default defineSchema({
   plannedMeals: defineTable({
     mealPlanId: v.id("weeklyMealPlans"),
     recipeId: v.id("recipeSuggestions"),
-    alternativeRecipeIds: v.array(v.id("recipeSuggestions")),
+    alternativeRecipeIds: v.optional(v.array(v.id("recipeSuggestions"))),
     date: v.string(),
     mealType: v.literal("dinner"),
     status: v.union(
