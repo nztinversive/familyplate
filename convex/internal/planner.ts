@@ -362,3 +362,44 @@ export const saveGeneratedGroceryList = internalMutation({
     });
   },
 });
+
+export const getQuickDinnerContext = internalQuery({
+  args: {
+    authId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .first();
+
+    if (!membership) {
+      throw new Error("Profile not found.");
+    }
+
+    const [pantryItems, profiles] = await Promise.all([
+      ctx.db
+        .query("pantryItems")
+        .withIndex("by_householdId", (q) => q.eq("householdId", membership.householdId))
+        .collect(),
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_householdId", (q) => q.eq("householdId", membership.householdId))
+        .collect(),
+    ]);
+
+    return {
+      pantryItems: pantryItems.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+      })),
+      profiles: profiles.map((p) => ({
+        dietaryPreferences: p.dietaryPreferences ?? [],
+        allergies: p.allergies ?? [],
+        dislikes: p.dislikes ?? [],
+      })),
+    };
+  },
+});

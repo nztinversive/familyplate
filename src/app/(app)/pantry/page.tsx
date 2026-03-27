@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
 import { BarcodeScanner, type BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ type PantryItem = Doc<"pantryItems">;
 
 const CATEGORIES = [
   "Produce",
+  "Fresh",
   "Dairy",
   "Meat",
   "Grains",
@@ -45,6 +47,30 @@ const CATEGORIES = [
   "Condiments",
   "Frozen",
   "Other",
+];
+
+const UNITS = [
+  "items",
+  "lb",
+  "oz",
+  "kg",
+  "g",
+  "cups",
+  "tbsp",
+  "tsp",
+  "ml",
+  "L",
+  "gal",
+  "fl oz",
+  "dozen",
+  "bunch",
+  "bag",
+  "box",
+  "can",
+  "jar",
+  "bottle",
+  "pack",
+  "slices",
 ];
 
 const STORAGE_LOCATIONS: StorageLocation[] = ["pantry", "fridge", "freezer"];
@@ -201,6 +227,8 @@ export default function PantryPage() {
       }
     >
       <div className="space-y-4 px-4 py-4">
+        <ExpirationAlerts />
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -510,12 +538,16 @@ function PantryItemDialogForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="pantry-unit">Unit</Label>
-          <Input
+          <select
             id="pantry-unit"
             value={unit}
             onChange={(event) => setUnit(event.target.value)}
-            placeholder="items, lb, oz..."
-          />
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {UNITS.map((u) => (
+              <option key={u} value={u}>{u}</option>
+            ))}
+          </select>
         </div>
       </div>
 

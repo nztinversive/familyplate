@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Check, ListChecks, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Check, ListChecks, Package, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,8 @@ export default function GroceryPage() {
   const addCustomItem = useMutation(api.mutations.grocery.addCustomItem);
   const addMyCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const removeItem = useMutation(api.mutations.grocery.removeItem);
+  const addToPantry = useMutation(api.mutations.pantry.addItem);
+  const [addedToPantry, setAddedToPantry] = useState<Set<number>>(new Set());
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
@@ -82,6 +84,23 @@ export default function GroceryPage() {
       await toggleItem({ groceryListId, itemIndex });
     } finally {
       setBusyIndex(null);
+    }
+  };
+
+  const handleAddToPantry = async (item: { name: string; quantity: number; unit: string; category: string }, itemIndex: number) => {
+    if (!groceryList) return;
+    try {
+      await addToPantry({
+        householdId: groceryList.householdId,
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        category: item.category,
+        storageLocation: "pantry",
+      });
+      setAddedToPantry((prev) => new Set(prev).add(itemIndex));
+    } catch (err) {
+      console.error("Failed to add to pantry:", err);
     }
   };
 
@@ -219,6 +238,23 @@ export default function GroceryPage() {
                               {item.quantity} {item.unit}
                             </p>
                           </div>
+                          {item.checked && !addedToPantry.has(item.index) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 shrink-0 gap-1 text-xs text-primary"
+                              onClick={() => void handleAddToPantry(item, item.index)}
+                            >
+                              <Package className="h-3 w-3" />
+                              Pantry
+                            </Button>
+                          )}
+                          {addedToPantry.has(item.index) && (
+                            <Badge variant="secondary" className="shrink-0 text-xs">
+                              <Check className="mr-1 h-3 w-3" />
+                              Added
+                            </Badge>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"

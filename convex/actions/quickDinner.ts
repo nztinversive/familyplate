@@ -1,0 +1,127 @@
+"use node";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { action } from "../_generated/server";
+import { internal as api } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
+import { generateStructuredJson } from "../lib/openaiMealPlanner";
+
+type QuickSuggestion = {
+  name: string;
+  description: string;
+  effortLevel: string;
+  estimatedTime: number;
+  servings: number;
+  ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>;
+  instructions: string[];
+  missingItems: string[];
+};
+
+export const suggestFromPantry = action({
+  args: {},
+  handler: async (ctx): Promise<{ suggestions: QuickSuggestion[] }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Must be signed in.");
+
+    const authId = userId as string;
+
+    // Get context via internal query
+    const context = await ctx.runQuery(
+      api.internal.planner.getHouseholdGenerationContext,
+      { authId, householdId: undefined as any }
+    ).catch(() => null);
+
+    // Fallback: get pantry items via a simpler path
+    // We need a dedicated internal query for this
+    const pantryContext = await ctx.runQuery(
+      api.internal.planner.getQuickDinnerContext,
+      { authId }
+    ) as { pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
+
+    if (!pantryContext.pantryItems || pantryContext.pantryItems.length === 0) {
+      return { suggestions: [] };
+    }
+
+    const pantryList = pantryContext.pantryItems
+      .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
+      .join("\n");
+
+    const restrictions = pantryContext.profiles
+      .flatMap((p) => [...p.allergies, ...p.dislikes])
+      .filter(Boolean);
+
+    const restrictionNote = restrictions.length > 0
+      ? `\n\nIMPORTANT: Avoid these ingredients (allergies/dislikes): ${restrictions.join(", ")}`
+      : "";
+
+    const systemPrompt = `You are a practical home cooking assistant. Given a list of pantry items, suggest 3 dinner recipes that can be made primarily with what is available. Prioritize recipes that use the most pantry items. Each recipe should be realistic and family-friendly.
+
+For each recipe, list ALL ingredients needed. Mark which ones are already in the pantry (inPantry: true) and which are missing (inPantry: false). Keep missing items to common staples (salt, pepper, oil, water) when possible.
+
+Return exactly 3 suggestions with varied effort levels (one easy, one medium, one harder).`;
+
+    const userPrompt = `Here are the items currently in my pantry:
+
+${pantryList}${restrictionNote}
+
+Suggest 3 dinner recipes I can make tonight using primarily these ingredients.`;
+
+    const schema = {
+      type: "object" as const,
+      properties: {
+        suggestions: {
+          type: "array" as const,
+          items: {
+            type: "object" as const,
+            properties: {
+              name: { type: "string" as const },
+              description: { type: "string" as const },
+              effortLevel: { type: "string" as const, enum: ["easy", "medium", "hard"] },
+              estimatedTime: { type: "number" as const },
+              servings: { type: "number" as const },
+              ingredients: {
+                type: "array" as const,
+                items: {
+                  type: "object" as const,
+                  properties: {
+                    name: { type: "string" as const },
+                    quantity: { type: "number" as const },
+                    unit: { type: "string" as const },
+                    inPantry: { type: "boolean" as const },
+                  },
+                  required: ["name", "quantity", "unit", "inPantry"],
+                  additionalProperties: false,
+                },
+              },
+              instructions: {
+                type: "array" as const,
+                items: { type: "string" as const },
+              },
+              missingItems: {
+                type: "array" as const,
+                items: { type: "string" as const },
+              },
+            },
+            required: ["name", "description", "effortLevel", "estimatedTime", "servings", "ingredients", "instructions", "missingItems"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["suggestions"],
+      additionalProperties: false,
+    };
+
+    try {
+      const response = await generateStructuredJson<{ suggestions: QuickSuggestion[] }>({
+        schemaName: "quick_dinner_suggestions",
+        schema,
+        systemPrompt,
+        userPrompt,
+      });
+
+      return { suggestions: response.suggestions.slice(0, 3) };
+    } catch (err) {
+      console.error("Quick dinner suggestion failed:", err);
+      throw new Error("Unable to generate dinner suggestions right now.");
+    }
+  },
+});
