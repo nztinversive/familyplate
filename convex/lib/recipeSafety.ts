@@ -17,8 +17,93 @@ type RecipeIngredient = {
 };
 
 /**
+ * Maps disliked items to derivative terms, similar to allergen derivatives.
+ * This ensures "beef" catches "ground beef", "steak", etc.
+ */
+const DISLIKE_DERIVATIVES: Record<string, string[]> = {
+  beef: [
+    "beef", "ground beef", "steak", "sirloin", "ribeye", "brisket",
+    "chuck", "flank", "tenderloin", "filet mignon", "roast beef",
+    "corned beef", "beef broth", "beef stock", "meatball", "meatloaf",
+    "hamburger", "burger patty", "short rib", "prime rib", "veal",
+    "beef taco", "beef stew",
+  ],
+  pork: [
+    "pork", "bacon", "ham", "sausage", "pork chop", "pork loin",
+    "pork belly", "pulled pork", "prosciutto", "pancetta", "chorizo",
+    "bratwurst", "pork shoulder", "spare rib", "pork tenderloin",
+    "hot dog", "pepperoni", "salami",
+  ],
+  chicken: [
+    "chicken", "chicken breast", "chicken thigh", "chicken wing",
+    "chicken drumstick", "chicken tender", "rotisserie chicken",
+    "chicken broth", "chicken stock", "poultry",
+  ],
+  turkey: [
+    "turkey", "turkey breast", "ground turkey", "turkey bacon",
+    "turkey sausage",
+  ],
+  lamb: [
+    "lamb", "lamb chop", "lamb shank", "ground lamb", "mutton",
+    "lamb shoulder", "rack of lamb",
+  ],
+  fish: [
+    "fish", "salmon", "tuna", "cod", "tilapia", "halibut",
+    "sardine", "anchovy", "trout", "bass", "catfish",
+    "swordfish", "mahi", "snapper", "grouper", "fish sauce",
+  ],
+  shellfish: [
+    "shrimp", "crab", "lobster", "scallop", "clam",
+    "mussel", "oyster", "crawfish", "prawn", "shellfish",
+  ],
+  mushroom: [
+    "mushroom", "shiitake", "portobello", "cremini", "oyster mushroom",
+    "chanterelle", "truffle", "porcini",
+  ],
+  onion: [
+    "onion", "red onion", "white onion", "yellow onion", "green onion",
+    "scallion", "shallot", "leek", "spring onion", "pearl onion",
+  ],
+  tofu: [
+    "tofu", "bean curd", "silken tofu", "firm tofu",
+  ],
+  spicy: [
+    "jalapeno", "habanero", "sriracha", "cayenne", "hot sauce",
+    "chili flake", "red pepper flake", "ghost pepper", "tabasco",
+    "gochujang", "chipotle",
+  ],
+};
+
+/**
+ * Expand a list of dislikes into all derivative terms.
+ */
+function expandDislikeTerms(dislikes: string[]): Set<string> {
+  const terms = new Set<string>();
+
+  for (const dislike of dislikes) {
+    const normalized = dislike.toLowerCase().trim();
+    terms.add(normalized);
+
+    for (const [category, derivatives] of Object.entries(DISLIKE_DERIVATIVES)) {
+      if (
+        normalized === category ||
+        normalized.includes(category) ||
+        category.includes(normalized)
+      ) {
+        for (const d of derivatives) {
+          terms.add(d);
+        }
+      }
+    }
+  }
+
+  return terms;
+}
+
+/**
  * Check if a recipe contains any disliked ingredients.
  * Checks both the recipe name and all ingredient names.
+ * Expands dislikes using derivative mapping (e.g. "beef" → "ground beef", "steak", etc.)
  * Returns the list of matched dislikes.
  */
 export function checkRecipeForDislikes(
@@ -28,29 +113,27 @@ export function checkRecipeForDislikes(
 ): string[] {
   if (dislikes.length === 0) return [];
 
-  const normalizedDislikes = dislikes.map((d) => normalizeIngredientName(d));
+  const expandedTerms = expandDislikeTerms(dislikes);
   const matched: string[] = [];
 
   const normalizedRecipeName = normalizeIngredientName(recipeName);
 
-  for (const dislike of normalizedDislikes) {
-    // Check recipe name (e.g. "Taco Night" with beef tacos → "beef" in description)
-    if (
-      normalizedRecipeName.includes(dislike) ||
-      dislike.includes(normalizedRecipeName)
-    ) {
-      matched.push(dislike);
-      continue;
+  // Check recipe name against all expanded terms
+  for (const term of Array.from(expandedTerms)) {
+    if (normalizedRecipeName.includes(term)) {
+      matched.push(term);
     }
+  }
 
-    // Check each ingredient
-    for (const ing of ingredients) {
-      const normalizedIng = normalizeIngredientName(ing.name);
+  // Check each ingredient against all expanded terms
+  for (const ing of ingredients) {
+    const normalizedIng = normalizeIngredientName(ing.name);
+    for (const term of Array.from(expandedTerms)) {
       if (
-        normalizedIng.includes(dislike) ||
-        dislike.includes(normalizedIng)
+        normalizedIng.includes(term) ||
+        term.includes(normalizedIng)
       ) {
-        matched.push(dislike);
+        matched.push(term);
         break;
       }
     }

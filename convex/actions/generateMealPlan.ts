@@ -220,7 +220,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           `Plan for ${householdSize} servings by default unless a recipe clearly needs a different whole-number serving count.`,
           "Use pantry items first, especially items closest to expiration.",
           "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen. Allergies are life-threatening.",
-          "Also completely avoid all listed dislikes.",
+          `CRITICAL: NEVER include any disliked ingredients or their derivatives. ${allDislikes.length > 0 ? `The following are DISLIKED and must NOT appear in ANY recipe (primary or alternative): ${allDislikes.join(", ")}. This means no ${allDislikes.map((d) => `${d} or any ${d}-based ingredients`).join(", no ")}. If someone dislikes beef, do NOT use ground beef, steak, meatballs, beef broth, or ANY beef product.` : ""}`,
           "Vary cuisine, main protein, cooking method, and flavor profile across the week.",
           "Keep dinners family-friendly and practical for home cooks.",
           "Most dinners should be 20-50 minutes. A few medium-effort meals are fine.",
@@ -270,7 +270,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
         );
 
         // Check each candidate for dislikes — pick the first one with no dislike matches as primary
-        let primaryIndex = 0;
+        let primaryIndex = -1;
         for (let i = 0; i < allCandidates.length; i++) {
           const dislikeHits = checkRecipeForDislikes(
             allCandidates[i].name,
@@ -285,6 +285,14 @@ export const generateMealPlan: ReturnType<typeof action> = action({
               `Dislike violation in "${allCandidates[i].name}" for ${weekDates[index]}: ${dislikeHits.join(", ")} — trying alternatives`
             );
           }
+        }
+
+        // If ALL candidates have dislike violations, use the first one but warn
+        if (primaryIndex === -1) {
+          console.warn(
+            `All candidates for ${weekDates[index]} contain dislikes — AI failed to respect dislike preferences. Using first candidate.`
+          );
+          primaryIndex = 0;
         }
 
         // Build final primary + alternatives (move chosen candidate to primary slot)
