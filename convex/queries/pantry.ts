@@ -1,6 +1,16 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { query } from "../_generated/server";
+import { query, type QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
+
+async function getViewerProfile(ctx: QueryCtx) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) return null;
+
+  return await ctx.db
+    .query("userProfiles")
+    .withIndex("by_authId", (q) => q.eq("authId", userId as string))
+    .first();
+}
 
 export const getMyPantryItems = query({
   args: {
@@ -58,6 +68,11 @@ export const getPantryItems = query({
     ),
   },
   handler: async (ctx, args) => {
+    const profile = await getViewerProfile(ctx);
+    if (!profile || profile.householdId !== args.householdId) {
+      return [];
+    }
+
     if (args.storageLocation) {
       return await ctx.db
         .query("pantryItems")

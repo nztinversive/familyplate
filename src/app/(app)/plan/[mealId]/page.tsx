@@ -4,7 +4,15 @@ import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
-import { ArrowDownToLine, ArrowLeft, CheckCircle2, ChefHat, Clock3, RefreshCw, Shuffle, XCircle } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowLeft,
+  CheckCircle2,
+  ChefHat,
+  Clock3,
+  Shuffle,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -41,7 +49,8 @@ export default function MealDetailPage({
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
 
   const [isRefreshingAlternatives, setIsRefreshingAlternatives] = useState(false);
-  const [isApplyingSwap, setIsApplyingSwap] = useState<Id<"recipeSuggestions"> | null>(null);
+  const [isApplyingSwap, setIsApplyingSwap] =
+    useState<Id<"recipeSuggestions"> | null>(null);
 
   const handleRefreshAlternatives = async () => {
     if (!mealDetail?.meal) return;
@@ -75,7 +84,7 @@ export default function MealDetailPage({
           title="Recipe details"
           subtitle={
             mealDetail
-              ? `${formatDateLabel(mealDetail.meal.date)} • ${mealDetail.plan?.weekStartDate}`
+              ? `${formatDateLabel(mealDetail.meal.date)} - ${mealDetail.plan?.weekStartDate}`
               : "Loading dinner details"
           }
           action={
@@ -126,7 +135,9 @@ export default function MealDetailPage({
                   <Badge variant="outline">Serves {mealDetail.recipe.servings}</Badge>
                   {ingredientCount > 0 && (
                     <Badge
-                      variant={pantryMatchCount === ingredientCount ? "secondary" : "outline"}
+                      variant={
+                        pantryMatchCount === ingredientCount ? "secondary" : "outline"
+                      }
                     >
                       <ArrowDownToLine className="mr-1 h-3 w-3" />
                       {pantryMatchCount}/{ingredientCount} pantry matches
@@ -239,7 +250,7 @@ export default function MealDetailPage({
                           <div>
                             <p className="text-sm font-semibold">{alternative.title}</p>
                             <p className="text-xs text-muted-foreground">
-                              {alternative.estimatedTime} min • {alternative.effortLevel}
+                              {alternative.estimatedTime} min - {alternative.effortLevel}
                             </p>
                           </div>
                           <Button

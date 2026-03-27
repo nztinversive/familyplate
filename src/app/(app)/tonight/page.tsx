@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { ChefHat, Clock3, Loader2, Sparkles, UtensilsCrossed } from "lucide-react";
+import {
+  ChefHat,
+  Clock3,
+  Loader2,
+  Sparkles,
+  UtensilsCrossed,
+} from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +22,12 @@ type Suggestion = {
   effortLevel: string;
   estimatedTime: number;
   servings: number;
-  ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>;
+  ingredients: Array<{
+    name: string;
+    quantity: number;
+    unit: string;
+    inPantry: boolean;
+  }>;
   instructions: string[];
   missingItems: string[];
 };
@@ -36,7 +47,7 @@ export default function TonightPage() {
     try {
       const result = await suggestFromPantry({});
       if (result.suggestions.length === 0) {
-        setError("Add some items to your pantry first so I can suggest recipes!");
+        setError("Add some items to your pantry first so I can suggest recipes.");
       } else {
         setSuggestions(result.suggestions);
       }
@@ -64,7 +75,7 @@ export default function TonightPage() {
             </div>
             <h3 className="mb-1 text-lg font-semibold">What can I make tonight?</h3>
             <p className="mb-6 max-w-[280px] text-sm text-muted-foreground">
-              I'll look at your pantry and suggest 3 dinners you can make right now.
+              I will look at your pantry and suggest 3 dinners you can make right now.
             </p>
             <Button onClick={() => void handleGenerate()} size="lg" className="gap-2">
               <Sparkles className="h-4 w-4" />
@@ -77,7 +88,9 @@ export default function TonightPage() {
           <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
             <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
             <p className="text-sm font-medium">Checking your pantry...</p>
-            <p className="text-xs text-muted-foreground">Finding the best dinner options</p>
+            <p className="text-xs text-muted-foreground">
+              Finding the best dinner options
+            </p>
           </div>
         )}
 
@@ -100,8 +113,12 @@ export default function TonightPage() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <h3 className="text-lg font-semibold leading-tight">{suggestion.name}</h3>
-                    <p className="text-sm text-muted-foreground">{suggestion.description}</p>
+                    <h3 className="text-lg font-semibold leading-tight">
+                      {suggestion.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {suggestion.description}
+                    </p>
                   </div>
                   <Badge
                     variant={
@@ -126,10 +143,16 @@ export default function TonightPage() {
                     <ChefHat className="mr-1 h-3 w-3" />
                     Serves {suggestion.servings}
                   </Badge>
-                  <Badge variant={suggestion.missingItems.length === 0 ? "secondary" : "outline"}>
+                  <Badge
+                    variant={
+                      suggestion.missingItems.length === 0 ? "secondary" : "outline"
+                    }
+                  >
                     {suggestion.missingItems.length === 0
-                      ? "✓ All ingredients in pantry"
-                      : `${suggestion.missingItems.length} item${suggestion.missingItems.length > 1 ? "s" : ""} needed`}
+                      ? "All ingredients in pantry"
+                      : `${suggestion.missingItems.length} item${
+                          suggestion.missingItems.length > 1 ? "s" : ""
+                        } needed`}
                   </Badge>
                 </div>
               </button>
@@ -139,7 +162,7 @@ export default function TonightPage() {
                   {suggestion.missingItems.length > 0 && (
                     <div>
                       <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        You'll Need
+                        Need to buy
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {suggestion.missingItems.map((item) => (
@@ -167,7 +190,7 @@ export default function TonightPage() {
                             {ing.quantity} {ing.unit} {ing.name}
                           </span>
                           {ing.inPantry && (
-                            <span className="text-xs text-primary">✓ pantry</span>
+                            <span className="text-xs text-primary">In pantry</span>
                           )}
                         </div>
                       ))}

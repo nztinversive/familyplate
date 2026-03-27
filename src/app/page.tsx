@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { UtensilsCrossed, ArrowRight } from "lucide-react";
@@ -17,7 +16,6 @@ import {
 import { Label } from "@/components/ui/label";
 
 export default function WelcomePage() {
-  const router = useRouter();
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
 
@@ -28,7 +26,6 @@ export default function WelcomePage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
 
-  // If already authenticated or redirecting after sign-up, show spinner
   if ((isAuthenticated && !isLoading) || isRedirecting) {
     if (!isRedirecting && typeof window !== "undefined") {
       window.location.href = "/pantry";
@@ -51,25 +48,25 @@ export default function WelcomePage() {
         password,
         flow: isSignUp ? "signUp" : "signIn",
       });
-      // Set redirecting state and do a full page nav to avoid SPA race conditions
       setIsRedirecting(true);
       window.location.href = "/pantry";
-      return; // Don't reset isSubmitting
+      return;
     } catch (err) {
       console.error("Auth failed:", err);
-      const message =
-        err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
       if (isSignUp) {
-        // Convex wraps errors — client often only sees "Server Error",
-        // so treat any signUp failure as potentially "account exists"
         if (lower.includes("already") || lower.includes("server error")) {
           setError("An account with this email may already exist. Try signing in instead.");
         } else {
           setError(`Could not create account: ${message}`);
         }
       } else {
-        if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")) {
+        if (
+          lower.includes("invalid") ||
+          lower.includes("credentials") ||
+          lower.includes("server error")
+        ) {
           setError("Invalid email or password.");
         } else {
           setError("Could not sign in. Please try again.");
@@ -89,7 +86,6 @@ export default function WelcomePage() {
 
   return (
     <div className="app-container min-h-screen flex flex-col items-center justify-center px-6">
-      {/* Hero */}
       <div className="flex flex-col items-center text-center mb-8">
         <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
           <UtensilsCrossed className="h-10 w-10 text-primary" />
@@ -100,9 +96,8 @@ export default function WelcomePage() {
         </p>
       </div>
 
-      {/* Features */}
       <div className="flex gap-3 mb-8">
-        {["🍳 Plan", "🛒 Shop", "⭐ Rate"].map((feature) => (
+        {["Plan", "Shop", "Rate"].map((feature) => (
           <div
             key={feature}
             className="bg-secondary rounded-full px-3 py-1.5 text-xs font-medium text-secondary-foreground"
@@ -112,7 +107,6 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      {/* Auth Card */}
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-lg">
@@ -148,7 +142,7 @@ export default function WelcomePage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

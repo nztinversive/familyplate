@@ -20,6 +20,11 @@ export const submitFeedback = mutation({
       .first();
     if (!profile) throw new Error("Profile not found.");
 
+    const recipe = await ctx.db.get(args.recipeId);
+    if (!recipe || recipe.householdId !== profile.householdId) {
+      throw new Error("Recipe not found.");
+    }
+
     // Check if feedback already exists
     const existing = await ctx.db
       .query("mealFeedback")

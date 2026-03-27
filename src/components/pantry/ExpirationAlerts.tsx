@@ -2,17 +2,11 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { AlertTriangle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function ExpirationAlerts() {
-  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
-  const householdId = currentUser?.householdId as Id<"households"> | undefined;
-  const pantryItems = useQuery(
-    api.queries.pantry.getPantryItems,
-    householdId ? { householdId } : "skip"
-  );
+  const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
 
   if (!pantryItems) return null;
 
@@ -78,7 +72,7 @@ export function ExpirationAlerts() {
                   variant="outline"
                   className="border-yellow-500/30 text-xs text-yellow-700 dark:text-yellow-500"
                 >
-                  {item.name} · {formatDays(item.expirationDate!)}
+                  {item.name} - {formatDays(item.expirationDate!)}
                 </Badge>
               ))}
             </div>
