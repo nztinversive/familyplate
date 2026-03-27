@@ -5,12 +5,12 @@ import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import { daysUntilExpiration, sortPantryItemsForPrompt } from "../lib/mealPlanning";
-import { validateRecipeAllergens } from "../lib/allergenCheck";
 import {
   generateStructuredJson,
   type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
+import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 const recipeSchema = {
   type: "object",
@@ -220,21 +220,18 @@ export const swapMeal: ReturnType<typeof action> = action({
 
       const alternatives = response.alternatives.map((alternative) => {
         const sanitized = sanitizeRecipe(alternative, pantryItems, householdSize);
+        const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
+          recipeName: sanitized.name,
+          ingredients: sanitized.ingredients,
+          allergies: allAllergies,
+          pantryItems,
+          contextLabel: "swap alternative",
+        });
 
-        if (allAllergies.length > 0) {
-          const violations = validateRecipeAllergens(sanitized.ingredients, allAllergies);
-          if (violations.length > 0) {
-            console.warn(
-              `Allergen violation in swap alternative "${sanitized.name}": ` +
-              violations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
-            );
-            sanitized.ingredients = sanitized.ingredients.filter(
-              (ing) => !violations.some((v) => v.ingredient === ing.name)
-            );
-          }
-        }
-
-        return sanitized;
+        return {
+          ...sanitized,
+          ...safeAlternative,
+        };
       });
 
       await ctx.runMutation(

@@ -15,7 +15,7 @@ import {
   type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
-import { validateRecipeAllergens } from "../lib/allergenCheck";
+import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 const recipeSchema = {
   type: "object",
@@ -226,26 +226,18 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       }
 
       const meals = response.dinners.map((dinner, index) => {
-          const primary = sanitizeRecipe(
-            dinner.primary,
-            pantryItems,
-            householdSize
-          );
-
-        // SERVER-SIDE ALLERGEN CHECK: strip violating ingredients from recipes
-        if (allAllergies.length > 0) {
-          const primaryViolations = validateRecipeAllergens(primary.ingredients, allAllergies);
-          if (primaryViolations.length > 0) {
-            console.warn(
-              `Allergen violation in primary recipe "${primary.name}" for ${weekDates[index]}: ` +
-              primaryViolations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
-            );
-            // Remove the violating ingredients
-            primary.ingredients = primary.ingredients.filter(
-              (ing) => !primaryViolations.some((v) => v.ingredient === ing.name)
-            );
-          }
-        }
+        const primary = sanitizeRecipe(
+          dinner.primary,
+          pantryItems,
+          householdSize
+        );
+        const safePrimary = filterRecipeIngredientsForHouseholdSafety({
+          recipeName: primary.name,
+          ingredients: primary.ingredients,
+          allergies: allAllergies,
+          pantryItems,
+          contextLabel: `primary recipe for ${weekDates[index]}`,
+        });
 
         if (!Array.isArray(dinner.alternatives) || dinner.alternatives.length !== 2) {
           throw new Error(`Dinner ${index + 1} did not include exactly two alternatives.`);
@@ -257,26 +249,26 @@ export const generateMealPlan: ReturnType<typeof action> = action({
             pantryItems,
             householdSize
           );
+          const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
+            recipeName: sanitized.name,
+            ingredients: sanitized.ingredients,
+            allergies: allAllergies,
+            pantryItems,
+            contextLabel: `alternative recipe for ${weekDates[index]}`,
+          });
 
-          if (allAllergies.length > 0) {
-            const violations = validateRecipeAllergens(sanitized.ingredients, allAllergies);
-            if (violations.length > 0) {
-              console.warn(
-                `Allergen violation in alternative "${sanitized.name}": ` +
-                violations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
-              );
-              sanitized.ingredients = sanitized.ingredients.filter(
-                (ing) => !violations.some((v) => v.ingredient === ing.name)
-              );
-            }
-          }
-
-          return sanitized;
+          return {
+            ...sanitized,
+            ...safeAlternative,
+          };
         });
 
         return {
           date: weekDates[index],
-          primary,
+          primary: {
+            ...primary,
+            ...safePrimary,
+          },
           alternatives,
         };
       });

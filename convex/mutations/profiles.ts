@@ -2,6 +2,10 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 
+function normalizeEmail(email?: string | null) {
+  return email?.trim().toLowerCase() ?? "";
+}
+
 async function getViewerProfile(ctx: MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) {
@@ -65,6 +69,7 @@ export const addFamilyMember = mutation({
   args: {
     householdId: v.id("households"),
     name: v.string(),
+    email: v.optional(v.string()),
     isChild: v.boolean(),
     age: v.optional(v.number()),
     dietaryPreferences: v.array(v.string()),
@@ -77,11 +82,58 @@ export const addFamilyMember = mutation({
       throw new Error("Not a member of this household");
     }
 
+    const normalizedEmail = normalizeEmail(args.email);
+    if (args.isChild && normalizedEmail) {
+      throw new Error("Child profiles cannot have an invite email.");
+    }
+
+    if (normalizedEmail) {
+      const householdProfiles = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+        .collect();
+
+      const existingProfile = householdProfiles.find(
+        (profile) => normalizeEmail(profile.email) === normalizedEmail
+      );
+
+      if (existingProfile) {
+        if (existingProfile.authId) {
+          throw new Error("A household member with that email already exists.");
+        }
+
+        const existingProfileUpdates: {
+          name: string;
+          email: string;
+          isChild: boolean;
+          dietaryPreferences: string[];
+          allergies: string[];
+          dislikes: string[];
+          age?: number;
+        } = {
+          name: args.name,
+          email: normalizedEmail,
+          isChild: args.isChild,
+          dietaryPreferences: args.dietaryPreferences,
+          allergies: args.allergies,
+          dislikes: args.dislikes,
+        };
+
+        if (args.age !== undefined) {
+          existingProfileUpdates.age = args.age;
+        }
+
+        await ctx.db.patch(existingProfile._id, existingProfileUpdates);
+
+        return existingProfile._id;
+      }
+    }
+
     const profileId = await ctx.db.insert("userProfiles", {
       authId: "", // managed profile, no auth
       householdId: args.householdId,
       name: args.name,
-      email: "",
+      email: normalizedEmail,
       role: "member",
       isChild: args.isChild,
       age: args.age,

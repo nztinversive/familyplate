@@ -107,6 +107,7 @@ export default function SettingsPage() {
       await addFamilyMember({
         householdId: currentUser.householdId as Id<"households">,
         name: memberName.trim(),
+        email: !memberIsChild && memberEmail.trim() ? memberEmail.trim() : undefined,
         isChild: memberIsChild,
         age: memberAge ? parseInt(memberAge) : undefined,
         dietaryPreferences: memberDietary ? memberDietary.split(",").map((s) => s.trim()).filter(Boolean) : [],

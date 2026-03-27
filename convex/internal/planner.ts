@@ -24,6 +24,12 @@ const recipeValidator = v.object({
   usedPantryItems: v.array(v.string()),
 });
 
+function assertRecipeHasIngredients(recipeName: string, ingredients: Array<{ name: string }>) {
+  if (ingredients.length === 0) {
+    throw new Error(`Recipe "${recipeName}" must include at least one ingredient.`);
+  }
+}
+
 export const getHouseholdGenerationContext = internalQuery({
   args: {
     authId: v.string(),
@@ -235,6 +241,7 @@ export const saveGeneratedMealPlan = internalMutation({
     let createdAt = now;
 
     for (const meal of args.meals) {
+      assertRecipeHasIngredients(meal.primary.name, meal.primary.ingredients);
       const primaryRecipeId = await ctx.db.insert("recipeSuggestions", {
         householdId: args.householdId,
         title: meal.primary.name,
@@ -252,6 +259,7 @@ export const saveGeneratedMealPlan = internalMutation({
 
       const alternativeRecipeIds = [];
       for (const alternative of meal.alternatives) {
+        assertRecipeHasIngredients(alternative.name, alternative.ingredients);
         const alternativeId = await ctx.db.insert("recipeSuggestions", {
           householdId: args.householdId,
           title: alternative.name,
@@ -304,6 +312,7 @@ export const saveMealAlternatives = internalMutation({
     const alternativeRecipeIds = [];
 
     for (const alternative of args.alternatives) {
+      assertRecipeHasIngredients(alternative.name, alternative.ingredients);
       const alternativeId = await ctx.db.insert("recipeSuggestions", {
         householdId: plan.householdId,
         title: alternative.name,

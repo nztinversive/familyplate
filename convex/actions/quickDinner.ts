@@ -2,8 +2,8 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
-import { validateRecipeAllergens } from "../lib/allergenCheck";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
+import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 type QuickSuggestion = {
   name: string;
@@ -126,26 +126,41 @@ Suggest 3 dinner recipes I can make tonight using primarily these ingredients. R
         .map((a) => a.toLowerCase().trim())
         .filter(Boolean);
 
-      const safeSuggestions = response.suggestions.slice(0, 3).map((suggestion) => {
-        if (allAllergies.length > 0) {
-          const violations = validateRecipeAllergens(suggestion.ingredients, allAllergies);
-          if (violations.length > 0) {
-            console.warn(
-              `Allergen violation in quick dinner "${suggestion.name}": ` +
-              violations.map((v) => `${v.ingredient} (matched: ${v.matchedAllergen})`).join(", ")
-            );
-            suggestion.ingredients = suggestion.ingredients.filter(
-              (ing) => !violations.some((v) => v.ingredient === ing.name)
-            );
-            // Also remove from missingItems
-            const violatingNames = new Set(violations.map((v) => v.ingredient.toLowerCase()));
-            suggestion.missingItems = suggestion.missingItems.filter(
-              (item) => !violatingNames.has(item.toLowerCase())
-            );
-          }
+      const safeSuggestions = response.suggestions.slice(0, 3).flatMap((suggestion) => {
+        try {
+          const { ingredients } = filterRecipeIngredientsForHouseholdSafety({
+            recipeName: suggestion.name,
+            ingredients: suggestion.ingredients,
+            allergies: allAllergies,
+            pantryItems: pantryContext.pantryItems,
+            contextLabel: "quick dinner suggestion",
+          });
+
+          return [
+            {
+              ...suggestion,
+              ingredients,
+              missingItems: Array.from(
+                new Set(
+                  ingredients
+                    .filter((ingredient) => !ingredient.inPantry)
+                    .map((ingredient) => ingredient.name)
+                )
+              ),
+            },
+          ];
+        } catch (error) {
+          console.warn("Dropping invalid quick dinner suggestion", {
+            recipeName: suggestion.name,
+            error,
+          });
+          return [];
         }
-        return suggestion;
       });
+
+      if (safeSuggestions.length === 0) {
+        throw new Error("Unable to generate any safe dinner suggestions.");
+      }
 
       return { suggestions: safeSuggestions };
     } catch (err) {
