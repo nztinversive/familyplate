@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Copy, LogOut, Mail, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { Copy, LogOut, Mail, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 
 function renderList(values?: string[]) {
   if (!values || values.length === 0) {
@@ -32,6 +33,13 @@ function renderList(values?: string[]) {
   );
 }
 
+function parseCommaSeparatedList(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export default function SettingsPage() {
   const { signOut } = useAuthActions();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -42,6 +50,7 @@ export default function SettingsPage() {
     currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
   );
   const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
+  const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const sendInviteEmail = useAction(api.actions.sendInviteEmail.sendInviteEmail);
 
   const [showAddMember, setShowAddMember] = useState(false);
@@ -55,6 +64,30 @@ export default function SettingsPage() {
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [emailSent, setEmailSent] = useState<string | null>(null);
+  const [allergiesInput, setAllergiesInput] = useState("");
+  const [dislikesInput, setDislikesInput] = useState("");
+  const [isSavingPreferences, setIsSavingPreferences] = useState(false);
+  const [preferencesError, setPreferencesError] = useState("");
+  const [preferencesSaved, setPreferencesSaved] = useState(false);
+  const profileAllergiesValue = (profile?.allergies ?? []).join(", ");
+  const profileDislikesValue = (profile?.dislikes ?? []).join(", ");
+
+  useEffect(() => {
+    setAllergiesInput(profileAllergiesValue);
+    setDislikesInput(profileDislikesValue);
+  }, [profile?._id, profileAllergiesValue, profileDislikesValue]);
+
+  const parsedAllergies = useMemo(
+    () => parseCommaSeparatedList(allergiesInput),
+    [allergiesInput]
+  );
+  const parsedDislikes = useMemo(
+    () => parseCommaSeparatedList(dislikesInput),
+    [dislikesInput]
+  );
+  const hasPreferenceChanges =
+    parsedAllergies.join("|") !== (profile?.allergies ?? []).join("|") ||
+    parsedDislikes.join("|") !== (profile?.dislikes ?? []).join("|");
 
   const resetMemberForm = () => {
     setMemberName("");
@@ -119,6 +152,36 @@ export default function SettingsPage() {
   const handleSignOut = async () => {
     await signOut();
     window.location.href = "/";
+  };
+
+  const handleSavePreferences = async () => {
+    if (!profile?._id || !hasPreferenceChanges) return;
+
+    setIsSavingPreferences(true);
+    setPreferencesError("");
+    setPreferencesSaved(false);
+
+    try {
+      await updateProfile({
+        profileId: profile._id,
+        allergies: parsedAllergies,
+        dislikes: parsedDislikes,
+      });
+      setPreferencesSaved(true);
+    } catch (err) {
+      setPreferencesError(
+        err instanceof Error ? err.message : "Unable to save preferences."
+      );
+    } finally {
+      setIsSavingPreferences(false);
+    }
+  };
+
+  const handleResetPreferences = () => {
+    setAllergiesInput(profile?.allergies?.join(", ") ?? "");
+    setDislikesInput(profile?.dislikes?.join(", ") ?? "");
+    setPreferencesError("");
+    setPreferencesSaved(false);
   };
 
   return (
@@ -254,12 +317,73 @@ export default function SettingsPage() {
                 <Separator />
                 <div>
                   <p className="text-sm font-medium">Allergies</p>
-                  <div className="mt-2">{renderList(profile?.allergies)}</div>
+                  <div className="mt-2 space-y-3">
+                    {renderList(profile?.allergies)}
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-allergies">Edit allergies</Label>
+                      <Textarea
+                        id="settings-allergies"
+                        value={allergiesInput}
+                        onChange={(e) => {
+                          setAllergiesInput(e.target.value);
+                          setPreferencesError("");
+                          setPreferencesSaved(false);
+                        }}
+                        placeholder="e.g. peanuts, shellfish, dairy"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate each allergy with a comma.
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-sm font-medium">Dislikes</p>
-                  <div className="mt-2">{renderList(profile?.dislikes)}</div>
+                  <div className="mt-2 space-y-3">
+                    {renderList(profile?.dislikes)}
+                    <div className="space-y-2">
+                      <Label htmlFor="settings-dislikes">Edit dislikes</Label>
+                      <Textarea
+                        id="settings-dislikes"
+                        value={dislikesInput}
+                        onChange={(e) => {
+                          setDislikesInput(e.target.value);
+                          setPreferencesError("");
+                          setPreferencesSaved(false);
+                        }}
+                        placeholder="e.g. mushrooms, olives, brussels sprouts"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Separate each food with a comma.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
+                  {preferencesError && (
+                    <p className="text-sm text-destructive">{preferencesError}</p>
+                  )}
+                  {preferencesSaved && !preferencesError && (
+                    <p className="text-sm text-primary">Preferences updated.</p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => void handleSavePreferences()}
+                      disabled={!profile?._id || !hasPreferenceChanges || isSavingPreferences}
+                    >
+                      {isSavingPreferences ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleResetPreferences}
+                      disabled={!hasPreferenceChanges || isSavingPreferences}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
                 {profile?.goals && (
                   <>
