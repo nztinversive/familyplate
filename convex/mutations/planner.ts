@@ -440,3 +440,50 @@ export const swapMeal = mutation({
     return args.mealId;
   },
 });
+
+export const swapMealDates = mutation({
+  args: {
+    mealId: v.id("plannedMeals"),
+    targetMealId: v.id("plannedMeals"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    if (args.mealId === args.targetMealId) {
+      return args.mealId;
+    }
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) throw new Error("No profile found");
+
+    const [meal, targetMeal] = await Promise.all([
+      ctx.db.get(args.mealId),
+      ctx.db.get(args.targetMealId),
+    ]);
+
+    if (!meal || !targetMeal) {
+      throw new Error("Meal not found");
+    }
+
+    if (meal.mealPlanId !== targetMeal.mealPlanId) {
+      throw new Error("Meals must belong to the same plan");
+    }
+
+    const plan = await ctx.db.get(meal.mealPlanId);
+    if (!plan || plan.householdId !== profile.householdId) {
+      throw new Error("Meal does not belong to your household");
+    }
+
+    await Promise.all([
+      ctx.db.patch(args.mealId, { date: targetMeal.date }),
+      ctx.db.patch(args.targetMealId, { date: meal.date }),
+    ]);
+
+    return args.mealId;
+  },
+});

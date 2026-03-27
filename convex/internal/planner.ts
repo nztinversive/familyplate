@@ -9,6 +9,14 @@ const ingredientValidator = v.object({
   inPantry: v.boolean(),
 });
 
+const nutritionValidator = v.object({
+  calories: v.number(),
+  protein: v.number(),
+  carbs: v.number(),
+  fat: v.number(),
+  fiber: v.optional(v.number()),
+});
+
 const recipeValidator = v.object({
   name: v.string(),
   description: v.string(),
@@ -22,7 +30,8 @@ const recipeValidator = v.object({
   estimatedTime: v.number(),
   servings: v.number(),
   tags: v.array(v.string()),
-  usedPantryItems: v.array(v.string()),
+  nutrition: v.optional(nutritionValidator),
+  usedPantryItems: v.optional(v.array(v.string())),
 });
 
 function assertRecipeHasIngredients(recipeName: string, ingredients: Array<{ name: string }>) {
@@ -253,6 +262,7 @@ export const saveGeneratedMealPlan = internalMutation({
         estimatedTime: meal.primary.estimatedTime,
         servings: meal.primary.servings,
         tags: meal.primary.tags,
+        nutrition: meal.primary.nutrition,
         usedPantryItems: meal.primary.usedPantryItems,
         source: "ai",
         createdAt: createdAt++,
@@ -271,6 +281,7 @@ export const saveGeneratedMealPlan = internalMutation({
           estimatedTime: alternative.estimatedTime,
           servings: alternative.servings,
           tags: alternative.tags,
+          nutrition: alternative.nutrition,
           usedPantryItems: alternative.usedPantryItems,
           source: "ai",
           createdAt: createdAt++,
@@ -324,6 +335,7 @@ export const saveMealAlternatives = internalMutation({
         estimatedTime: alternative.estimatedTime,
         servings: alternative.servings,
         tags: alternative.tags,
+        nutrition: alternative.nutrition,
         usedPantryItems: alternative.usedPantryItems,
         source: "ai",
         createdAt: createdAt++,

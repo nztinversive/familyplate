@@ -24,6 +24,13 @@ export type RawRecipe = {
   estimatedTime: number;
   servings: number;
   tags: string[];
+  nutrition?: {
+    calories?: number;
+    protein?: number;
+    carbs?: number;
+    fat?: number;
+    fiber?: number;
+  };
   usedPantryItems?: string[];
 };
 
@@ -108,6 +115,24 @@ export function sanitizeRecipe(
 
   const ingredientNames = ingredients.map((ingredient) => ingredient.name);
   const usedPantryItems = getUsedPantryItemsFromIngredients(ingredientNames, pantryItems);
+  const nutrition =
+    recipe.nutrition &&
+    Number.isFinite(recipe.nutrition.calories) &&
+    Number.isFinite(recipe.nutrition.protein) &&
+    Number.isFinite(recipe.nutrition.carbs) &&
+    Number.isFinite(recipe.nutrition.fat)
+      ? {
+          calories: Math.max(0, Math.round(recipe.nutrition.calories ?? 0)),
+          protein: Math.max(0, Math.round(recipe.nutrition.protein ?? 0)),
+          carbs: Math.max(0, Math.round(recipe.nutrition.carbs ?? 0)),
+          fat: Math.max(0, Math.round(recipe.nutrition.fat ?? 0)),
+          fiber:
+            recipe.nutrition.fiber !== undefined &&
+            Number.isFinite(recipe.nutrition.fiber)
+              ? Math.max(0, Math.round(recipe.nutrition.fiber))
+              : undefined,
+        }
+      : undefined;
 
   return {
     name: recipe.name.trim(),
@@ -131,6 +156,7 @@ export function sanitizeRecipe(
           .slice(0, 6)
       )
     ),
+    nutrition,
     usedPantryItems,
   };
 }

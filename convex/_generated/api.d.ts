@@ -28,12 +28,14 @@ import type * as mutations_households from "../mutations/households.js";
 import type * as mutations_pantry from "../mutations/pantry.js";
 import type * as mutations_planner from "../mutations/planner.js";
 import type * as mutations_profiles from "../mutations/profiles.js";
+import type * as mutations_savedRecipes from "../mutations/savedRecipes.js";
 import type * as queries_feedback from "../queries/feedback.js";
 import type * as queries_grocery from "../queries/grocery.js";
 import type * as queries_households from "../queries/households.js";
 import type * as queries_pantry from "../queries/pantry.js";
 import type * as queries_planner from "../queries/planner.js";
 import type * as queries_profiles from "../queries/profiles.js";
+import type * as queries_savedRecipes from "../queries/savedRecipes.js";
 
 import type {
   ApiFromModules,
@@ -62,12 +64,14 @@ declare const fullApi: ApiFromModules<{
   "mutations/pantry": typeof mutations_pantry;
   "mutations/planner": typeof mutations_planner;
   "mutations/profiles": typeof mutations_profiles;
+  "mutations/savedRecipes": typeof mutations_savedRecipes;
   "queries/feedback": typeof queries_feedback;
   "queries/grocery": typeof queries_grocery;
   "queries/households": typeof queries_households;
   "queries/pantry": typeof queries_pantry;
   "queries/planner": typeof queries_planner;
   "queries/profiles": typeof queries_profiles;
+  "queries/savedRecipes": typeof queries_savedRecipes;
 }>;
 
 /**

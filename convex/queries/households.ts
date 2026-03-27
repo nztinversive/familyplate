@@ -29,21 +29,33 @@ export const getHousehold = query({
 export const getHouseholdByInviteCode = query({
   args: { inviteCode: v.string() },
   handler: async (ctx, args) => {
-    const profile = await getViewerProfile(ctx);
-    if (!profile) {
-      return null;
-    }
-
     const household = await ctx.db
       .query("households")
       .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode))
       .unique();
 
-    if (!household || household._id !== profile.householdId) {
+    if (!household) {
       return null;
     }
 
-    return household;
+    const [members, ownerProfile] = await Promise.all([
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_householdId", (q) => q.eq("householdId", household._id))
+        .collect(),
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_authId", (q) => q.eq("authId", household.createdBy))
+        .first(),
+    ]);
+
+    return {
+      householdId: household._id,
+      name: household.name,
+      inviteCode: household.inviteCode,
+      memberCount: members.length,
+      invitedBy: ownerProfile?.name ?? "Someone",
+    };
   },
 });
 

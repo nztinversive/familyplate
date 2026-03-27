@@ -80,10 +80,28 @@ export default defineSchema({
     estimatedTime: v.number(),
     servings: v.number(),
     tags: v.array(v.string()),
+    nutrition: v.optional(
+      v.object({
+        calories: v.number(),
+        protein: v.number(),
+        carbs: v.number(),
+        fat: v.number(),
+        fiber: v.optional(v.number()),
+      })
+    ),
     usedPantryItems: v.optional(v.array(v.string())),
     source: v.union(v.literal("ai"), v.literal("curated")),
     createdAt: v.number(),
   }).index("by_householdId", ["householdId"]),
+
+  savedRecipes: defineTable({
+    householdId: v.id("households"),
+    recipeId: v.id("recipeSuggestions"),
+    savedBy: v.id("userProfiles"),
+    savedAt: v.number(),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_recipeId", ["recipeId"]),
 
   weeklyMealPlans: defineTable({
     householdId: v.id("households"),

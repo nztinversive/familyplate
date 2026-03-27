@@ -18,6 +18,8 @@ export const sendInviteEmail = action({
       return { success: false, error: "Email not configured" };
     }
 
+    const inviteUrl = `${args.appUrl.replace(/\/$/, "")}/join/${args.inviteCode}`;
+
     try {
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -55,8 +57,8 @@ export const sendInviteEmail = action({
               </div>
               
               <div style="text-align: center; margin: 24px 0;">
-                <a href="${args.appUrl}" style="display: inline-block; background: #1a9d5c; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
-                  Open FamilyPlate
+                <a href="${inviteUrl}" style="display: inline-block; background: #1a9d5c; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 16px;">
+                  Join Household
                 </a>
               </div>
               

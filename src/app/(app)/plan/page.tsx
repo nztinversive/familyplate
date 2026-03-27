@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import {
+  ArrowLeftRight,
   Ban,
+  BookOpen,
   CalendarDays,
   CheckCircle2,
-  ChefHat,
   ChevronRight,
   Clock3,
   Flame,
+  Heart,
   ListChecks,
   RefreshCw,
   Shuffle,
@@ -32,6 +34,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type RecipeDoc = Doc<"recipeSuggestions">;
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const STATUS_LABELS: Record<string, string> = {
@@ -87,6 +91,10 @@ function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
 }
 
+function formatNutritionValue(value: number, suffix: string) {
+  return `${Math.round(value)}${suffix}`;
+}
+
 function getEffortIcon(level: string) {
   if (level === "easy") return "🟢";
   if (level === "medium") return "🟡";
@@ -96,22 +104,34 @@ function getEffortIcon(level: string) {
 export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
-
+  const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
   const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
+  const swapMealDates = useMutation(api.mutations.planner.swapMealDates);
+  const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
+  const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingGrocery, setIsGeneratingGrocery] = useState(false);
+  const [isMovingMeal, setIsMovingMeal] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
+  const [movingMealId, setMovingMealId] = useState<Id<"plannedMeals"> | null>(null);
+  const [savingRecipeId, setSavingRecipeId] = useState<Id<"recipeSuggestions"> | null>(null);
   const [activeTab, setActiveTab] = useState("week");
   const [selectedRecipeId, setSelectedRecipeId] = useState<Id<"recipeSuggestions"> | null>(
     null
+  );
+  const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] = useState<RecipeDoc | null>(null);
+
+  const isSelectedRecipeSaved = useQuery(
+    api.queries.savedRecipes.isRecipeSaved,
+    selectedRecipeId ? { recipeId: selectedRecipeId } : "skip"
   );
 
   const cookedCount = mealPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
@@ -138,10 +158,30 @@ export default function PlanPage() {
 
   const usedRecipeIds = new Set(mealPlan?.meals.map((m) => m.recipe._id) ?? []);
   const recipePool = (recipeSuggestions ?? []).filter((r) => !usedRecipeIds.has(r._id));
-  const selectedRecipe =
-    mealPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
-    recipeSuggestions?.find((recipe) => recipe._id === selectedRecipeId) ??
-    null;
+  const cookbookRecipes = savedRecipes ?? [];
+  const selectedRecipe = useMemo(() => {
+    if (!selectedRecipeId) {
+      return null;
+    }
+
+    return (
+      mealPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
+      recipeSuggestions?.find((recipe) => recipe._id === selectedRecipeId) ??
+      savedRecipes?.find((savedRecipe) => savedRecipe.recipe._id === selectedRecipeId)?.recipe ??
+      (selectedRecipeSnapshot?._id === selectedRecipeId ? selectedRecipeSnapshot : null)
+    );
+  }, [mealPlan, recipeSuggestions, savedRecipes, selectedRecipeId, selectedRecipeSnapshot]);
+  const movingMeal = mealPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
+
+  const openRecipeDialog = (recipe: RecipeDoc) => {
+    setSelectedRecipeId(recipe._id);
+    setSelectedRecipeSnapshot(recipe);
+  };
+
+  const closeRecipeDialog = () => {
+    setSelectedRecipeId(null);
+    setSelectedRecipeSnapshot(null);
+  };
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);

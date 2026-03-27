@@ -100,7 +100,9 @@ export const joinHousehold = mutation({
 
     const household = await ctx.db
       .query("households")
-      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode))
+      .withIndex("by_inviteCode", (q) =>
+        q.eq("inviteCode", args.inviteCode.trim().toUpperCase())
+      )
       .unique();
 
     if (!household) {
@@ -113,6 +115,10 @@ export const joinHousehold = mutation({
       .first();
 
     if (existing) {
+      if (existing.householdId === household._id) {
+        return { householdId: household._id };
+      }
+
       throw new Error("You already belong to a household");
     }
 

@@ -52,6 +52,18 @@ const recipeSchema = {
       type: "array",
       items: { type: "string" },
     },
+    nutrition: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        calories: { type: "number" },
+        protein: { type: "number" },
+        carbs: { type: "number" },
+        fat: { type: "number" },
+        fiber: { type: "number" },
+      },
+      required: ["calories", "protein", "carbs", "fat", "fiber"],
+    },
     usedPantryItems: {
       type: "array",
       items: { type: "string" },
@@ -66,6 +78,7 @@ const recipeSchema = {
     "estimatedTime",
     "servings",
     "tags",
+    "nutrition",
     "usedPantryItems",
   ],
 } as const;
@@ -225,6 +238,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           "Keep dinners family-friendly and practical for home cooks.",
           "Most dinners should be 20-50 minutes. A few medium-effort meals are fine.",
           "For every night provide one primary dinner and exactly two alternatives.",
+          "Include approximate per-serving nutrition for every recipe: calories, protein, carbs, fat, and fiber in grams.",
           "Each recipe must include the pantry items it uses using the exact pantry item names from the provided list.",
           `Dates to cover in order: ${weekDates.join(", ")}.`,
           "",
