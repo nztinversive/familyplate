@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import {
@@ -96,7 +96,9 @@ export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
 
-  const generatePlan = useMutation(api.mutations.planner.generatePlaceholderPlan);
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
+  const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
 
@@ -140,7 +142,23 @@ export default function PlanPage() {
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
     try {
-      await generatePlan({});
+      if (currentUser?.householdId) {
+        // Use AI-powered generation with full dislike/allergy enforcement
+        const today = new Date();
+        const day = today.getDay();
+        const diff = day === 0 ? -6 : 1 - day;
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() + diff);
+        const weekStartDate = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, "0")}-${String(weekStart.getDate()).padStart(2, "0")}`;
+
+        await generatePlanAI({
+          weekStartDate,
+          householdId: currentUser.householdId,
+        });
+      } else {
+        // Fallback to placeholder if no household
+        await generatePlanFallback({});
+      }
     } finally {
       setIsGenerating(false);
     }
