@@ -15,7 +15,7 @@ import {
   type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
-import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
+import { checkRecipeForDislikes, filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 const recipeSchema = {
   type: "object",
@@ -122,12 +122,21 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       const weekDates = getWeekDates(args.weekStartDate);
       const householdSize = Math.max(context.profiles.length, 1);
 
-      // Collect ALL household allergies for server-side enforcement
+      // Collect ALL household allergies and dislikes for server-side enforcement
       const allAllergies = Array.from(
         new Set(
           context.profiles
             .flatMap((p: MealProfile) => p.allergies ?? [])
             .map((a: string) => a.toLowerCase().trim())
+            .filter(Boolean)
+        )
+      );
+
+      const allDislikes = Array.from(
+        new Set(
+          context.profiles
+            .flatMap((p: MealProfile) => p.dislikes ?? [])
+            .map((d: string) => d.toLowerCase().trim())
             .filter(Boolean)
         )
       );
@@ -226,49 +235,50 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       }
 
       const meals = response.dinners.map((dinner, index) => {
-        const primary = sanitizeRecipe(
-          dinner.primary,
-          pantryItems,
-          householdSize
-        );
-        const safePrimary = filterRecipeIngredientsForHouseholdSafety({
-          recipeName: primary.name,
-          ingredients: primary.ingredients,
-          allergies: allAllergies,
-          pantryItems,
-          contextLabel: `primary recipe for ${weekDates[index]}`,
-        });
-
         if (!Array.isArray(dinner.alternatives) || dinner.alternatives.length !== 2) {
           throw new Error(`Dinner ${index + 1} did not include exactly two alternatives.`);
         }
 
-        const alternatives = dinner.alternatives.map((alternative) => {
-          const sanitized = sanitizeRecipe(
-            alternative,
-            pantryItems,
-            householdSize
-          );
-          const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
-            recipeName: sanitized.name,
-            ingredients: sanitized.ingredients,
-            allergies: allAllergies,
-            pantryItems,
-            contextLabel: `alternative recipe for ${weekDates[index]}`,
-          });
+        // Sanitize all candidates (primary + alternatives)
+        const allCandidates = [dinner.primary, ...dinner.alternatives].map(
+          (raw) => {
+            const sanitized = sanitizeRecipe(raw, pantryItems, householdSize);
+            const safe = filterRecipeIngredientsForHouseholdSafety({
+              recipeName: sanitized.name,
+              ingredients: sanitized.ingredients,
+              allergies: allAllergies,
+              pantryItems,
+              contextLabel: `recipe for ${weekDates[index]}`,
+            });
+            return { ...sanitized, ...safe };
+          }
+        );
 
-          return {
-            ...sanitized,
-            ...safeAlternative,
-          };
-        });
+        // Check each candidate for dislikes — pick the first one with no dislike matches as primary
+        let primaryIndex = 0;
+        for (let i = 0; i < allCandidates.length; i++) {
+          const dislikeHits = checkRecipeForDislikes(
+            allCandidates[i].name,
+            allCandidates[i].ingredients,
+            allDislikes
+          );
+          if (dislikeHits.length === 0) {
+            primaryIndex = i;
+            break;
+          } else {
+            console.warn(
+              `Dislike violation in "${allCandidates[i].name}" for ${weekDates[index]}: ${dislikeHits.join(", ")} — trying alternatives`
+            );
+          }
+        }
+
+        // Build final primary + alternatives (move chosen candidate to primary slot)
+        const primary = allCandidates[primaryIndex];
+        const alternatives = allCandidates.filter((_, i) => i !== primaryIndex).slice(0, 2);
 
         return {
           date: weekDates[index],
-          primary: {
-            ...primary,
-            ...safePrimary,
-          },
+          primary,
           alternatives,
         };
       });

@@ -10,7 +10,7 @@ import {
   type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
-import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
+import { checkRecipeForDislikes, filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 const recipeSchema = {
   type: "object",
@@ -208,7 +208,7 @@ export const swapMeal: ReturnType<typeof action> = action({
         throw new Error("OpenAI did not return three alternatives.");
       }
 
-      // Collect all household allergies for server-side enforcement
+      // Collect all household allergies and dislikes for server-side enforcement
       const allAllergies = Array.from(
         new Set(
           context.profiles
@@ -218,21 +218,39 @@ export const swapMeal: ReturnType<typeof action> = action({
         )
       );
 
-      const alternatives = response.alternatives.map((alternative) => {
-        const sanitized = sanitizeRecipe(alternative, pantryItems, householdSize);
-        const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
-          recipeName: sanitized.name,
-          ingredients: sanitized.ingredients,
-          allergies: allAllergies,
-          pantryItems,
-          contextLabel: "swap alternative",
-        });
+      const allDislikes = Array.from(
+        new Set(
+          context.profiles
+            .flatMap((p: MealProfile) => p.dislikes ?? [])
+            .map((d: string) => d.toLowerCase().trim())
+            .filter(Boolean)
+        )
+      );
 
-        return {
-          ...sanitized,
-          ...safeAlternative,
-        };
-      });
+      const alternatives = response.alternatives
+        .map((alternative) => {
+          const sanitized = sanitizeRecipe(alternative, pantryItems, householdSize);
+          const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
+            recipeName: sanitized.name,
+            ingredients: sanitized.ingredients,
+            allergies: allAllergies,
+            pantryItems,
+            contextLabel: "swap alternative",
+          });
+
+          return {
+            ...sanitized,
+            ...safeAlternative,
+          };
+        })
+        .filter((alt) => {
+          const dislikeHits = checkRecipeForDislikes(alt.name, alt.ingredients, allDislikes);
+          if (dislikeHits.length > 0) {
+            console.warn(`Dropping swap alternative "${alt.name}" — contains dislikes: ${dislikeHits.join(", ")}`);
+            return false;
+          }
+          return true;
+        });
 
       await ctx.runMutation(
         api.internal.planner.saveMealAlternatives,

@@ -1,6 +1,7 @@
 import { validateRecipeAllergens } from "./allergenCheck";
 import {
   getUsedPantryItemsFromIngredients,
+  normalizeIngredientName,
   pantryItemsForIngredient,
 } from "./mealPlanning";
 
@@ -14,6 +15,49 @@ type RecipeIngredient = {
   unit: string;
   inPantry: boolean;
 };
+
+/**
+ * Check if a recipe contains any disliked ingredients.
+ * Checks both the recipe name and all ingredient names.
+ * Returns the list of matched dislikes.
+ */
+export function checkRecipeForDislikes(
+  recipeName: string,
+  ingredients: Array<{ name: string }>,
+  dislikes: string[]
+): string[] {
+  if (dislikes.length === 0) return [];
+
+  const normalizedDislikes = dislikes.map((d) => normalizeIngredientName(d));
+  const matched: string[] = [];
+
+  const normalizedRecipeName = normalizeIngredientName(recipeName);
+
+  for (const dislike of normalizedDislikes) {
+    // Check recipe name (e.g. "Taco Night" with beef tacos → "beef" in description)
+    if (
+      normalizedRecipeName.includes(dislike) ||
+      dislike.includes(normalizedRecipeName)
+    ) {
+      matched.push(dislike);
+      continue;
+    }
+
+    // Check each ingredient
+    for (const ing of ingredients) {
+      const normalizedIng = normalizeIngredientName(ing.name);
+      if (
+        normalizedIng.includes(dislike) ||
+        dislike.includes(normalizedIng)
+      ) {
+        matched.push(dislike);
+        break;
+      }
+    }
+  }
+
+  return Array.from(new Set(matched));
+}
 
 export function filterRecipeIngredientsForHouseholdSafety({
   recipeName,

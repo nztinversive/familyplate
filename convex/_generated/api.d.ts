@@ -19,6 +19,7 @@ import type * as internal_planner from "../internal/planner.js";
 import type * as lib_allergenCheck from "../lib/allergenCheck.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
 import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
+import type * as lib_recipeSafety from "../lib/recipeSafety.js";
 import type * as migrations_cleanAllergens from "../migrations/cleanAllergens.js";
 import type * as migrations_debugData from "../migrations/debugData.js";
 import type * as mutations_feedback from "../mutations/feedback.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/allergenCheck": typeof lib_allergenCheck;
   "lib/mealPlanning": typeof lib_mealPlanning;
   "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
+  "lib/recipeSafety": typeof lib_recipeSafety;
   "migrations/cleanAllergens": typeof migrations_cleanAllergens;
   "migrations/debugData": typeof migrations_debugData;
   "mutations/feedback": typeof mutations_feedback;

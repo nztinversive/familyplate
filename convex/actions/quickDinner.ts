@@ -3,7 +3,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
-import { filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
+import { checkRecipeForDislikes, filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 type QuickSuggestion = {
   name: string;
@@ -120,13 +120,24 @@ Suggest 3 dinner recipes I can make tonight using primarily these ingredients. R
         userPrompt,
       });
 
-      // Server-side allergen enforcement
+      // Server-side allergen + dislike enforcement
       const allAllergies = pantryContext.profiles
         .flatMap((p) => p.allergies)
         .map((a) => a.toLowerCase().trim())
         .filter(Boolean);
 
+      const allDislikes = pantryContext.profiles
+        .flatMap((p) => p.dislikes)
+        .map((d) => d.toLowerCase().trim())
+        .filter(Boolean);
+
       const safeSuggestions = response.suggestions.slice(0, 3).flatMap((suggestion) => {
+        // Check for dislikes first
+        const dislikeHits = checkRecipeForDislikes(suggestion.name, suggestion.ingredients, allDislikes);
+        if (dislikeHits.length > 0) {
+          console.warn(`Dropping quick dinner "${suggestion.name}" — contains dislikes: ${dislikeHits.join(", ")}`);
+          return [];
+        }
         try {
           const { ingredients } = filterRecipeIngredientsForHouseholdSafety({
             recipeName: suggestion.name,
