@@ -2,16 +2,21 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { AlertTriangle, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function ExpirationAlerts() {
-  const pantryItems = useQuery(api.queries.pantry.getPantryItems, {});
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const householdId = currentUser?.householdId as Id<"households"> | undefined;
+  const pantryItems = useQuery(
+    api.queries.pantry.getPantryItems,
+    householdId ? { householdId } : "skip"
+  );
 
   if (!pantryItems) return null;
 
   const now = Date.now();
-  const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
 
   const expiring = pantryItems
     .filter((item) => {
