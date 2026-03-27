@@ -16,6 +16,7 @@ import {
   Trash2,
   Thermometer,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
@@ -151,6 +152,7 @@ export default function PantryPage() {
   );
 
   const deleteItem = useMutation(api.mutations.pantry.deleteItem);
+  const { toast } = useToast();
   const updateItem = useMutation(api.mutations.pantry.updateItem);
 
   const filteredItems = useMemo(() => {
@@ -362,7 +364,7 @@ export default function PantryPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 shrink-0 text-destructive/60 hover:text-destructive"
-                          onClick={() => void deleteItem({ itemId: item._id })}
+                          onClick={() => void deleteItem({ itemId: item._id }).then(() => toast("Item deleted", "info")).catch(() => toast("Failed to delete", "error"))}
                           aria-label={`Delete ${item.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

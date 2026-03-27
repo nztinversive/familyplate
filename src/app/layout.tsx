@@ -2,11 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { ConvexProvider } from "@/components/providers/ConvexProvider";
+import { ToastProvider } from "@/components/ui/toast";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 const dmSerif = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://familyplate.onrender.com"),
   title: "FamilyPlate",
   description: "Smart family dinner planning & pantry management",
   manifest: "/manifest.json",
@@ -18,8 +20,24 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
   },
+  openGraph: {
+    title: "FamilyPlate",
+    description: "Smart family dinner planning & pantry management",
+    siteName: "FamilyPlate",
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: "FamilyPlate" }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "FamilyPlate",
+    description: "Smart family dinner planning & pantry management",
+    images: ["/icon-512.png"],
+  },
   icons: {
-    icon: "/icon-192.png",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
     apple: "/apple-touch-icon.png",
   },
 };
@@ -40,7 +58,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
-        <ConvexProvider>{children}</ConvexProvider>
+        <ConvexProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ConvexProvider>
       </body>
     </html>
   );

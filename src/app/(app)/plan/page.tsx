@@ -20,6 +20,7 @@ import {
   Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -114,6 +115,7 @@ export default function PlanPage() {
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
+  const { toast } = useToast();
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingGrocery, setIsGeneratingGrocery] = useState(false);
@@ -371,8 +373,9 @@ export default function PlanPage() {
                   setIsGeneratingGrocery(true);
                   try {
                     await generateGroceryList({});
+                    toast("Grocery list generated!", "success");
                   } catch (err) {
-                    console.error("Grocery list generation failed:", err);
+                    toast("Failed to generate grocery list", "error");
                   } finally {
                     setIsGeneratingGrocery(false);
                   }

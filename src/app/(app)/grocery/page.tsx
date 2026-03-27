@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { Check, ListChecks, Package, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,7 @@ export default function GroceryPage() {
   const removeItem = useMutation(api.mutations.grocery.removeItem);
   const addToPantry = useMutation(api.mutations.pantry.addItem);
 
+  const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -99,8 +101,9 @@ export default function GroceryPage() {
         storageLocation: "pantry",
       });
       await removeItem({ groceryListId: groceryList._id, itemIndex });
+      toast("Added to pantry!", "success");
     } catch (err) {
-      console.error("Failed to add to pantry:", err);
+      toast("Failed to add to pantry", "error");
     } finally {
       setBusyIndex(null);
     }
