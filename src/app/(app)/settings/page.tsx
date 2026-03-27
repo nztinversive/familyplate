@@ -23,9 +23,9 @@ function renderList(values?: string[]) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {values.map((value) => (
-        <Badge key={value} variant="outline">
+        <Badge key={value} variant="outline" className="text-xs">
           {value}
         </Badge>
       ))}
@@ -115,7 +115,6 @@ export default function SettingsPage() {
         dislikes: memberDislikes ? memberDislikes.split(",").map((s) => s.trim()).filter(Boolean) : [],
       });
 
-      // Send invite email if email was provided
       if (memberEmail.trim() && !memberIsChild && household?.inviteCode) {
         try {
           const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.onrender.com";
@@ -194,57 +193,67 @@ export default function SettingsPage() {
         />
       }
     >
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 page-transition">
         {currentUser === undefined || profile === undefined || household === undefined ? (
-          <div className="flex justify-center py-10">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="space-y-3">
+            <div className="skeleton-shimmer h-32 rounded-xl" />
+            <div className="skeleton-shimmer h-48 rounded-xl" />
+            <div className="skeleton-shimmer h-40 rounded-xl" />
           </div>
         ) : (
           <>
+            {/* Profile card */}
             {currentUser && (
-              <Card>
-                <CardContent className="space-y-4 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">
-                      {currentUser.userName?.[0]?.toUpperCase() || "U"}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold">{profile?.name ?? currentUser.userName}</p>
-                      <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+              <Card className="overflow-hidden opacity-0 animate-fade-in">
+                <CardContent className="p-0">
+                  <div className="bg-gradient-to-r from-primary/8 to-transparent p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-primary-foreground shadow-sm">
+                        {currentUser.userName?.[0]?.toUpperCase() || "U"}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-lg tracking-tight">{profile?.name ?? currentUser.userName}</p>
+                        <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 rounded-xl bg-muted/40 p-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span>{currentUser.email || "No email on file"}</span>
+                  <div className="grid grid-cols-3 gap-px bg-border">
+                    <div className="bg-card p-3 text-center">
+                      <Mail className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground truncate">{currentUser.email ? "Verified" : "No email"}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                      <span className="capitalize">{profile?.role ?? "member"}</span>
+                    <div className="bg-card p-3 text-center">
+                      <ShieldCheck className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground capitalize">{profile?.role ?? "member"}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{profile?.isChild ? "Child profile" : "Adult profile"}</span>
+                    <div className="bg-card p-3 text-center">
+                      <Users className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-[10px] text-muted-foreground">{profile?.isChild ? "Child" : "Adult"}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            <Card>
+            {/* Household card */}
+            <Card className="opacity-0 animate-fade-in stagger-2">
               <CardContent className="space-y-4 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Household</p>
-                    <h2 className="text-lg font-semibold">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Household</p>
+                    <h2 className="text-lg font-semibold tracking-tight mt-0.5">
                       {household?.name ?? "No household"}
                     </h2>
                   </div>
                   {household?.inviteCode && (
                     <button
                       onClick={handleCopyInvite}
-                      className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors hover:bg-muted"
+                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                        copiedInvite
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "hover:bg-muted"
+                      }`}
                     >
                       <Copy className="h-3 w-3" />
                       {copiedInvite ? "Copied!" : household.inviteCode}
@@ -252,15 +261,15 @@ export default function SettingsPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-xl bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       Members
                     </p>
-                    <p className="mt-1 text-lg font-semibold">{members?.length ?? 0}</p>
+                    <p className="mt-1 text-xl font-bold tracking-tight">{members?.length ?? 0}</p>
                   </div>
                   <div className="rounded-xl bg-muted/40 p-3">
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                       Created
                     </p>
                     <p className="mt-1 text-sm font-medium">
@@ -278,27 +287,32 @@ export default function SettingsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowAddMember(true)}
-                      className="gap-1.5"
+                      className="gap-1.5 rounded-xl"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
-                      Add Member
+                      Add
                     </Button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {(members ?? []).map((member, index) => (
                       <div key={member._id}>
-                        <div className="flex items-center justify-between gap-3 py-1">
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{member.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {member.email || "Managed household profile"}
-                            </p>
+                        <div className="flex items-center justify-between gap-3 py-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-bold">
+                              {member.name[0]?.toUpperCase() ?? "?"}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{member.name}</p>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {member.email || "Managed profile"}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Badge variant="outline" className="capitalize">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            <Badge variant="outline" className="capitalize text-[10px]">
                               {member.role}
                             </Badge>
-                            {member.isChild && <Badge variant="secondary">Child</Badge>}
+                            {member.isChild && <Badge variant="secondary" className="text-[10px]">Child</Badge>}
                           </div>
                         </div>
                         {index < (members?.length ?? 0) - 1 && <Separator />}
@@ -309,7 +323,8 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Preferences card */}
+            <Card className="opacity-0 animate-fade-in stagger-3">
               <CardContent className="space-y-4 p-4">
                 <div>
                   <p className="text-sm font-medium">Dietary Preferences</p>
@@ -332,6 +347,7 @@ export default function SettingsPage() {
                         }}
                         placeholder="e.g. peanuts, shellfish, dairy"
                         rows={3}
+                        className="rounded-xl"
                       />
                       <p className="text-xs text-muted-foreground">
                         Separate each allergy with a comma.
@@ -356,6 +372,7 @@ export default function SettingsPage() {
                         }}
                         placeholder="e.g. mushrooms, olives, brussels sprouts"
                         rows={3}
+                        className="rounded-xl"
                       />
                       <p className="text-xs text-muted-foreground">
                         Separate each food with a comma.
@@ -365,10 +382,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-3 rounded-xl border bg-muted/20 p-3">
                   {preferencesError && (
-                    <p className="text-sm text-destructive">{preferencesError}</p>
+                    <p className="text-sm text-destructive animate-scale-in">{preferencesError}</p>
                   )}
                   {preferencesSaved && !preferencesError && (
-                    <p className="text-sm text-primary">Preferences updated.</p>
+                    <p className="text-sm text-primary animate-scale-in">Preferences updated.</p>
                   )}
                   <div className="flex gap-2">
                     <Button
@@ -400,13 +417,14 @@ export default function SettingsPage() {
           </>
         )}
 
-        <Card>
+        {/* Sign out */}
+        <Card className="opacity-0 animate-fade-in stagger-4">
           <CardContent className="p-0">
             <button
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 p-4 text-left text-destructive transition-colors hover:bg-muted/50"
+              className="flex w-full items-center gap-3 p-4 text-left text-destructive transition-all hover:bg-destructive/5 rounded-lg"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
                 <LogOut className="h-5 w-5" />
               </div>
               <p className="font-medium text-sm">Sign Out</p>
@@ -414,7 +432,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <p className="pt-4 text-center text-xs text-muted-foreground">FamilyPlate v0.1.0</p>
+        <p className="pt-4 pb-2 text-center text-[11px] text-muted-foreground/50">FamilyPlate v0.1.0</p>
       </div>
 
       <Dialog open={showAddMember} onOpenChange={setShowAddMember}>
@@ -475,7 +493,7 @@ export default function SettingsPage() {
             </div>
 
             {memberIsChild && (
-              <div className="space-y-2">
+              <div className="space-y-2 animate-fade-in">
                 <Label htmlFor="member-age">Age</Label>
                 <Input
                   id="member-age"

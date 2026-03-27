@@ -32,10 +32,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display), Georgia, serif;
+    letter-spacing: -0.01em;
   }
 }
 
@@ -52,4 +56,81 @@
 /* Mobile-first app container */
 .app-container {
   @apply mx-auto max-w-[430px] min-h-screen relative;
+}
+
+/* Staggered animation delays for lists */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+.stagger-7 { animation-delay: 0.35s; }
+
+/* Smooth page transitions */
+.page-transition {
+  @apply animate-fade-in;
+}
+
+/* Status card accents */
+.status-planned {
+  border-left: 3px solid hsl(var(--primary));
+}
+.status-cooked {
+  border-left: 3px solid hsl(152 60% 36%);
+  background: linear-gradient(135deg, hsl(152 60% 36% / 0.04), transparent);
+}
+.status-skipped {
+  border-left: 3px solid hsl(var(--destructive));
+  opacity: 0.7;
+}
+
+/* Progress bar shimmer effect */
+.progress-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary)) 0%,
+    hsl(152 60% 50%) 50%,
+    hsl(var(--primary)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Subtle card hover for interactive elements */
+@layer utilities {
+  .card-interactive {
+    @apply transition-all duration-200 ease-out;
+  }
+  .card-interactive:active {
+    @apply scale-[0.98];
+  }
+}
+
+/* Bottom nav glass effect */
+.nav-glass {
+  background: hsl(var(--card) / 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Warm gradient background for welcome page */
+.welcome-gradient {
+  background:
+    radial-gradient(ellipse at 20% 50%, hsl(152 60% 36% / 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, hsl(30 60% 50% / 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, hsl(40 30% 93% / 0.5) 0%, transparent 50%),
+    hsl(var(--background));
+}
+
+/* Skeleton shimmer */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }

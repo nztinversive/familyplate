@@ -9,10 +9,13 @@ import {
   CalendarDays,
   CheckCircle2,
   ChefHat,
+  ChevronRight,
   Clock3,
+  Flame,
   RefreshCw,
   Shuffle,
   Sparkles,
+  UtensilsCrossed,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -34,6 +37,12 @@ const STATUS_LABELS: Record<string, string> = {
   planned: "Planned",
   cooked: "Cooked",
   skipped: "Skipped",
+};
+
+const STATUS_ICONS: Record<string, typeof CalendarDays> = {
+  planned: CalendarDays,
+  cooked: CheckCircle2,
+  skipped: Ban,
 };
 
 function formatDateLabel(dateStr: string) {
@@ -63,8 +72,24 @@ function formatDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function isToday(dateStr: string) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
 function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
+}
+
+function getEffortIcon(level: string) {
+  if (level === "easy") return "🟢";
+  if (level === "medium") return "🟡";
+  return "🔴";
 }
 
 export default function PlanPage() {
@@ -84,6 +109,9 @@ export default function PlanPage() {
   );
 
   const cookedCount = mealPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
+  const totalMeals = mealPlan?.meals.length ?? 7;
+  const progressPct = totalMeals > 0 ? Math.round((cookedCount / totalMeals) * 100) : 0;
+
   const weekSchedule = useMemo(() => {
     if (!mealPlan?.plan) return [];
 
@@ -150,23 +178,25 @@ export default function PlanPage() {
           title="Weekly Plan"
           subtitle={
             mealPlan?.plan
-              ? `${formatWeekRange(mealPlan.plan.weekStartDate)} - ${cookedCount}/7 cooked`
+              ? formatWeekRange(mealPlan.plan.weekStartDate)
               : "Dinner planning"
           }
           action={
-            <Button size="sm" onClick={() => void handleGeneratePlan()} disabled={isGenerating}>
-              <Sparkles className="mr-2 h-4 w-4" />
-              {isGenerating ? "Generating..." : mealPlan ? "Regenerate" : "Generate Plan"}
+            <Button size="sm" onClick={() => void handleGeneratePlan()} disabled={isGenerating} className="gap-2">
+              <Sparkles className="h-4 w-4" />
+              {isGenerating ? "Generating..." : mealPlan ? "Regenerate" : "Generate"}
             </Button>
           }
         />
       }
     >
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 page-transition">
         {!mealPlan || !recipeSuggestions ? (
           mealPlan === undefined || recipeSuggestions === undefined ? (
-            <div className="flex justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="space-y-3 pt-2">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="skeleton-shimmer h-28 rounded-xl" />
+              ))}
             </div>
           ) : (
             <EmptyPlanState
@@ -176,17 +206,28 @@ export default function PlanPage() {
           )
         ) : (
           <>
-            <Card className="border-dashed">
-              <CardContent className="flex items-center justify-between gap-3 p-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">This week&apos;s dinners</p>
-                  <p className="text-sm text-muted-foreground">
-                    Seven dinners ready to review, mark, or swap.
-                  </p>
+            {/* Week progress */}
+            <div className="rounded-2xl bg-gradient-to-br from-primary/8 to-primary/3 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground/80">This week&apos;s progress</p>
                 </div>
-                <Badge variant="secondary">{cookedCount} cooked</Badge>
-              </CardContent>
-            </Card>
+                <div className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-bold text-accent">{cookedCount}/{totalMeals}</span>
+                </div>
+              </div>
+              <div className="h-2.5 w-full rounded-full bg-background/60 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-xs text-muted-foreground">{cookedCount} cooked</span>
+                <span className="text-xs text-muted-foreground">{mealPlan.meals.filter(m => m.status === "skipped").length} skipped</span>
+              </div>
+            </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2">
@@ -195,22 +236,33 @@ export default function PlanPage() {
               </TabsList>
 
               <TabsContent value="week" className="space-y-3">
-                {weekSchedule.map(({ dateKey, meal }) => {
+                {weekSchedule.map(({ dateKey, meal }, index) => {
+                  const today = isToday(dateKey);
+
                   if (!meal) {
                     return (
-                      <Card key={dateKey} className="overflow-hidden border-dashed">
-                        <CardContent className="space-y-4 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1">
-                              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                                {formatDateLabel(dateKey)}
-                              </p>
-                              <h3 className="text-lg font-semibold leading-tight">Dinner</h3>
+                      <Card
+                        key={dateKey}
+                        className={`overflow-hidden border-dashed opacity-0 animate-fade-in stagger-${index + 1}`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                  {formatDateLabel(dateKey)}
+                                </p>
+                                {today && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Today</Badge>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground">
-                                No meal assigned yet for this day.
+                                No meal assigned
                               </p>
                             </div>
-                            <Badge variant="outline">Open</Badge>
+                            <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center">
+                              <UtensilsCrossed className="h-4 w-4 text-muted-foreground/50" />
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -222,121 +274,124 @@ export default function PlanPage() {
                   );
                   const isBusy = busyMealId === meal._id;
                   const isSwapOpen = swappingMealId === meal._id;
+                  const StatusIcon = STATUS_ICONS[meal.status] ?? CalendarDays;
 
                   return (
-                    <Card key={meal._id} className="overflow-hidden">
-                      <CardContent className="space-y-4 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <button
-                            type="button"
-                            className="min-w-0 flex-1 space-y-1 rounded-sm text-left transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                            onClick={() => setSelectedRecipeId(meal.recipe._id)}
-                          >
-                            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                              {formatDateLabel(meal.date)}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-lg font-semibold leading-tight">
+                    <Card
+                      key={meal._id}
+                      className={`overflow-hidden opacity-0 animate-fade-in card-interactive stagger-${index + 1} ${
+                        meal.status === "cooked"
+                          ? "status-cooked"
+                          : meal.status === "skipped"
+                            ? "status-skipped"
+                            : today
+                              ? "status-planned ring-1 ring-primary/20"
+                              : "status-planned"
+                      }`}
+                    >
+                      <CardContent className="p-0">
+                        {/* Main content area */}
+                        <button
+                          type="button"
+                          className="w-full p-4 pb-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg"
+                          onClick={() => setSelectedRecipeId(meal.recipe._id)}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                                  {formatDateLabel(meal.date)}
+                                </p>
+                                {today && (
+                                  <Badge variant="default" className="text-[10px] px-1.5 py-0">Today</Badge>
+                                )}
+                              </div>
+                              <h3 className="text-lg font-semibold leading-tight tracking-tight">
                                 {meal.recipe.title}
                               </h3>
-                              <Badge variant="outline">Dinner</Badge>
+                              <p className="text-sm text-muted-foreground line-clamp-1">
+                                {meal.recipe.description}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {meal.recipe.description}
-                            </p>
-                          </button>
-                          <Badge
-                            variant={
-                              meal.status === "cooked"
-                                ? "default"
-                                : meal.status === "skipped"
-                                  ? "destructive"
-                                  : "secondary"
-                            }
-                            className="shrink-0"
-                          >
-                            {STATUS_LABELS[meal.status]}
-                          </Badge>
+                            <ChevronRight className="h-5 w-5 text-muted-foreground/40 shrink-0 mt-4" />
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                              {getEffortIcon(meal.recipe.effortLevel)} {meal.recipe.effortLevel}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                              <Clock3 className="h-3 w-3" />
+                              {meal.recipe.estimatedTime}m
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                              Serves {meal.recipe.servings}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Action bar */}
+                        <div className="flex items-center gap-1 px-3 pb-3 pt-1">
+                          <div className="flex items-center gap-1 flex-1">
+                            {(["planned", "cooked", "skipped"] as const).map((status) => {
+                              const isActive = meal.status === status;
+                              const Icon = STATUS_ICONS[status];
+                              return (
+                                <button
+                                  key={status}
+                                  disabled={isBusy}
+                                  onClick={() => void handleStatusChange(meal._id, status)}
+                                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                                    isActive
+                                      ? status === "cooked"
+                                        ? "bg-primary text-primary-foreground shadow-sm"
+                                        : status === "skipped"
+                                          ? "bg-destructive/10 text-destructive"
+                                          : "bg-primary/10 text-primary"
+                                      : "text-muted-foreground hover:bg-muted/60"
+                                  }`}
+                                >
+                                  <Icon className="h-3 w-3" />
+                                  {STATUS_LABELS[status]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {swapOptions.length > 0 && (
+                            <button
+                              onClick={() =>
+                                setSwappingMealId(isSwapOpen ? null : meal._id)
+                              }
+                              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/60 transition-colors"
+                            >
+                              <Shuffle className="h-3 w-3" />
+                            </button>
+                          )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className="capitalize">
-                            <ChefHat className="mr-1 h-3 w-3" />
-                            {meal.recipe.effortLevel}
-                          </Badge>
-                          <Badge variant="outline">
-                            <Clock3 className="mr-1 h-3 w-3" />
-                            {meal.recipe.estimatedTime} min
-                          </Badge>
-                          <Badge variant="outline">Serves {meal.recipe.servings}</Badge>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            variant={meal.status === "planned" ? "default" : "outline"}
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => void handleStatusChange(meal._id, "planned")}
-                          >
-                            Planned
-                          </Button>
-                          <Button
-                            variant={meal.status === "cooked" ? "default" : "outline"}
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => void handleStatusChange(meal._id, "cooked")}
-                          >
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Cooked
-                          </Button>
-                          <Button
-                            variant={meal.status === "skipped" ? "destructive" : "outline"}
-                            size="sm"
-                            disabled={isBusy}
-                            onClick={() => void handleStatusChange(meal._id, "skipped")}
-                          >
-                            <Ban className="mr-1 h-3 w-3" />
-                            Skip
-                          </Button>
-                        </div>
-
-                        {swapOptions.length > 0 && (
-                          <div className="space-y-3 rounded-lg bg-muted/40 p-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-medium">Swap dinner</p>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  setSwappingMealId(isSwapOpen ? null : meal._id)
-                                }
-                              >
-                                <Shuffle className="mr-2 h-4 w-4" />
-                                {isSwapOpen ? "Hide" : "Swap"}
-                              </Button>
+                        {/* Swap panel */}
+                        {isSwapOpen && swapOptions.length > 0 && (
+                          <div className="border-t bg-muted/20 px-3 py-3 animate-fade-in">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">Swap with:</p>
+                            <div className="grid gap-1.5">
+                              {swapOptions.slice(0, 4).map((recipe) => (
+                                <button
+                                  key={recipe._id}
+                                  type="button"
+                                  className="flex items-center justify-between rounded-xl border bg-background px-3 py-2.5 text-left transition-all hover:bg-accent/5 hover:border-primary/20 disabled:opacity-50 card-interactive"
+                                  disabled={isBusy}
+                                  onClick={() => void handleSwapMeal(meal._id, recipe._id)}
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium">{recipe.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {getEffortIcon(recipe.effortLevel)} {recipe.estimatedTime}m
+                                    </p>
+                                  </div>
+                                  <RefreshCw className="h-3.5 w-3.5 text-primary/60" />
+                                </button>
+                              ))}
                             </div>
-
-                            {isSwapOpen && (
-                              <div className="grid gap-2">
-                                {swapOptions.slice(0, 4).map((recipe) => (
-                                  <button
-                                    key={recipe._id}
-                                    type="button"
-                                    className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-left transition-colors hover:bg-accent disabled:opacity-50"
-                                    disabled={isBusy}
-                                    onClick={() => void handleSwapMeal(meal._id, recipe._id)}
-                                  >
-                                    <div>
-                                      <p className="text-sm font-medium">{recipe.title}</p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {recipe.estimatedTime} min - {recipe.effortLevel}
-                                      </p>
-                                    </div>
-                                    <RefreshCw className="h-4 w-4 text-muted-foreground" />
-                                  </button>
-                                ))}
-                              </div>
-                            )}
                           </div>
                         )}
                       </CardContent>
@@ -346,29 +401,43 @@ export default function PlanPage() {
               </TabsContent>
 
               <TabsContent value="recipes" className="space-y-3">
-                {(recipeSuggestions ?? []).map((recipe) => (
-                  <Card key={recipe._id}>
-                    <CardContent className="space-y-3 p-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <h3 className="font-semibold">{recipe.title}</h3>
-                          <Badge variant="secondary" className="capitalize">
-                            {recipe.effortLevel}
-                          </Badge>
+                {(recipeSuggestions ?? []).map((recipe, index) => (
+                  <Card
+                    key={recipe._id}
+                    className={`overflow-hidden opacity-0 animate-fade-in card-interactive stagger-${index + 1}`}
+                  >
+                    <CardContent className="p-4">
+                      <button
+                        type="button"
+                        className="w-full text-left"
+                        onClick={() => setSelectedRecipeId(recipe._id)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <h3 className="font-semibold leading-tight">{recipe.title}</h3>
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {recipe.description}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-2 py-1 text-xs font-medium capitalize shrink-0">
+                            {getEffortIcon(recipe.effortLevel)} {recipe.effortLevel}
+                          </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {recipe.description}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">{recipe.estimatedTime} min</Badge>
-                        <Badge variant="outline">Serves {recipe.servings}</Badge>
-                        {recipe.tags.slice(0, 3).map((tag) => (
-                          <Badge key={tag} variant="outline">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
+                        <div className="flex flex-wrap gap-1.5 mt-2.5">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                            <Clock3 className="h-3 w-3" />
+                            {recipe.estimatedTime}m
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                            Serves {recipe.servings}
+                          </span>
+                          {recipe.tags.slice(0, 3).map((tag) => (
+                            <span key={tag} className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
                     </CardContent>
                   </Card>
                 ))}
@@ -384,78 +453,85 @@ export default function PlanPage() {
           if (!open) setSelectedRecipeId(null);
         }}
       >
-        <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+        <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom">
           {selectedRecipe && (
             <>
-              <DialogHeader className="border-b px-4 pb-4 pt-5 sm:px-6">
-                <DialogTitle className="pr-8 text-left text-xl">
+              <DialogHeader className="border-b px-5 pb-4 pt-6 sm:px-6">
+                <DialogTitle className="pr-8 text-left text-xl tracking-tight">
                   {selectedRecipe.title}
                 </DialogTitle>
                 <DialogDescription className="pr-8 text-left">
                   {selectedRecipe.description}
                 </DialogDescription>
                 <div className="flex flex-wrap gap-2 pt-3">
-                  <Badge variant="outline" className="capitalize">
-                    <ChefHat className="mr-1 h-3 w-3" />
-                    {selectedRecipe.effortLevel}
-                  </Badge>
-                  <Badge variant="outline">
-                    <Clock3 className="mr-1 h-3 w-3" />
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium capitalize">
+                    {getEffortIcon(selectedRecipe.effortLevel)} {selectedRecipe.effortLevel}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium">
+                    <Clock3 className="h-3 w-3" />
                     {selectedRecipe.estimatedTime} min
-                  </Badge>
-                  <Badge variant="outline">Serves {selectedRecipe.servings}</Badge>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium">
+                    Serves {selectedRecipe.servings}
+                  </span>
                 </div>
               </DialogHeader>
 
-              <div className="space-y-6 overflow-y-auto px-4 py-4 sm:px-6">
+              <div className="space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
                 <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Ingredients
                   </h4>
                   <div className="space-y-2">
                     {selectedRecipe.ingredients.map((ingredient) => (
                       <div
                         key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
-                        className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 px-3 py-3"
+                        className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3.5 py-3"
                       >
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium">{ingredient.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
-                          </p>
+                        <div className="flex items-center gap-2.5">
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${
+                            ingredient.inPantry ? "bg-primary" : "bg-muted-foreground/25"
+                          }`} />
+                          <div>
+                            <p className="text-sm font-medium">{ingredient.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
+                            </p>
+                          </div>
                         </div>
-                        <Badge
-                          variant={ingredient.inPantry ? "secondary" : "outline"}
-                          className="shrink-0"
-                        >
-                          {ingredient.inPantry ? "In pantry" : "Need to buy"}
-                        </Badge>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          ingredient.inPantry
+                            ? "bg-primary/10 text-primary"
+                            : "bg-accent/10 text-accent"
+                        }`}>
+                          {ingredient.inPantry ? "Have it" : "Need it"}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </section>
 
                 <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Instructions
                   </h4>
                   <ol className="space-y-3">
                     {selectedRecipe.instructions.map((step, index) => (
                       <li
                         key={`${selectedRecipe._id}-step-${index + 1}`}
-                        className="flex items-start gap-3 rounded-xl bg-muted/40 px-3 py-3"
+                        className="flex items-start gap-3 rounded-xl bg-muted/30 px-3.5 py-3"
                       >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-background text-sm font-semibold">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                           {index + 1}
                         </div>
-                        <p className="text-sm leading-6">{step}</p>
+                        <p className="text-sm leading-relaxed pt-0.5">{step}</p>
                       </li>
                     ))}
                   </ol>
                 </section>
 
                 <section className="space-y-3 pb-1">
-                  <h4 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+                  <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Tags
                   </h4>
                   <div className="flex flex-wrap gap-2">
@@ -468,7 +544,7 @@ export default function PlanPage() {
                 </section>
               </div>
 
-              <div className="border-t px-4 py-4 sm:px-6">
+              <div className="border-t px-5 py-4 sm:px-6">
                 <DialogClose asChild>
                   <Button variant="outline" className="w-full">
                     Close
@@ -491,17 +567,17 @@ function EmptyPlanState({
   isGenerating: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
-        <CalendarDays className="h-10 w-10 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in-up">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5">
+        <CalendarDays className="h-11 w-11 text-primary" />
       </div>
-      <h3 className="mb-1 text-lg font-semibold">No meal plan yet</h3>
-      <p className="mb-6 max-w-[260px] text-sm text-muted-foreground">
+      <h3 className="mb-2 text-xl font-semibold tracking-tight">No meal plan yet</h3>
+      <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
         Generate a full seven-night dinner lineup, then mark meals cooked or skipped as the
         week moves.
       </p>
-      <Button onClick={onGenerate} disabled={isGenerating}>
-        <Sparkles className="mr-2 h-4 w-4" />
+      <Button onClick={onGenerate} disabled={isGenerating} size="lg" className="gap-2">
+        <Sparkles className="h-4 w-4" />
         {isGenerating ? "Generating..." : "Generate Plan"}
       </Button>
     </div>

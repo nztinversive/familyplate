@@ -12,7 +12,9 @@ import {
   Pencil,
   Plus,
   Search,
+  Snowflake,
   Trash2,
+  Thermometer,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -74,6 +76,12 @@ const UNITS = [
 ];
 
 const STORAGE_LOCATIONS: StorageLocation[] = ["pantry", "fridge", "freezer"];
+
+const STORAGE_ICONS: Record<StorageLocation, typeof Package> = {
+  pantry: Package,
+  fridge: Thermometer,
+  freezer: Snowflake,
+};
 
 function formatDateInput(timestamp?: number) {
   if (!timestamp) return "";
@@ -226,16 +234,16 @@ export default function PantryPage() {
         />
       }
     >
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 page-transition">
         <ExpirationAlerts />
 
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search pantry items..."
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            className="pl-9"
+            className="pl-10 h-11 rounded-xl bg-muted/40 border-0 focus-visible:ring-1"
           />
         </div>
 
@@ -253,8 +261,10 @@ export default function PantryPage() {
         </Tabs>
 
         {!pantryItems ? (
-          <div className="flex justify-center py-8">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="skeleton-shimmer h-24 rounded-xl" />
+            ))}
           </div>
         ) : filteredItems.length === 0 ? (
           <EmptyState
@@ -263,78 +273,106 @@ export default function PantryPage() {
           />
         ) : (
           <div className="space-y-2">
-            {filteredItems.map((item) => (
-              <Card key={item._id} className="overflow-hidden">
-                <CardContent className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-semibold">{item.name}</p>
-                        <Badge variant="outline" className="capitalize">
-                          {getLocationLabel(item.storageLocation)}
-                        </Badge>
+            {filteredItems.map((item, index) => {
+              const LocationIcon = STORAGE_ICONS[item.storageLocation] ?? Package;
+              const expirationTone = getExpirationTone(item.expirationDate);
+              const isExpired = expirationTone === "destructive";
+
+              return (
+                <Card
+                  key={item._id}
+                  className={`overflow-hidden card-interactive opacity-0 animate-fade-in stagger-${Math.min(index + 1, 7)} ${
+                    isExpired ? "border-destructive/30" : ""
+                  }`}
+                >
+                  <CardContent className="p-0">
+                    <div className="flex items-center gap-3 p-3.5">
+                      {/* Location icon */}
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                        item.storageLocation === "freezer"
+                          ? "bg-blue-50 text-blue-500"
+                          : item.storageLocation === "fridge"
+                            ? "bg-cyan-50 text-cyan-600"
+                            : "bg-amber-50 text-amber-600"
+                      }`}>
+                        <LocationIcon className="h-4.5 w-4.5" />
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {item.quantity} {item.unit}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0"
-                      onClick={() => openEditDialog(item)}
-                      aria-label={`Edit ${item.name}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{item.category}</Badge>
-                    <Badge variant={getExpirationTone(item.expirationDate)}>
-                      <CalendarClock className="mr-1 h-3 w-3" />
-                      {formatExpirationLabel(item.expirationDate)}
-                    </Badge>
-                  </div>
+                      {/* Item info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-semibold">{item.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-xs text-muted-foreground">
+                            {item.quantity} {item.unit}
+                          </span>
+                          <span className="text-muted-foreground/30">|</span>
+                          <span className="text-xs text-muted-foreground capitalize">
+                            {item.category}
+                          </span>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1 rounded-full border bg-background p-1">
+                      {/* Edit button */}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8"
-                        disabled={item.quantity <= 1}
-                        onClick={() => void handleQuickAdjust(item, -1)}
-                        aria-label={`Decrease ${item.name}`}
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => openEditDialog(item)}
+                        aria-label={`Edit ${item.name}`}
                       >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="min-w-12 text-center text-sm font-medium">
-                        {item.quantity}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => void handleQuickAdjust(item, 1)}
-                        aria-label={`Increase ${item.name}`}
-                      >
-                        <Plus className="h-3 w-3" />
+                        <Pencil className="h-3.5 w-3.5" />
                       </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 text-destructive"
-                      onClick={() => void deleteItem({ itemId: item._id })}
-                      aria-label={`Delete ${item.name}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+
+                    {/* Bottom bar: expiration + quantity controls + delete */}
+                    <div className="flex items-center justify-between gap-2 border-t bg-muted/20 px-3.5 py-2">
+                      <Badge variant={expirationTone} className="text-[11px]">
+                        <CalendarClock className="mr-1 h-3 w-3" />
+                        {formatExpirationLabel(item.expirationDate)}
+                      </Badge>
+
+                      <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 rounded-full border bg-background p-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full"
+                            disabled={item.quantity <= 1}
+                            onClick={() => void handleQuickAdjust(item, -1)}
+                            aria-label={`Decrease ${item.name}`}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="min-w-8 text-center text-xs font-semibold tabular-nums">
+                            {item.quantity}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 rounded-full"
+                            onClick={() => void handleQuickAdjust(item, 1)}
+                            aria-label={`Increase ${item.name}`}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-destructive/60 hover:text-destructive"
+                          onClick={() => void deleteItem({ itemId: item._id })}
+                          aria-label={`Delete ${item.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -501,13 +539,13 @@ function PantryItemDialogForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       {prefillValues?.message && !item && (
-        <div className="rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-muted/40 p-3 text-sm text-muted-foreground">
           {prefillValues.message}
         </div>
       )}
 
       {error && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
         </div>
       )}
@@ -578,10 +616,10 @@ function PantryItemDialogForm({
             <button
               key={option}
               type="button"
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ${
                 category === option
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-background text-foreground"
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-input bg-background text-foreground hover:border-primary/30"
               }`}
               onClick={() => setCategory(option)}
             >
@@ -594,20 +632,24 @@ function PantryItemDialogForm({
       <div className="space-y-2">
         <Label>Storage Location</Label>
         <div className="grid grid-cols-3 gap-2">
-          {STORAGE_LOCATIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`rounded-lg border px-3 py-2 text-sm font-medium capitalize transition-colors ${
-                storageLocation === option
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-background text-foreground"
-              }`}
-              onClick={() => setStorageLocation(option)}
-            >
-              {option}
-            </button>
-          ))}
+          {STORAGE_LOCATIONS.map((option) => {
+            const Icon = STORAGE_ICONS[option];
+            return (
+              <button
+                key={option}
+                type="button"
+                className={`flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-medium capitalize transition-all duration-200 ${
+                  storageLocation === option
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-input bg-background text-foreground hover:border-primary/30"
+                }`}
+                onClick={() => setStorageLocation(option)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {option}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -626,18 +668,18 @@ function EmptyState({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
-        <Package className="h-10 w-10 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in-up">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-100 to-amber-50">
+        <Package className="h-11 w-11 text-amber-600" />
       </div>
-      <h3 className="mb-1 text-lg font-semibold">
+      <h3 className="mb-2 text-xl font-semibold tracking-tight">
         {location ? `No items in the ${location}` : "Your pantry is empty"}
       </h3>
-      <p className="mb-6 max-w-[260px] text-sm text-muted-foreground">
+      <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
         Add what your household already has so grocery lists and meal plans stay useful.
       </p>
-      <Button onClick={onAdd}>
-        <Plus className="mr-2 h-4 w-4" />
+      <Button onClick={onAdd} size="lg" className="gap-2">
+        <Plus className="h-4 w-4" />
         Add Item
       </Button>
     </div>

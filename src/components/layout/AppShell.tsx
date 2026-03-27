@@ -12,7 +12,7 @@ export function AppShell({ children, showNav = true, header }: AppShellProps) {
   return (
     <div className="app-container bg-background min-h-screen">
       {header && (
-        <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b pt-safe">
+        <header className="sticky top-0 z-40 border-b pt-safe nav-glass">
           <div className="px-4 py-3">{header}</div>
         </header>
       )}

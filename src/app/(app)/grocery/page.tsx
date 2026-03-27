@@ -139,7 +139,7 @@ export default function GroceryPage() {
           title="Grocery List"
           subtitle={
             totalCount > 0
-              ? `${checkedCount}/${totalCount} checked (${progressPct}%)`
+              ? `${checkedCount}/${totalCount} checked`
               : "Shop by category"
           }
           action={
@@ -151,8 +151,9 @@ export default function GroceryPage() {
                 size="sm"
                 onClick={() => void handleGenerate()}
                 disabled={isGenerating || !mealPlan}
+                className="gap-2"
               >
-                <ListChecks className="mr-2 h-4 w-4" />
+                <ListChecks className="h-4 w-4" />
                 {isGenerating ? "Generating..." : "From Plan"}
               </Button>
             </div>
@@ -160,24 +161,29 @@ export default function GroceryPage() {
         />
       }
     >
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 page-transition">
         {totalCount > 0 && (
-          <div className="space-y-1">
-            <div className="h-2 w-full rounded-full bg-muted">
+          <div className="space-y-2 animate-fade-in">
+            <div className="h-3 w-full rounded-full bg-muted/60 overflow-hidden">
               <div
-                className="h-2 rounded-full bg-primary transition-all"
+                className="h-full rounded-full bg-primary transition-all duration-700 ease-out"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <p className="text-right text-xs text-muted-foreground">
-              {checkedCount} of {totalCount} items checked
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {checkedCount} of {totalCount} items checked
+              </p>
+              <p className="text-xs font-semibold text-primary">{progressPct}%</p>
+            </div>
           </div>
         )}
 
         {groceryList === undefined ? (
-          <div className="flex justify-center py-10">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="skeleton-shimmer h-14 rounded-xl" />
+            ))}
           </div>
         ) : totalCount === 0 ? (
           <EmptyGroceryState
@@ -200,37 +206,39 @@ export default function GroceryPage() {
               </TabsList>
             </Tabs>
 
-            <div className="space-y-4">
+            <div className="space-y-5">
               {groupedItems.map((group) => (
-                <div key={group.category}>
+                <div key={group.category} className="animate-fade-in">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       {group.category}
                     </p>
-                    <Badge variant="outline">{group.items.length}</Badge>
+                    <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                      {group.items.length}
+                    </span>
                   </div>
                   <div className="space-y-1.5">
                     {group.items.map((item) => (
                       <Card
                         key={`${item.name}-${item.index}`}
-                        className={item.checked ? "opacity-60" : ""}
+                        className={`overflow-hidden card-interactive transition-all duration-300 ${item.checked ? "opacity-50" : ""}`}
                       >
                         <CardContent className="flex items-center gap-3 p-3">
                           <button
                             type="button"
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${
                               item.checked
                                 ? "border-primary bg-primary text-primary-foreground"
-                                : "border-muted-foreground/30"
+                                : "border-muted-foreground/25 hover:border-primary/50"
                             }`}
                             disabled={busyIndex === item.index}
                             onClick={() => groceryList && void handleToggle(groceryList._id, item.index)}
                           >
-                            {item.checked && <Check className="h-3 w-3" />}
+                            {item.checked && <Check className="h-3 w-3 animate-check-bounce" />}
                           </button>
                           <div className="min-w-0 flex-1">
                             <p
-                              className={`text-sm font-medium ${
+                              className={`text-sm font-medium transition-all duration-200 ${
                                 item.checked ? "line-through text-muted-foreground" : ""
                               }`}
                             >
@@ -244,18 +252,18 @@ export default function GroceryPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 shrink-0 gap-1 text-xs text-primary"
+                              className="h-7 shrink-0 gap-1 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-lg"
                               disabled={busyIndex === item.index}
                               onClick={() => void handleAddToPantry(item, item.index)}
                             >
                               <Package className="h-3 w-3" />
-                              {busyIndex === item.index ? "Moving..." : "Pantry"}
+                              {busyIndex === item.index ? "..." : "Pantry"}
                             </Button>
                           )}
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0 text-destructive"
+                            className="h-7 w-7 shrink-0 text-destructive/50 hover:text-destructive"
                             disabled={busyIndex === item.index}
                             onClick={() => groceryList && void handleRemove(groceryList._id, item.index)}
                           >
@@ -346,7 +354,7 @@ function AddGroceryItemForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       {error && (
-        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive animate-scale-in">
           {error}
         </div>
       )}
@@ -393,10 +401,10 @@ function AddGroceryItemForm({
             <button
               key={option}
               type="button"
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-all duration-200 ${
                 category === option
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-input bg-background text-foreground"
+                  ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                  : "border-input bg-background text-foreground hover:border-primary/30"
               }`}
               onClick={() => setCategory(option)}
             >
@@ -425,24 +433,24 @@ function EmptyGroceryState({
   onGenerate: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-muted">
-        <ShoppingCart className="h-10 w-10 text-muted-foreground" />
+    <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in-up">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5">
+        <ShoppingCart className="h-11 w-11 text-primary" />
       </div>
-      <h3 className="mb-1 text-lg font-semibold">No grocery items yet</h3>
-      <p className="mb-6 max-w-[260px] text-sm text-muted-foreground">
+      <h3 className="mb-2 text-xl font-semibold tracking-tight">No grocery items yet</h3>
+      <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
         {hasPlan
           ? "Generate a list from your meal plan or add a manual item for a quick errand run."
           : "Add items manually now, or create a meal plan first and generate the list automatically."}
       </p>
       <div className="flex w-full max-w-[260px] flex-col gap-2">
-        <Button onClick={onAdd}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button onClick={onAdd} size="lg" className="gap-2">
+          <Plus className="h-4 w-4" />
           Add Item
         </Button>
         {hasPlan && (
-          <Button variant="outline" onClick={onGenerate} disabled={isGenerating}>
-            <ListChecks className="mr-2 h-4 w-4" />
+          <Button variant="outline" onClick={onGenerate} disabled={isGenerating} className="gap-2">
+            <ListChecks className="h-4 w-4" />
             {isGenerating ? "Generating..." : "Generate from Plan"}
           </Button>
         )}

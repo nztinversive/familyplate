@@ -5,6 +5,7 @@ import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import {
   ChefHat,
+  ChevronDown,
   Clock3,
   Loader2,
   Sparkles,
@@ -31,6 +32,12 @@ type Suggestion = {
   instructions: string[];
   missingItems: string[];
 };
+
+function getEffortColor(level: string) {
+  if (level === "easy") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (level === "medium") return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-red-50 text-red-700 border-red-200";
+}
 
 export default function TonightPage() {
   const suggestFromPantry = useAction(api.actions.quickDinner.suggestFromPantry);
@@ -67,17 +74,22 @@ export default function TonightPage() {
         />
       }
     >
-      <div className="space-y-4 px-4 py-4">
+      <div className="space-y-4 px-4 py-4 page-transition">
         {suggestions.length === 0 && !isLoading && !error && (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
-              <UtensilsCrossed className="h-10 w-10 text-primary" />
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center animate-fade-in-up">
+            <div className="relative mb-6">
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-accent/10">
+                <UtensilsCrossed className="h-11 w-11 text-primary" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center animate-pulse-soft">
+                <Sparkles className="h-4 w-4 text-accent" />
+              </div>
             </div>
-            <h3 className="mb-1 text-lg font-semibold">What can I make tonight?</h3>
-            <p className="mb-6 max-w-[280px] text-sm text-muted-foreground">
+            <h3 className="mb-2 text-xl font-semibold tracking-tight">What can I make tonight?</h3>
+            <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
               I will look at your pantry and suggest 3 dinners you can make right now.
             </p>
-            <Button onClick={() => void handleGenerate()} size="lg" className="gap-2">
+            <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
               <Sparkles className="h-4 w-4" />
               Suggest Dinners
             </Button>
@@ -85,143 +97,154 @@ export default function TonightPage() {
         )}
 
         {isLoading && (
-          <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-            <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in">
+            <div className="relative mb-6">
+              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            </div>
             <p className="text-sm font-medium">Checking your pantry...</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground mt-1">
               Finding the best dinner options
             </p>
+            <div className="flex gap-1 mt-4">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-soft"
+                  style={{ animationDelay: `${i * 0.3}s` }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center animate-scale-in">
             <p className="mb-4 text-sm text-muted-foreground">{error}</p>
-            <Button variant="outline" onClick={() => void handleGenerate()}>
+            <Button variant="outline" onClick={() => void handleGenerate()} className="rounded-xl">
               Try Again
             </Button>
           </div>
         )}
 
-        {suggestions.map((suggestion, index) => (
-          <Card key={index} className="overflow-hidden">
-            <CardContent className="space-y-3 p-4">
-              <button
-                type="button"
-                className="w-full text-left"
-                onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <h3 className="text-lg font-semibold leading-tight">
-                      {suggestion.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {suggestion.description}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      suggestion.effortLevel === "easy"
-                        ? "secondary"
-                        : suggestion.effortLevel === "hard"
-                          ? "destructive"
-                          : "outline"
-                    }
-                    className="shrink-0 capitalize"
-                  >
-                    {suggestion.effortLevel}
-                  </Badge>
-                </div>
+        {suggestions.map((suggestion, index) => {
+          const isExpanded = expandedIndex === index;
+          const pantryCount = suggestion.ingredients.filter(i => i.inPantry).length;
+          const totalCount = suggestion.ingredients.length;
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant="outline">
-                    <Clock3 className="mr-1 h-3 w-3" />
-                    {suggestion.estimatedTime} min
-                  </Badge>
-                  <Badge variant="outline">
-                    <ChefHat className="mr-1 h-3 w-3" />
-                    Serves {suggestion.servings}
-                  </Badge>
-                  <Badge
-                    variant={
-                      suggestion.missingItems.length === 0 ? "secondary" : "outline"
-                    }
-                  >
-                    {suggestion.missingItems.length === 0
-                      ? "All ingredients in pantry"
-                      : `${suggestion.missingItems.length} item${
-                          suggestion.missingItems.length > 1 ? "s" : ""
-                        } needed`}
-                  </Badge>
-                </div>
-              </button>
-
-              {expandedIndex === index && (
-                <div className="space-y-4 border-t pt-4">
-                  {suggestion.missingItems.length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                        Need to buy
+          return (
+            <Card
+              key={index}
+              className={`overflow-hidden card-interactive opacity-0 animate-fade-in stagger-${index + 1}`}
+            >
+              <CardContent className="p-0">
+                <button
+                  type="button"
+                  className="w-full text-left p-4 transition-colors hover:bg-muted/20"
+                  onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <h3 className="text-lg font-semibold leading-tight tracking-tight">
+                        {suggestion.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {suggestion.description}
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {suggestion.missingItems.map((item) => (
-                          <Badge key={item} variant="outline" className="text-xs">
-                            {item}
-                          </Badge>
+                    </div>
+                    <ChevronDown className={`h-5 w-5 text-muted-foreground/40 shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium capitalize ${getEffortColor(suggestion.effortLevel)}`}>
+                      {suggestion.effortLevel}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                      <Clock3 className="h-3 w-3" />
+                      {suggestion.estimatedTime}m
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                      <ChefHat className="h-3 w-3" />
+                      Serves {suggestion.servings}
+                    </span>
+                    <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
+                      suggestion.missingItems.length === 0
+                        ? "bg-primary/10 text-primary"
+                        : "bg-accent/10 text-accent"
+                    }`}>
+                      {pantryCount}/{totalCount} in pantry
+                    </span>
+                  </div>
+                </button>
+
+                {isExpanded && (
+                  <div className="border-t px-4 py-4 space-y-4 animate-fade-in">
+                    {suggestion.missingItems.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
+                          Need to buy
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {suggestion.missingItems.map((item) => (
+                            <span key={item} className="inline-flex items-center rounded-lg bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Ingredients
+                      </p>
+                      <div className="space-y-1.5">
+                        {suggestion.ingredients.map((ing, i) => (
+                          <div key={i} className="flex items-center gap-2.5 text-sm">
+                            <span
+                              className={`h-2 w-2 shrink-0 rounded-full ${
+                                ing.inPantry ? "bg-primary" : "bg-muted-foreground/25"
+                              }`}
+                            />
+                            <span className={ing.inPantry ? "" : "text-muted-foreground"}>
+                              {ing.quantity} {ing.unit} {ing.name}
+                            </span>
+                            {ing.inPantry && (
+                              <span className="text-[10px] font-medium text-primary bg-primary/8 rounded px-1 py-0.5">In pantry</span>
+                            )}
+                          </div>
                         ))}
                       </div>
                     </div>
-                  )}
 
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                      Ingredients
-                    </p>
-                    <div className="space-y-1">
-                      {suggestion.ingredients.map((ing, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm">
-                          <span
-                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                              ing.inPantry ? "bg-primary" : "bg-muted-foreground/30"
-                            }`}
-                          />
-                          <span className={ing.inPantry ? "" : "text-muted-foreground"}>
-                            {ing.quantity} {ing.unit} {ing.name}
-                          </span>
-                          {ing.inPantry && (
-                            <span className="text-xs text-primary">In pantry</span>
-                          )}
-                        </div>
-                      ))}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Instructions
+                      </p>
+                      <ol className="space-y-2.5">
+                        {suggestion.instructions.map((step, i) => (
+                          <li key={i} className="flex gap-3 text-sm">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                              {i + 1}
+                            </span>
+                            <span className="leading-relaxed pt-0.5">{step}</span>
+                          </li>
+                        ))}
+                      </ol>
                     </div>
                   </div>
-
-                  <div>
-                    <p className="mb-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                      Instructions
-                    </p>
-                    <ol className="space-y-2">
-                      {suggestion.instructions.map((step, i) => (
-                        <li key={i} className="flex gap-3 text-sm">
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                            {i + 1}
-                          </span>
-                          <span>{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {suggestions.length > 0 && (
           <Button
             variant="outline"
-            className="w-full gap-2"
+            className="w-full gap-2 rounded-xl opacity-0 animate-fade-in"
+            style={{ animationDelay: "0.4s" }}
             onClick={() => void handleGenerate()}
             disabled={isLoading}
           >

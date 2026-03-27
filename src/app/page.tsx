@@ -3,7 +3,13 @@
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
-import { UtensilsCrossed, ArrowRight } from "lucide-react";
+import {
+  UtensilsCrossed,
+  ArrowRight,
+  CalendarDays,
+  ShoppingCart,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,6 +20,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+
+const FEATURES = [
+  { icon: CalendarDays, label: "Plan", desc: "Weekly dinners" },
+  { icon: ShoppingCart, label: "Shop", desc: "Smart lists" },
+  { icon: Sparkles, label: "Discover", desc: "AI recipes" },
+];
 
 export default function WelcomePage() {
   const { signIn } = useAuthActions();
@@ -31,7 +43,7 @@ export default function WelcomePage() {
       window.location.href = "/pantry";
     }
     return (
-      <div className="app-container min-h-screen flex items-center justify-center">
+      <div className="app-container min-h-screen flex items-center justify-center welcome-gradient">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
@@ -78,36 +90,51 @@ export default function WelcomePage() {
 
   if (isLoading) {
     return (
-      <div className="app-container min-h-screen flex items-center justify-center">
+      <div className="app-container min-h-screen flex items-center justify-center welcome-gradient">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="app-container min-h-screen flex flex-col items-center justify-center px-6">
-      <div className="flex flex-col items-center text-center mb-8">
-        <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-          <UtensilsCrossed className="h-10 w-10 text-primary" />
+    <div className="app-container min-h-screen flex flex-col items-center justify-center px-6 welcome-gradient">
+      {/* Logo & branding */}
+      <div className="flex flex-col items-center text-center mb-8 animate-fade-in-up">
+        <div className="relative mb-6">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+            <UtensilsCrossed className="h-10 w-10 text-white" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-accent flex items-center justify-center shadow-md">
+            <Sparkles className="h-3 w-3 text-white" />
+          </div>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">FamilyPlate</h1>
-        <p className="text-muted-foreground text-base max-w-[280px]">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">FamilyPlate</h1>
+        <p className="text-muted-foreground text-base max-w-[280px] leading-relaxed">
           Smart dinner planning for your whole family. Less waste, more flavor.
         </p>
       </div>
 
-      <div className="flex gap-3 mb-8">
-        {["Plan", "Shop", "Rate"].map((feature) => (
-          <div
-            key={feature}
-            className="bg-secondary rounded-full px-3 py-1.5 text-xs font-medium text-secondary-foreground"
-          >
-            {feature}
-          </div>
-        ))}
+      {/* Feature pills */}
+      <div className="flex gap-3 mb-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+        {FEATURES.map((feature) => {
+          const Icon = feature.icon;
+          return (
+            <div
+              key={feature.label}
+              className="flex flex-col items-center gap-1.5 rounded-2xl bg-card border px-4 py-3 shadow-sm"
+            >
+              <div className="h-8 w-8 rounded-xl bg-primary/8 flex items-center justify-center">
+                <Icon className="h-4 w-4 text-primary" />
+              </div>
+              <span className="text-xs font-semibold">{feature.label}</span>
+              <span className="text-[10px] text-muted-foreground">{feature.desc}</span>
+            </div>
+          );
+        })}
       </div>
 
-      <Card className="w-full max-w-sm">
+      {/* Auth card */}
+      <Card className="w-full max-w-sm border-0 shadow-xl shadow-foreground/5 opacity-0 animate-fade-in-up" style={{ animationDelay: "0.3s" }}>
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-lg">
             {isSignUp ? "Create Account" : "Welcome Back"}
@@ -121,7 +148,7 @@ export default function WelcomePage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
                 {error}
               </div>
             )}
@@ -134,7 +161,7 @@ export default function WelcomePage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="h-12"
+                className="h-12 rounded-xl"
               />
             </div>
             <div className="space-y-2">
@@ -147,12 +174,12 @@ export default function WelcomePage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="h-12"
+                className="h-12 rounded-xl"
               />
             </div>
             <Button
               type="submit"
-              className="w-full h-12 text-base"
+              className="w-full h-12 text-base rounded-xl gap-2"
               size="lg"
               disabled={isSubmitting}
             >
@@ -182,6 +209,10 @@ export default function WelcomePage() {
           </button>
         </CardContent>
       </Card>
+
+      <p className="text-[11px] text-muted-foreground/50 mt-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
+        FamilyPlate v0.1.0
+      </p>
     </div>
   );
 }
