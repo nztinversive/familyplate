@@ -1,6 +1,7 @@
 "use client";
 
 import { MobileNav } from "./MobileNav";
+import { PullToRefresh } from "./PullToRefresh";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -16,7 +17,9 @@ export function AppShell({ children, showNav = true, header }: AppShellProps) {
           <div className="px-4 py-3">{header}</div>
         </header>
       )}
-      <main className={showNav ? "pb-20" : ""}>{children}</main>
+      <main className={showNav ? "pb-20" : ""}>
+        <PullToRefresh>{children}</PullToRefresh>
+      </main>
       {showNav && <MobileNav />}
     </div>
   );

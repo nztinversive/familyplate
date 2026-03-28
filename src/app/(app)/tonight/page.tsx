@@ -86,8 +86,11 @@ export default function TonightPage() {
               </div>
             </div>
             <h3 className="mb-2 text-xl font-semibold tracking-tight">What can I make tonight?</h3>
-            <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
-              I will look at your pantry and suggest 3 dinners you can make right now.
+            <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
+              I&apos;ll look at your pantry and suggest 3 dinners you can make right now — no trip to the store needed.
+            </p>
+            <p className="mb-8 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
+              💡 Tip: The more items in your <a href="/pantry" className="underline text-primary">pantry</a>, the better the suggestions.
             </p>
             <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
               <Sparkles className="h-4 w-4" />

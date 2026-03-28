@@ -441,10 +441,15 @@ function EmptyGroceryState({
         <ShoppingCart className="h-11 w-11 text-primary" />
       </div>
       <h3 className="mb-2 text-xl font-semibold tracking-tight">No grocery items yet</h3>
-      <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
+      <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
         {hasPlan
-          ? "Generate a list from your meal plan or add a manual item for a quick errand run."
-          : "Add items manually now, or create a meal plan first and generate the list automatically."}
+          ? "Generate a smart list from your meal plan \u2014 it subtracts what\u2019s already in your pantry."
+          : "Head to the Plan tab and generate a meal plan first, then come back to auto-build your grocery list."}
+      </p>
+      <p className="mb-8 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
+        {hasPlan
+          ? "\uD83D\uDCA1 Items you check off can be added straight to your pantry."
+          : "\uD83D\uDCA1 Or add items manually for a quick errand run."}
       </p>
       <div className="flex w-full max-w-[260px] flex-col gap-2">
         <Button onClick={onAdd} size="lg" className="gap-2">

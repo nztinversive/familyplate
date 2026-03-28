@@ -718,8 +718,15 @@ function EmptyState({
       <h3 className="mb-2 text-xl font-semibold tracking-tight">
         {location ? `No items in the ${location}` : "Your pantry is empty"}
       </h3>
-      <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
-        Add what your household already has so grocery lists and meal plans stay useful.
+      <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
+        {location
+          ? `Move items here or add new ones to track what\u2019s in your ${location}.`
+          : "Add what you already have at home \u2014 the AI will use these ingredients first when planning meals."}
+      </p>
+      <p className="mb-8 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
+        {location
+          ? ""
+          : "\uD83D\uDCA1 Try the quick-add bar above: type \u201C2 lbs chicken, milk, eggs\u201D"}
       </p>
       <Button onClick={onAdd} size="lg" className="gap-2">
         <Plus className="h-4 w-4" />
