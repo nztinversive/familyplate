@@ -29,6 +29,8 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     let active = false;
 
     const onTouchStart = (e: TouchEvent) => {
+      // Only consider pull if at absolute top of page
+      if (window.scrollY > 0 || document.documentElement.scrollTop > 0) return;
       if (!canPull()) return;
       startY.current = e.touches[0].clientY;
       active = true;
@@ -36,17 +38,29 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
 
     const onTouchMove = (e: TouchEvent) => {
       if (!active || refreshing) return;
+
+      // Re-check scroll position on every move — Android reports scrollY async
+      if (window.scrollY > 0 || document.documentElement.scrollTop > 0) {
+        active = false;
+        setPulling(false);
+        setPullDistance(0);
+        return;
+      }
+
       const currentY = e.touches[0].clientY;
       const diff = currentY - startY.current;
 
-      if (diff > 0 && canPull()) {
+      // Only activate pull if dragging down and we're truly at the top
+      if (diff > 10 && canPull()) {
         const distance = Math.min(diff * 0.5, MAX_PULL);
         setPullDistance(distance);
         setPulling(true);
-
-        if (distance > 10) {
-          e.preventDefault();
-        }
+        e.preventDefault();
+      } else if (diff < 0) {
+        // User is scrolling up — cancel pull mode
+        active = false;
+        setPulling(false);
+        setPullDistance(0);
       }
     };
 
