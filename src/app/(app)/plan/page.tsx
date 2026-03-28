@@ -799,7 +799,7 @@ export default function PlanPage() {
           if (!open) closeRecipeDialog();
         }}
       >
-        <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom">
+        <DialogContent className="fixed top-auto bottom-0 left-0 right-0 max-h-[85vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom" style={{ touchAction: "pan-y" }}>
           {selectedRecipe && (
             <>
               <DialogHeader className="border-b px-5 pb-4 pt-6 sm:px-6">
@@ -838,7 +838,7 @@ export default function PlanPage() {
                 </div>
               </DialogHeader>
 
-              <div className="space-y-6 overflow-y-auto px-5 py-5 sm:px-6">
+              <div className="space-y-6 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6" style={{ maxHeight: "60vh", WebkitOverflowScrolling: "touch" }}>
                 {selectedRecipe.nutrition && (
                   <section className="space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">

@@ -14,8 +14,12 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const canPull = useCallback(() => {
-    // Only pull when scrolled to top
-    return window.scrollY <= 0;
+    // Only pull when scrolled to top and no dialog/modal is open
+    if (window.scrollY > 0) return false;
+    // Check if a dialog overlay is visible (Radix dialog uses data-state="open")
+    const overlay = document.querySelector("[data-state='open'][role='dialog'], [data-state='open'][data-radix-dialog-overlay]");
+    if (overlay) return false;
+    return true;
   }, []);
 
   useEffect(() => {
