@@ -10,6 +10,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock3,
   Flame,
@@ -21,6 +22,7 @@ import {
   UtensilsCrossed,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { OnboardingGuide } from "@/components/layout/OnboardingGuide";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +108,7 @@ export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
   const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
@@ -130,21 +133,38 @@ export default function PlanPage() {
     null
   );
   const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] = useState<RecipeDoc | null>(null);
+  const [viewingWeekIndex, setViewingWeekIndex] = useState(0); // 0 = current/latest
+
+  // Week navigation
+  const sortedWeeks = useMemo(() => {
+    return (mealPlanWeeks ?? []).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+  }, [mealPlanWeeks]);
+  const viewingWeekDate = sortedWeeks[viewingWeekIndex]?.weekStartDate ?? null;
+  const viewingPastWeek = viewingWeekIndex > 0 && viewingWeekDate;
+  const pastWeekPlan = useQuery(
+    api.queries.planner.getMyMealPlanByWeek,
+    viewingPastWeek ? { weekStartDate: viewingWeekDate } : "skip"
+  );
+  const activeMealPlan = viewingPastWeek ? pastWeekPlan : mealPlan;
+  const canGoBack = viewingWeekIndex < sortedWeeks.length - 1;
+  const canGoForward = viewingWeekIndex > 0;
 
   const isSelectedRecipeSaved = useQuery(
     api.queries.savedRecipes.isRecipeSaved,
     selectedRecipeId ? { recipeId: selectedRecipeId } : "skip"
   );
 
-  const cookedCount = mealPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
-  const totalMeals = mealPlan?.meals.length ?? 7;
+  // Use activeMealPlan for display (supports past week navigation)
+  const displayPlan = activeMealPlan;
+  const cookedCount = displayPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
+  const totalMeals = displayPlan?.meals.length ?? 7;
   const progressPct = totalMeals > 0 ? Math.round((cookedCount / totalMeals) * 100) : 0;
 
   const weekSchedule = useMemo(() => {
-    if (!mealPlan?.plan) return [];
+    if (!displayPlan?.plan) return [];
 
-    const mealsByDate = new Map(mealPlan.meals.map((meal) => [meal.date, meal]));
-    const weekStart = parseDate(mealPlan.plan.weekStartDate);
+    const mealsByDate = new Map(displayPlan.meals.map((meal) => [meal.date, meal]));
+    const weekStart = parseDate(displayPlan.plan.weekStartDate);
 
     return Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart);
@@ -156,9 +176,9 @@ export default function PlanPage() {
         meal: mealsByDate.get(dateKey) ?? null,
       };
     });
-  }, [mealPlan]);
+  }, [displayPlan]);
 
-  const usedRecipeIds = new Set(mealPlan?.meals.map((m) => m.recipe._id) ?? []);
+  const usedRecipeIds = new Set(displayPlan?.meals.map((m) => m.recipe._id) ?? []);
   const recipePool = (recipeSuggestions ?? []).filter((r) => !usedRecipeIds.has(r._id));
   const cookbookRecipes = savedRecipes ?? [];
   const selectedRecipe = useMemo(() => {
@@ -167,13 +187,13 @@ export default function PlanPage() {
     }
 
     return (
-      mealPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
+      displayPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
       recipeSuggestions?.find((recipe) => recipe._id === selectedRecipeId) ??
       savedRecipes?.find((savedRecipe) => savedRecipe.recipe._id === selectedRecipeId)?.recipe ??
       (selectedRecipeSnapshot?._id === selectedRecipeId ? selectedRecipeSnapshot : null)
     );
-  }, [mealPlan, recipeSuggestions, savedRecipes, selectedRecipeId, selectedRecipeSnapshot]);
-  const movingMeal = mealPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
+  }, [displayPlan, recipeSuggestions, savedRecipes, selectedRecipeId, selectedRecipeSnapshot]);
+  const movingMeal = displayPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
 
   const openRecipeDialog = (recipe: RecipeDoc) => {
     setSelectedRecipeId(recipe._id);
@@ -268,8 +288,8 @@ export default function PlanPage() {
         <PageHeader
           title="Weekly Plan"
           subtitle={
-            mealPlan?.plan
-              ? formatWeekRange(mealPlan.plan.weekStartDate)
+            displayPlan?.plan
+              ? formatWeekRange(displayPlan.plan.weekStartDate)
               : "Dinner planning"
           }
           action={
@@ -279,13 +299,15 @@ export default function PlanPage() {
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {isGenerating ? "Creating plan..." : mealPlan ? "Regenerate" : "Generate"}
+              {isGenerating ? "Creating plan..." : displayPlan ? "Regenerate" : "Generate"}
             </Button>
           }
         />
       }
     >
       <div className="space-y-4 px-4 py-4 page-transition">
+        <OnboardingGuide />
+
         {/* Error banner */}
         {generateError && (
           <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 animate-fade-in">
@@ -328,8 +350,8 @@ export default function PlanPage() {
           </div>
         )}
 
-        {!mealPlan || !recipeSuggestions ? (
-          mealPlan === undefined || recipeSuggestions === undefined ? (
+        {!displayPlan || !recipeSuggestions ? (
+          displayPlan === undefined || recipeSuggestions === undefined ? (
             <div className="space-y-3 pt-2">
               {Array.from({ length: 4 }, (_, i) => (
                 <div key={i} className="skeleton-shimmer h-28 rounded-xl" />
@@ -345,9 +367,34 @@ export default function PlanPage() {
           <>
             {/* Week progress */}
             <div className="rounded-2xl bg-gradient-to-br from-primary/8 to-primary/3 p-4">
+              {/* Week navigation */}
+              {sortedWeeks.length > 1 && (
+                <div className="flex items-center justify-between mb-3">
+                  <button
+                    type="button"
+                    disabled={!canGoBack}
+                    onClick={() => setViewingWeekIndex((i) => i + 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/40 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {displayPlan?.plan ? formatWeekRange(displayPlan.plan.weekStartDate) : ""}
+                    {viewingWeekIndex > 0 && " (past)"}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!canGoForward}
+                    onClick={() => setViewingWeekIndex((i) => i - 1)}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted/40 disabled:opacity-30 transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-medium text-foreground/80">This week&apos;s progress</p>
+                  <p className="text-sm font-medium text-foreground/80">{viewingWeekIndex === 0 ? "This week\u2019s progress" : "Week progress"}</p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Flame className="h-4 w-4 text-accent" />
@@ -362,7 +409,7 @@ export default function PlanPage() {
               </div>
               <div className="flex justify-between mt-2">
                 <span className="text-xs text-muted-foreground">{cookedCount} cooked</span>
-                <span className="text-xs text-muted-foreground">{mealPlan.meals.filter(m => m.status === "skipped").length} skipped</span>
+                <span className="text-xs text-muted-foreground">{displayPlan.meals.filter(m => m.status === "skipped").length} skipped</span>
               </div>
               <Button
                 variant="outline"
@@ -520,7 +567,7 @@ export default function PlanPage() {
                               );
                             })}
                           </div>
-                          {mealPlan.meals.length > 1 && (
+                          {displayPlan.meals.length > 1 && (
                             <button
                               type="button"
                               onClick={() => {
