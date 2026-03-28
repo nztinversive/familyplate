@@ -17,10 +17,12 @@ import {
   Thermometer,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
 import { BarcodeScanner, type BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
+import { QuickAddBar } from "@/components/pantry/QuickAdd";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -151,8 +153,10 @@ export default function PantryPage() {
     activeTab === "all" ? {} : { storageLocation: activeTab }
   );
 
+  const addItem = useMutation(api.mutations.pantry.addItem);
   const deleteItem = useMutation(api.mutations.pantry.deleteItem);
   const { toast } = useToast();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
 
   const filteredItems = useMemo(() => {
@@ -248,6 +252,24 @@ export default function PantryPage() {
             className="pl-10 h-11 rounded-xl bg-muted/40 border-0 focus-visible:ring-1"
           />
         </div>
+
+        {householdId && (
+          <QuickAddBar
+            onAdd={async (items) => {
+              for (const item of items) {
+                await addItem({
+                  householdId: householdId,
+                  name: item.name,
+                  quantity: item.quantity,
+                  unit: item.unit,
+                  category: "Other",
+                  storageLocation: "pantry",
+                });
+              }
+              toast(`Added ${items.length} item${items.length > 1 ? "s" : ""}!`, "success");
+            }}
+          />
+        )}
 
         <Tabs
           value={activeTab}
@@ -364,7 +386,7 @@ export default function PantryPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 shrink-0 text-destructive/60 hover:text-destructive"
-                          onClick={() => void deleteItem({ itemId: item._id }).then(() => toast("Item deleted", "info")).catch(() => toast("Failed to delete", "error"))}
+                          onClick={() => setConfirmDeleteId(item._id)}
                           aria-label={`Delete ${item.name}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -418,6 +440,25 @@ export default function PantryPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}
+        title="Delete pantry item?"
+        description="This item will be permanently removed from your pantry."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (confirmDeleteId) {
+            void deleteItem({ itemId: confirmDeleteId as Id<"pantryItems"> }).then(() => {
+              toast("Item deleted", "info");
+              setConfirmDeleteId(null);
+            }).catch(() => {
+              toast("Failed to delete", "error");
+              setConfirmDeleteId(null);
+            });
+          }
+        }}
+      />
     </AppShell>
   );
 }

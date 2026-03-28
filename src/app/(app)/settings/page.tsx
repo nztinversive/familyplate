@@ -5,7 +5,8 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Copy, LogOut, Mail, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Copy, LogOut, Mail, Moon, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -417,8 +418,26 @@ export default function SettingsPage() {
           </>
         )}
 
-        {/* Sign out */}
+        {/* Appearance */}
         <Card className="opacity-0 animate-fade-in stagger-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
+                  <Moon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Appearance</p>
+                  <p className="text-xs text-muted-foreground">Toggle dark mode</p>
+                </div>
+              </div>
+              <ThemeToggle />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sign out */}
+        <Card className="opacity-0 animate-fade-in stagger-5">
           <CardContent className="p-0">
             <button
               onClick={handleSignOut}

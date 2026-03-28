@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
 
@@ -133,7 +134,8 @@ export default function PlanPage() {
     null
   );
   const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] = useState<RecipeDoc | null>(null);
-  const [viewingWeekIndex, setViewingWeekIndex] = useState(0); // 0 = current/latest
+  const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false);
 
   // Week navigation
   const sortedWeeks = useMemo(() => {
@@ -293,7 +295,7 @@ export default function PlanPage() {
               : "Dinner planning"
           }
           action={
-            <Button size="sm" onClick={() => void handleGeneratePlan()} disabled={isGenerating} className="gap-2">
+            <Button size="sm" onClick={() => displayPlan ? setShowRegenConfirm(true) : void handleGeneratePlan()} disabled={isGenerating} className="gap-2">
               {isGenerating ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
@@ -731,6 +733,18 @@ export default function PlanPage() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showRegenConfirm}
+        onOpenChange={setShowRegenConfirm}
+        title="Regenerate meal plan?"
+        description="This will replace your current week's plan with a new AI-generated one. Any feedback or cooking status will be lost."
+        confirmLabel="Regenerate"
+        onConfirm={() => {
+          setShowRegenConfirm(false);
+          void handleGeneratePlan();
+        }}
+      />
 
       <Dialog
         open={selectedRecipeId !== null}

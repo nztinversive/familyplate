@@ -57,6 +57,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("familyplate-theme");if(t==="dark"||(t===null&&window.matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}` }} />
+      </head>
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
         <ConvexProvider>
           <ToastProvider>{children}</ToastProvider>
