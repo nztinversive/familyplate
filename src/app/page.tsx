@@ -7,8 +7,12 @@ import {
   UtensilsCrossed,
   ArrowRight,
   CalendarDays,
+  Mail,
   ShoppingCart,
   Sparkles,
+  KeyRound,
+  Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,16 +31,19 @@ const FEATURES = [
   { icon: Sparkles, label: "Discover", desc: "AI recipes" },
 ];
 
+type AuthMode = "magic-link" | "password-signin" | "password-signup";
+
 export default function WelcomePage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("magic-link");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   if ((isAuthenticated && !isLoading) || isRedirecting) {
     if (!isRedirecting && typeof window !== "undefined") {
@@ -49,7 +56,23 @@ export default function WelcomePage() {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setIsSubmitting(true);
+    setError("");
+    try {
+      await signIn("resend", { email });
+      setMagicLinkSent(true);
+    } catch (err) {
+      console.error("Magic link failed:", err);
+      setError("Unable to send magic link. Please try again or use password sign-in.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     setIsSubmitting(true);
@@ -58,32 +81,28 @@ export default function WelcomePage() {
       await signIn("password", {
         email,
         password,
-        flow: isSignUp ? "signUp" : "signIn",
+        flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
       setIsRedirecting(true);
       window.location.href = "/pantry";
-      return;
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
-      if (isSignUp) {
+      if (authMode === "password-signup") {
         if (lower.includes("already") || lower.includes("server error")) {
           setError("An account with this email may already exist. Try signing in instead.");
         } else {
           setError(`Could not create account: ${message}`);
         }
       } else {
-        if (
-          lower.includes("invalid") ||
-          lower.includes("credentials") ||
-          lower.includes("server error")
-        ) {
+        if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")) {
           setError("Invalid email or password.");
         } else {
           setError("Could not sign in. Please try again.");
         }
       }
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -137,76 +156,170 @@ export default function WelcomePage() {
       <Card className="w-full max-w-sm border-0 shadow-xl shadow-foreground/5 opacity-0 animate-fade-in-up flex-shrink-0" style={{ animationDelay: "0.3s" }}>
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-lg">
-            {isSignUp ? "Create Account" : "Welcome Back"}
+            {magicLinkSent
+              ? "Check Your Email"
+              : authMode === "password-signup"
+                ? "Create Account"
+                : "Welcome"}
           </CardTitle>
           <CardDescription>
-            {isSignUp
-              ? "Sign up to start planning meals"
-              : "Sign in to your account"}
+            {magicLinkSent
+              ? `We sent a sign-in link to ${email}`
+              : authMode === "magic-link"
+                ? "Sign in with a magic link — no password needed"
+                : authMode === "password-signup"
+                  ? "Create an account with email and password"
+                  : "Sign in to your account"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
-                {error}
+          {magicLinkSent ? (
+            <div className="flex flex-col items-center gap-4 py-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-12 rounded-xl"
-              />
+              <p className="text-sm text-muted-foreground text-center max-w-[260px]">
+                Click the link in your email to sign in. The link expires in 1 hour.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setMagicLinkSent(false);
+                  setEmail("");
+                }}
+                className="text-xs"
+              >
+                Use a different email
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="h-12 rounded-xl"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full h-12 text-base rounded-xl gap-2"
-              size="lg"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  {isSignUp ? "Creating account..." : "Signing in..."}
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  {isSignUp ? "Create Account" : "Sign In"}
-                  <ArrowRight className="h-4 w-4" />
-                </span>
-              )}
-            </Button>
-          </form>
-          <button
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setError("");
-            }}
-            className="w-full text-center text-sm text-muted-foreground mt-4 hover:text-foreground transition-colors"
-          >
-            {isSignUp
-              ? "Already have an account? Sign in"
-              : "Don't have an account? Sign up"}
-          </button>
+          ) : authMode === "magic-link" ? (
+            <>
+              <form onSubmit={handleMagicLink} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base rounded-xl gap-2"
+                  size="lg"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="h-4 w-4" />
+                  )}
+                  {isSubmitting ? "Sending link..." : "Send Magic Link"}
+                </Button>
+              </form>
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full h-11 rounded-xl gap-2"
+                onClick={() => {
+                  setAuthMode("password-signin");
+                  setError("");
+                }}
+              >
+                <KeyRound className="h-4 w-4" />
+                Sign in with password
+              </Button>
+            </>
+          ) : (
+            <>
+              <form onSubmit={handlePassword} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
+                    {error}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="email-pw">Email</Label>
+                  <Input
+                    id="email-pw"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full h-12 text-base rounded-xl gap-2"
+                  size="lg"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  {isSubmitting
+                    ? authMode === "password-signup" ? "Creating account..." : "Signing in..."
+                    : authMode === "password-signup" ? "Create Account" : "Sign In"}
+                </Button>
+              </form>
+              <div className="flex flex-col gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setAuthMode(authMode === "password-signup" ? "password-signin" : "password-signup");
+                    setError("");
+                  }}
+                  className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {authMode === "password-signup"
+                    ? "Already have an account? Sign in"
+                    : "Don't have an account? Sign up"}
+                </button>
+                <button
+                  onClick={() => {
+                    setAuthMode("magic-link");
+                    setError("");
+                  }}
+                  className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+                >
+                  ← Back to magic link
+                </button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
