@@ -274,8 +274,92 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Social proof */}
+      {/* Pricing */}
       <section className="py-16 bg-muted/30">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-3">Simple, honest pricing</h2>
+          <p className="text-sm text-muted-foreground text-center mb-10 max-w-md mx-auto">
+            Start free. Upgrade when your family wants the full experience.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-5 max-w-2xl mx-auto">
+            {/* Free tier */}
+            <Card className="border-2 border-border">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Free</CardTitle>
+                <CardDescription>Get started with the basics</CardDescription>
+                <div className="pt-2">
+                  <span className="text-3xl font-bold">$0</span>
+                  <span className="text-sm text-muted-foreground ml-1">forever</span>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button variant="outline" className="w-full rounded-xl" onClick={scrollToAuth}>
+                  Get Started Free
+                </Button>
+                <ul className="space-y-2.5 pt-2">
+                  {[
+                    "2 meal plans per month",
+                    "2 household members",
+                    "Tonight\u2019s Dinner suggestions",
+                    "AI grocery lists",
+                    "Pantry tracking",
+                    "5 saved cookbook recipes",
+                    "Dark mode",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+
+            {/* Family tier */}
+            <Card className="border-2 border-primary relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">Most Popular</span>
+              </div>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">Family</CardTitle>
+                <CardDescription>Everything for the whole household</CardDescription>
+                <div className="pt-2">
+                  <span className="text-3xl font-bold">$5.99</span>
+                  <span className="text-sm text-muted-foreground ml-1">/month</span>
+                </div>
+                <p className="text-xs text-muted-foreground">or $49/year <span className="text-primary font-medium">(save 32%)</span></p>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full rounded-xl" onClick={scrollToAuth}>
+                  Start Free Trial
+                </Button>
+                <ul className="space-y-2.5 pt-2">
+                  {[
+                    "Unlimited meal plans",
+                    "Unlimited household members",
+                    "Tonight\u2019s Dinner suggestions",
+                    "AI grocery lists",
+                    "Pantry tracking + expiration alerts",
+                    "Unlimited cookbook saves",
+                    "Nutrition info per recipe",
+                    "AI learns from your feedback",
+                    "Share meal plans",
+                    "Dark mode",
+                  ].map((item) => (
+                    <li key={item} className="flex items-start gap-2.5 text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section className="py-16">
         <div className="mx-auto max-w-5xl px-6 text-center">
           <h2 className="text-2xl font-bold tracking-tight mb-8">What families are saying</h2>
           <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
