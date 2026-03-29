@@ -224,6 +224,60 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* App Screenshots */}
+      <section className="py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-3">See it in action</h2>
+          <p className="text-sm text-muted-foreground text-center mb-10 max-w-md mx-auto">
+            A beautiful, intuitive interface designed for busy families.
+          </p>
+          <div className="grid grid-cols-3 gap-4 sm:gap-8 max-w-3xl mx-auto">
+            <div className="text-center">
+              <div className="rounded-2xl overflow-hidden shadow-xl shadow-foreground/10 border mb-3">
+                <img src="/mockup-plan.png" alt="Weekly meal plan view" className="w-full h-auto" loading="lazy" />
+              </div>
+              <p className="text-xs font-medium">Weekly Plan</p>
+            </div>
+            <div className="text-center">
+              <div className="rounded-2xl overflow-hidden shadow-xl shadow-foreground/10 border mb-3">
+                <img src="/mockup-pantry.png" alt="Pantry tracking view" className="w-full h-auto" loading="lazy" />
+              </div>
+              <p className="text-xs font-medium">Smart Pantry</p>
+            </div>
+            <div className="text-center">
+              <div className="rounded-2xl overflow-hidden shadow-xl shadow-foreground/10 border mb-3">
+                <img src="/mockup-tonight.png" alt="Tonight's dinner suggestions" className="w-full h-auto" loading="lazy" />
+              </div>
+              <p className="text-xs font-medium">Tonight&apos;s Dinner</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust badges */}
+      <section className="py-8 border-y bg-muted/20">
+        <div className="mx-auto max-w-5xl px-6">
+          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Shield className="h-4 w-4 text-primary" />
+              <span>Data encrypted</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              <span>No credit card required</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock3 className="h-4 w-4 text-primary" />
+              <span>Cancel anytime</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users className="h-4 w-4 text-primary" />
+              <span>Family-safe</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="py-16 bg-muted/30">
         <div className="mx-auto max-w-5xl px-6">
@@ -402,6 +456,48 @@ export default function LandingPage() {
                 <p className="text-xs font-medium">Priya K.</p>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-16 bg-muted/30">
+        <div className="mx-auto max-w-2xl px-6">
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-10">Frequently asked questions</h2>
+          <div className="space-y-4">
+            {[
+              {
+                q: "How is this different from just asking ChatGPT?",
+                a: "FamilyPlate remembers your pantry, allergies, dislikes, and past ratings. It learns what your family actually likes and plans around what you already have. ChatGPT starts from scratch every time.",
+              },
+              {
+                q: "Is it safe for food allergies?",
+                a: "Yes. We have server-side allergen enforcement that catches violations even when the AI misses them. We map 10+ allergen categories to 100+ derivative ingredients (e.g. 'milk' catches cream, butter, whey, casein, etc).",
+              },
+              {
+                q: "Can my whole family use it?",
+                a: "Absolutely. Each family member gets their own profile with dietary preferences, allergies, and dislikes. The AI respects everyone's needs when generating plans. Invite members via email.",
+              },
+              {
+                q: "What if I don't like a suggested meal?",
+                a: "Tap the swap button to get alternatives, or save recipes you love to your cookbook. Rate meals after cooking them \u2014 the AI learns and improves each week.",
+              },
+              {
+                q: "Can I cancel anytime?",
+                a: "Yes. No contracts, no commitments. Cancel your Family plan whenever you want and keep using the free tier.",
+              },
+              {
+                q: "Does it work offline?",
+                a: "FamilyPlate is a PWA (Progressive Web App). Previously loaded pages and recipes are cached for offline viewing. New plan generation requires an internet connection.",
+              },
+            ].map((faq) => (
+              <Card key={faq.q} className="border-0 shadow-sm">
+                <CardContent className="p-5">
+                  <h3 className="font-semibold text-sm mb-2">{faq.q}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
