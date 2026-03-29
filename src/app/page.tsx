@@ -1,18 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import {
   UtensilsCrossed,
   ArrowRight,
   CalendarDays,
-  Mail,
   ShoppingCart,
   Sparkles,
+  Shield,
+  Users,
+  Brain,
+  ChefHat,
+  Clock3,
+  Heart,
+  Mail,
   KeyRound,
   Loader2,
   CheckCircle2,
+  Star,
+  Leaf,
+  BookOpen,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,17 +36,52 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-const FEATURES = [
-  { icon: CalendarDays, label: "Plan", desc: "Weekly dinners" },
-  { icon: ShoppingCart, label: "Shop", desc: "Smart lists" },
-  { icon: Sparkles, label: "Discover", desc: "AI recipes" },
-];
-
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
 
-export default function WelcomePage() {
+const FEATURES = [
+  {
+    icon: Brain,
+    title: "AI That Learns You",
+    description: "Plans improve every week based on your ratings. Love stir fry? You'll see more. Hate casseroles? Gone.",
+  },
+  {
+    icon: Shield,
+    title: "Allergy Safe",
+    description: "Server-side allergen enforcement catches what AI misses. Derivatives mapped for 10+ allergen categories.",
+  },
+  {
+    icon: ShoppingCart,
+    title: "Smart Grocery Lists",
+    description: "One tap generates your shopping list. Automatically subtracts what's already in your pantry.",
+  },
+  {
+    icon: Users,
+    title: "Built for Families",
+    description: "Each member sets their own preferences, allergies, and dislikes. Everyone's needs are respected.",
+  },
+  {
+    icon: ChefHat,
+    title: "Tonight's Dinner",
+    description: "No plan? No problem. Get 3 instant dinner ideas from what's already in your pantry.",
+  },
+  {
+    icon: BookOpen,
+    title: "Your Cookbook",
+    description: "Save recipes you love. Build a personal collection that grows with your family's favorites.",
+  },
+];
+
+const HOW_IT_WORKS = [
+  { step: "1", title: "Set Preferences", description: "Allergies, dislikes, dietary goals \u2014 tell us once.", icon: Heart },
+  { step: "2", title: "Stock Your Pantry", description: "Add what you have. The AI uses it first.", icon: Leaf },
+  { step: "3", title: "Generate Your Plan", description: "7 personalized dinners with nutrition info.", icon: Sparkles },
+  { step: "4", title: "Cook & Rate", description: "Mark meals cooked. Rate them. The AI learns.", icon: Star },
+];
+
+export default function LandingPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const authRef = useRef<HTMLDivElement>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,11 +96,15 @@ export default function WelcomePage() {
       window.location.href = "/pantry";
     }
     return (
-      <div className="app-container min-h-screen flex items-center justify-center welcome-gradient">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
+
+  const scrollToAuth = () => {
+    authRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,17 +140,13 @@ export default function WelcomePage() {
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
       if (authMode === "password-signup") {
-        if (lower.includes("already") || lower.includes("server error")) {
-          setError("An account with this email may already exist. Try signing in instead.");
-        } else {
-          setError(`Could not create account: ${message}`);
-        }
+        setError(lower.includes("already") || lower.includes("server error")
+          ? "An account with this email may already exist. Try signing in instead."
+          : `Could not create account: ${message}`);
       } else {
-        if (lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")) {
-          setError("Invalid email or password.");
-        } else {
-          setError("Could not sign in. Please try again.");
-        }
+        setError(lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")
+          ? "Invalid email or password."
+          : "Could not sign in. Please try again.");
       }
     } finally {
       setIsSubmitting(false);
@@ -109,223 +155,275 @@ export default function WelcomePage() {
 
   if (isLoading) {
     return (
-      <div className="app-container min-h-screen flex items-center justify-center welcome-gradient">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="app-container min-h-screen flex flex-col items-center px-6 py-8 welcome-gradient overflow-y-auto">
-      {/* Logo & branding */}
-      <div className="flex flex-col items-center text-center mb-6 animate-fade-in-up">
-        <div className="relative mb-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-            <UtensilsCrossed className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-background overflow-y-auto">
+      {/* Nav */}
+      <nav className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-md">
+        <div className="mx-auto max-w-5xl flex items-center justify-between px-6 py-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <UtensilsCrossed className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <span className="font-bold text-lg tracking-tight">FamilyPlate</span>
           </div>
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-accent flex items-center justify-center shadow-md">
-            <Sparkles className="h-2.5 w-2.5 text-white" />
+          <Button size="sm" onClick={scrollToAuth} className="gap-1.5">
+            Get Started
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </nav>
+
+      {/* Hero */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5" />
+        <div className="relative mx-auto max-w-5xl px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
+          <div className="max-w-2xl mx-auto text-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
+              <Sparkles className="h-3.5 w-3.5" />
+              AI-powered meal planning
+            </div>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.1] mb-5">
+              Dinner planning that{" "}
+              <span className="text-primary">actually knows</span>{" "}
+              your family
+            </h1>
+            <p className="text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto mb-8">
+              Personalized weekly dinners based on your pantry, preferences, and past favorites.
+              Less food waste. Less stress. More meals everyone loves.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button size="lg" onClick={scrollToAuth} className="gap-2 text-base px-8 h-12 rounded-xl">
+                Start Planning Free
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+              <p className="text-xs text-muted-foreground">No credit card required</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mt-14">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-primary">7</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Dinners per plan</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-primary">3</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Options per night</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-primary">10s</p>
+              <p className="text-xs text-muted-foreground mt-0.5">To generate</p>
+            </div>
           </div>
         </div>
-        <h1 className="text-3xl font-bold tracking-tight mb-1">FamilyPlate</h1>
-        <p className="text-muted-foreground text-sm max-w-[280px] leading-relaxed">
-          Smart dinner planning for your whole family. Less waste, more flavor.
-        </p>
-      </div>
+      </section>
 
-      {/* Feature pills */}
-      <div className="flex gap-2.5 mb-6 opacity-0 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-        {FEATURES.map((feature) => {
-          const Icon = feature.icon;
-          return (
-            <div
-              key={feature.label}
-              className="flex flex-col items-center gap-1 rounded-xl bg-card border px-3 py-2.5 shadow-sm"
-            >
-              <div className="h-7 w-7 rounded-lg bg-primary/8 flex items-center justify-center">
-                <Icon className="h-3.5 w-3.5 text-primary" />
-              </div>
-              <span className="text-[11px] font-semibold">{feature.label}</span>
-              <span className="text-[9px] text-muted-foreground">{feature.desc}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Auth card */}
-      <Card className="w-full max-w-sm border-0 shadow-xl shadow-foreground/5 opacity-0 animate-fade-in-up flex-shrink-0" style={{ animationDelay: "0.3s" }}>
-        <CardHeader className="text-center pb-4">
-          <CardTitle className="text-lg">
-            {magicLinkSent
-              ? "Check Your Email"
-              : authMode === "password-signup"
-                ? "Create Account"
-                : "Welcome"}
-          </CardTitle>
-          <CardDescription>
-            {magicLinkSent
-              ? `We sent a sign-in link to ${email}`
-              : authMode === "magic-link"
-                ? "Sign in with a magic link — no password needed"
-                : authMode === "password-signup"
-                  ? "Create an account with email and password"
-                  : "Sign in to your account"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {magicLinkSent ? (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-                <CheckCircle2 className="h-8 w-8 text-primary" />
-              </div>
-              <p className="text-sm text-muted-foreground text-center max-w-[260px]">
-                Click the link in your email to sign in. The link expires in 1 hour.
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setMagicLinkSent(false);
-                  setEmail("");
-                }}
-                className="text-xs"
-              >
-                Use a different email
-              </Button>
-            </div>
-          ) : authMode === "magic-link" ? (
-            <>
-              <form onSubmit={handleMagicLink} className="space-y-4">
-                {error && (
-                  <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
-                    {error}
+      {/* How it works */}
+      <section className="py-16 bg-muted/30">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-10">How it works</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {HOW_IT_WORKS.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div key={item.step} className="text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+                    <Icon className="h-5 w-5 text-primary" />
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-12 text-base rounded-xl gap-2"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="h-4 w-4" />
-                  )}
-                  {isSubmitting ? "Sending link..." : "Send Magic Link"}
-                </Button>
-              </form>
-              <div className="relative my-5">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">or</span>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="w-full h-11 rounded-xl gap-2"
-                onClick={() => {
-                  setAuthMode("password-signin");
-                  setError("");
-                }}
-              >
-                <KeyRound className="h-4 w-4" />
-                Sign in with password
-              </Button>
-            </>
-          ) : (
-            <>
-              <form onSubmit={handlePassword} className="space-y-4">
-                {error && (
-                  <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">
-                    {error}
+                  <div className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold mb-2">
+                    {item.step}
                   </div>
-                )}
-                <div className="space-y-2">
-                  <Label htmlFor="email-pw">Email</Label>
-                  <Input
-                    id="email-pw"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-12 rounded-xl"
-                  />
+                  <h3 className="text-sm font-semibold mb-1">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-12 text-base rounded-xl gap-2"
-                  size="lg"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <ArrowRight className="h-4 w-4" />
-                  )}
-                  {isSubmitting
-                    ? authMode === "password-signup" ? "Creating account..." : "Signing in..."
-                    : authMode === "password-signup" ? "Create Account" : "Sign In"}
-                </Button>
-              </form>
-              <div className="flex flex-col gap-2 mt-4">
-                <button
-                  onClick={() => {
-                    setAuthMode(authMode === "password-signup" ? "password-signin" : "password-signup");
-                    setError("");
-                  }}
-                  className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {authMode === "password-signup"
-                    ? "Already have an account? Sign in"
-                    : "Don't have an account? Sign up"}
-                </button>
-                <button
-                  onClick={() => {
-                    setAuthMode("magic-link");
-                    setError("");
-                  }}
-                  className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
-                >
-                  ← Back to magic link
-                </button>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
-      <p className="text-[11px] text-muted-foreground/50 mt-8 opacity-0 animate-fade-in" style={{ animationDelay: "0.5s" }}>
-        FamilyPlate v0.1.0
-      </p>
+      {/* Features grid */}
+      <section className="py-16">
+        <div className="mx-auto max-w-5xl px-6">
+          <h2 className="text-2xl font-bold tracking-tight text-center mb-3">Everything your family needs</h2>
+          <p className="text-sm text-muted-foreground text-center mb-10 max-w-md mx-auto">
+            Built from scratch for real families with real dietary needs, busy schedules, and picky eaters.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={feature.title} className="border-0 shadow-sm bg-card">
+                  <CardContent className="p-5">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 mb-3">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-semibold mb-1.5">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section className="py-16 bg-muted/30">
+        <div className="mx-auto max-w-5xl px-6 text-center">
+          <h2 className="text-2xl font-bold tracking-tight mb-8">What families are saying</h2>
+          <div className="grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex gap-0.5 mb-3 justify-center">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-accent text-accent" />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground italic mb-3">
+                  &ldquo;Finally an app that actually respects my kid&apos;s peanut allergy. Not just in the recipes &mdash; in the ingredients too.&rdquo;
+                </p>
+                <p className="text-xs font-medium">Sarah M.</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex gap-0.5 mb-3 justify-center">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-accent text-accent" />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground italic mb-3">
+                  &ldquo;I used to throw out half my groceries. Now the app plans around what I already have. Game changer.&rdquo;
+                </p>
+                <p className="text-xs font-medium">Mike T.</p>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-sm">
+              <CardContent className="p-5">
+                <div className="flex gap-0.5 mb-3 justify-center">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star key={i} className="h-4 w-4 fill-accent text-accent" />
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground italic mb-3">
+                  &ldquo;The &lsquo;Tonight&rsquo;s Dinner&rsquo; feature saved us when we forgot to thaw anything. 3 ideas in seconds.&rdquo;
+                </p>
+                <p className="text-xs font-medium">Priya K.</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA + Auth */}
+      <section ref={authRef} className="py-16">
+        <div className="mx-auto max-w-sm px-6">
+          <div className="text-center mb-8">
+            <div className="relative inline-block mb-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
+                <UtensilsCrossed className="h-7 w-7 text-white" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight mb-2">Start planning tonight</h2>
+            <p className="text-sm text-muted-foreground">Free to try. No credit card needed.</p>
+          </div>
+
+          <Card className="border-0 shadow-xl shadow-foreground/5">
+            <CardContent className="p-6">
+              {magicLinkSent ? (
+                <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                    <CheckCircle2 className="h-7 w-7 text-primary" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold mb-1">Check your email</h3>
+                    <p className="text-sm text-muted-foreground max-w-[240px]">
+                      We sent a sign-in link to <strong>{email}</strong>. Click it to get started.
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => { setMagicLinkSent(false); setEmail(""); }} className="text-xs">
+                    Use a different email
+                  </Button>
+                </div>
+              ) : authMode === "magic-link" ? (
+                <>
+                  <form onSubmit={handleMagicLink} className="space-y-4">
+                    {error && (
+                      <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">{error}</div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 rounded-xl" />
+                    </div>
+                    <Button type="submit" className="w-full h-12 text-base rounded-xl gap-2" size="lg" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                      {isSubmitting ? "Sending link..." : "Send Magic Link"}
+                    </Button>
+                  </form>
+                  <div className="relative my-5">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+                  </div>
+                  <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => { setAuthMode("password-signin"); setError(""); }}>
+                    <KeyRound className="h-4 w-4" />
+                    Sign in with password
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <form onSubmit={handlePassword} className="space-y-4">
+                    {error && (
+                      <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">{error}</div>
+                    )}
+                    <div className="space-y-2">
+                      <Label htmlFor="email-pw">Email</Label>
+                      <Input id="email-pw" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input id="password" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="h-12 rounded-xl" />
+                    </div>
+                    <Button type="submit" className="w-full h-12 text-base rounded-xl gap-2" size="lg" disabled={isSubmitting}>
+                      {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                      {isSubmitting
+                        ? authMode === "password-signup" ? "Creating account..." : "Signing in..."
+                        : authMode === "password-signup" ? "Create Account" : "Sign In"}
+                    </Button>
+                  </form>
+                  <div className="flex flex-col gap-2 mt-4">
+                    <button onClick={() => { setAuthMode(authMode === "password-signup" ? "password-signin" : "password-signup"); setError(""); }} className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      {authMode === "password-signup" ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+                    </button>
+                    <button onClick={() => { setAuthMode("magic-link"); setError(""); }} className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors">
+                      ← Back to magic link
+                    </button>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t py-8">
+        <div className="mx-auto max-w-5xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
+              <UtensilsCrossed className="h-3 w-3 text-primary-foreground" />
+            </div>
+            <span className="text-sm font-semibold">FamilyPlate</span>
+          </div>
+          <p className="text-xs text-muted-foreground">&copy; 2026 FamilyPlate. All rights reserved.</p>
+        </div>
+      </footer>
     </div>
   );
 }
