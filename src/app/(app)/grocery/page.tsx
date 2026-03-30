@@ -453,8 +453,14 @@ function EmptyGroceryState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in-up">
-      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5">
-        <ShoppingCart className="h-11 w-11 text-primary" />
+      <div className="relative mb-6">
+        <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5">
+          <ShoppingCart className="h-11 w-11 text-primary" />
+        </div>
+        {/* Floating accent items */}
+        <div className="absolute -top-2 -right-3 text-lg animate-pulse-soft" style={{ animationDelay: "0.2s" }}>🥬</div>
+        <div className="absolute -bottom-1 -left-3 text-lg animate-pulse-soft" style={{ animationDelay: "0.6s" }}>🍎</div>
+        <div className="absolute top-1 -left-5 text-sm animate-pulse-soft" style={{ animationDelay: "1s" }}>🥖</div>
       </div>
       <h3 className="mb-2 text-xl font-semibold tracking-tight">No grocery items yet</h3>
       <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">

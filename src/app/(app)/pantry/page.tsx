@@ -356,10 +356,10 @@ export default function PantryPage() {
                       {/* Location icon */}
                       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
                         item.storageLocation === "freezer"
-                          ? "bg-blue-50 text-blue-500"
+                          ? "bg-blue-500/10 text-blue-500 dark:bg-blue-400/15 dark:text-blue-400"
                           : item.storageLocation === "fridge"
-                            ? "bg-cyan-50 text-cyan-600"
-                            : "bg-amber-50 text-amber-600"
+                            ? "bg-cyan-500/10 text-cyan-600 dark:bg-cyan-400/15 dark:text-cyan-400"
+                            : "bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
                       }`}>
                         <LocationIcon className="h-4.5 w-4.5" />
                       </div>

@@ -84,6 +84,10 @@ export default function TonightPage() {
               <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center animate-pulse-soft">
                 <Sparkles className="h-4 w-4 text-accent" />
               </div>
+              {/* Floating food emojis */}
+              <div className="absolute -bottom-2 -left-4 text-lg animate-pulse-soft" style={{ animationDelay: "0.3s" }}>🍳</div>
+              <div className="absolute top-0 -left-5 text-sm animate-pulse-soft" style={{ animationDelay: "0.8s" }}>🥘</div>
+              <div className="absolute -bottom-1 right-[-18px] text-sm animate-pulse-soft" style={{ animationDelay: "1.2s" }}>🍲</div>
             </div>
             <h3 className="mb-2 text-xl font-semibold tracking-tight">What can I make tonight?</h3>
             <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
