@@ -135,6 +135,9 @@ export default function TonightPage() {
           const isExpanded = expandedIndex === index;
           const pantryCount = suggestion.ingredients.filter(i => i.inPantry).length;
           const totalCount = suggestion.ingredients.length;
+          const matchPct = totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
+          const circumference = 2 * Math.PI * 18;
+          const strokeDashoffset = circumference - (matchPct / 100) * circumference;
 
           return (
             <Card
@@ -156,7 +159,27 @@ export default function TonightPage() {
                         {suggestion.description}
                       </p>
                     </div>
-                    <ChevronDown className={`h-5 w-5 text-muted-foreground/40 shrink-0 mt-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                    {/* Pantry match ring */}
+                    <div className="shrink-0 flex flex-col items-center">
+                      <div className="relative h-11 w-11">
+                        <svg className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
+                          <circle cx="22" cy="22" r="18" fill="none" stroke="hsl(var(--muted))" strokeWidth="3" />
+                          <circle
+                            cx="22" cy="22" r="18" fill="none"
+                            stroke={matchPct === 100 ? "hsl(var(--primary))" : "hsl(var(--accent))"}
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                            className="transition-all duration-700"
+                          />
+                        </svg>
+                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">
+                          {matchPct}%
+                        </span>
+                      </div>
+                      <span className="text-[9px] text-muted-foreground mt-0.5">match</span>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">

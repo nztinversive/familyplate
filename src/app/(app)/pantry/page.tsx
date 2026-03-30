@@ -7,6 +7,7 @@ import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import {
   Camera,
   CalendarClock,
+  ChevronDown,
   Minus,
   Package,
   Pencil,
@@ -159,6 +160,8 @@ export default function PantryPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
 
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
   const filteredItems = useMemo(() => {
     return (pantryItems ?? [])
       .filter((item) => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -171,6 +174,24 @@ export default function PantryPage() {
         return a.name.localeCompare(b.name);
       });
   }, [pantryItems, searchQuery]);
+
+  const groupedItems = useMemo(() => {
+    const groups = new Map<string, typeof filteredItems>();
+    for (const item of filteredItems) {
+      const cat = item.category || "Other";
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push(item);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [filteredItems]);
+
+  const toggleCategory = (cat: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
 
   const openCreateDialog = () => {
     setEditingItem(null);
@@ -296,8 +317,29 @@ export default function PantryPage() {
             onAdd={openCreateDialog}
           />
         ) : (
-          <div className="space-y-2">
-            {filteredItems.map((item, index) => {
+          <div className="space-y-4">
+            {groupedItems.map(([category, items]) => {
+              const isCollapsed = collapsedCategories.has(category);
+              return (
+                <div key={category} className="animate-fade-in">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    className="flex items-center justify-between w-full mb-2 group"
+                  >
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {category}
+                      </p>
+                      <span className="text-[10px] font-medium text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                        {items.length}
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground/50 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`} />
+                  </button>
+                  {!isCollapsed && (
+                    <div className="space-y-2">
+                      {items.map((item, index) => {
               const LocationIcon = STORAGE_ICONS[item.storageLocation] ?? Package;
               const expirationTone = getExpirationTone(item.expirationDate);
               const isExpired = expirationTone === "destructive";
@@ -395,6 +437,11 @@ export default function PantryPage() {
                     </div>
                   </CardContent>
                 </Card>
+              );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

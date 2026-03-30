@@ -54,6 +54,8 @@ export default function SettingsPage() {
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const sendInviteEmail = useAction(api.actions.sendInviteEmail.sendInviteEmail);
 
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberName, setMemberName] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
@@ -209,15 +211,56 @@ export default function SettingsPage() {
                 <CardContent className="p-0">
                   <div className="bg-gradient-to-r from-primary/8 to-transparent p-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-xl font-bold text-primary-foreground shadow-sm">
-                        {currentUser.userName?.[0]?.toUpperCase() || "U"}
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                        className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-sm transition-transform hover:scale-105 active:scale-95"
+                        aria-label="Change avatar"
+                      >
+                        {selectedAvatar ? (
+                          <span className="text-2xl select-none">{selectedAvatar}</span>
+                        ) : (
+                          <span className="text-xl font-bold text-primary-foreground">
+                            {currentUser.userName?.[0]?.toUpperCase() || "U"}
+                          </span>
+                        )}
+                      </button>
                       <div className="min-w-0">
                         <p className="font-semibold text-lg tracking-tight">{profile?.name ?? currentUser.userName}</p>
                         <p className="text-sm text-muted-foreground">{currentUser.email}</p>
                       </div>
                     </div>
                   </div>
+
+                  {showAvatarPicker && (
+                    <div className="px-4 pb-3 animate-fade-in">
+                      <p className="text-xs text-muted-foreground mb-2">Choose your avatar:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {["🍅", "🥑", "🍋", "🥕", "🌽", "🍇", "🍑", "🧄", "🫑", "🍳", "🧁", "🍕"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => { setSelectedAvatar(emoji); setShowAvatarPicker(false); }}
+                            className={`h-10 w-10 rounded-xl flex items-center justify-center text-lg transition-all hover:scale-110 active:scale-95 ${
+                              selectedAvatar === emoji
+                                ? "bg-primary/15 ring-2 ring-primary"
+                                : "bg-muted/50 hover:bg-muted"
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedAvatar(null); setShowAvatarPicker(false); }}
+                          className="h-10 w-10 rounded-xl flex items-center justify-center text-xs font-bold bg-muted/50 hover:bg-muted transition-all text-muted-foreground"
+                          title="Use initial"
+                        >
+                          {currentUser.userName?.[0]?.toUpperCase() || "U"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-3 gap-px bg-border">
                     <div className="bg-card p-3 text-center">

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
-import { Check, ListChecks, Package, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Check, CheckCircle2, ListChecks, Package, PartyPopper, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -165,7 +165,23 @@ export default function GroceryPage() {
       }
     >
       <div className="space-y-4 px-4 py-4 page-transition">
-        {totalCount > 0 && (
+        {totalCount > 0 && checkedCount === totalCount ? (
+          <div className="rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-accent/10 border border-primary/20 p-5 text-center animate-scale-in">
+            <div className="flex justify-center mb-3">
+              <div className="relative">
+                <div className="h-14 w-14 rounded-2xl bg-primary/15 flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-primary" />
+                </div>
+                <div className="absolute -top-1 -right-1 animate-check-bounce">
+                  <PartyPopper className="h-5 w-5 text-accent" />
+                </div>
+              </div>
+            </div>
+            <h3 className="text-base font-semibold tracking-tight mb-1">Shopping done!</h3>
+            <p className="text-xs text-muted-foreground mb-3">All {totalCount} items checked off. Nice work!</p>
+            <p className="text-[11px] text-muted-foreground/70">Tip: Move checked items to your pantry with the &quot;Pantry&quot; button.</p>
+          </div>
+        ) : totalCount > 0 ? (
           <div className="space-y-2 animate-fade-in">
             <div className="h-3 w-full rounded-full bg-muted/60 overflow-hidden">
               <div
@@ -180,7 +196,7 @@ export default function GroceryPage() {
               <p className="text-xs font-semibold text-primary">{progressPct}%</p>
             </div>
           </div>
-        )}
+        ) : null}
 
         {groceryList === undefined ? (
           <div className="space-y-2">

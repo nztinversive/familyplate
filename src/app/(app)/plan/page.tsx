@@ -107,6 +107,44 @@ function getEffortIcon(level: string) {
   return "🔴";
 }
 
+function getRecipeGradient(tags: string[]) {
+  const t = tags.join(" ").toLowerCase();
+  if (t.includes("asian") || t.includes("stir") || t.includes("thai") || t.includes("chinese") || t.includes("japanese"))
+    return "bg-gradient-to-br from-red-400/30 via-orange-300/20 to-yellow-200/30";
+  if (t.includes("italian") || t.includes("pasta") || t.includes("pizza") || t.includes("mediterranean"))
+    return "bg-gradient-to-br from-green-400/25 via-red-300/15 to-yellow-200/25";
+  if (t.includes("mexican") || t.includes("taco") || t.includes("burrito") || t.includes("latin"))
+    return "bg-gradient-to-br from-yellow-400/30 via-red-400/20 to-green-300/25";
+  if (t.includes("indian") || t.includes("curry") || t.includes("spic"))
+    return "bg-gradient-to-br from-orange-400/30 via-yellow-300/20 to-red-300/25";
+  if (t.includes("seafood") || t.includes("fish") || t.includes("shrimp"))
+    return "bg-gradient-to-br from-blue-300/25 via-cyan-200/20 to-teal-200/25";
+  if (t.includes("comfort") || t.includes("soup") || t.includes("stew"))
+    return "bg-gradient-to-br from-amber-300/30 via-orange-200/20 to-yellow-100/25";
+  if (t.includes("salad") || t.includes("healthy") || t.includes("vegetarian") || t.includes("vegan"))
+    return "bg-gradient-to-br from-emerald-300/25 via-green-200/20 to-lime-200/25";
+  if (t.includes("bbq") || t.includes("grill"))
+    return "bg-gradient-to-br from-red-500/25 via-orange-400/20 to-amber-300/25";
+  return "bg-gradient-to-br from-primary/15 via-primary/8 to-accent/10";
+}
+
+function getRecipeEmoji(tags: string[]) {
+  const t = tags.join(" ").toLowerCase();
+  if (t.includes("asian") || t.includes("stir") || t.includes("chinese") || t.includes("japanese")) return "🍜";
+  if (t.includes("italian") || t.includes("pasta")) return "🍝";
+  if (t.includes("pizza")) return "🍕";
+  if (t.includes("mexican") || t.includes("taco")) return "🌮";
+  if (t.includes("indian") || t.includes("curry")) return "🍛";
+  if (t.includes("seafood") || t.includes("fish")) return "🐟";
+  if (t.includes("salad") || t.includes("healthy")) return "🥗";
+  if (t.includes("bbq") || t.includes("grill")) return "🔥";
+  if (t.includes("soup") || t.includes("stew")) return "🍲";
+  if (t.includes("chicken")) return "🍗";
+  if (t.includes("beef") || t.includes("steak")) return "🥩";
+  if (t.includes("breakfast")) return "🍳";
+  return "🍽️";
+}
+
 export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
@@ -802,7 +840,15 @@ export default function PlanPage() {
         <DialogContent className="fixed top-auto bottom-0 left-0 right-0 max-h-[85vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom" style={{ touchAction: "pan-y" }}>
           {selectedRecipe && (
             <>
-              <DialogHeader className="border-b px-5 pb-4 pt-6 sm:px-6">
+              {/* Cuisine gradient hero */}
+              <div className={`h-24 sm:h-28 relative overflow-hidden ${getRecipeGradient(selectedRecipe.tags)}`}>
+                <div className="absolute inset-0 flex items-center justify-center opacity-[0.12]">
+                  <span className="text-7xl sm:text-8xl select-none">{getRecipeEmoji(selectedRecipe.tags)}</span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent" />
+              </div>
+
+              <DialogHeader className="border-b px-5 pb-4 pt-3 sm:px-6 -mt-6 relative">
                 <div className="flex items-start gap-3 pr-8">
                   <div className="min-w-0 flex-1">
                     <DialogTitle className="text-left text-xl tracking-tight">
