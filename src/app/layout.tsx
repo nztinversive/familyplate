@@ -3,6 +3,7 @@ import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { ConvexProvider } from "@/components/providers/ConvexProvider";
 import { ToastProvider } from "@/components/ui/toast";
+import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 const dmSerif = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-display" });
@@ -62,6 +63,7 @@ export default function RootLayout({
       </head>
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
         <ConvexProvider>
+          <OfflineIndicator />
           <ToastProvider>{children}</ToastProvider>
         </ConvexProvider>
       </body>
