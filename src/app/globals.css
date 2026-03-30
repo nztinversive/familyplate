@@ -156,3 +156,105 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ===== LANDING PAGE ===== */
+
+/* Hero gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(152 70% 28%) 50%, hsl(var(--accent)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Hero background with organic grain texture */
+.hero-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, hsl(152 60% 36% / 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, hsl(30 60% 50% / 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 40% at 10% 60%, hsl(152 60% 36% / 0.06) 0%, transparent 50%),
+    hsl(var(--background));
+}
+.dark .hero-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, hsl(152 55% 42% / 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 90% 80%, hsl(30 55% 55% / 0.08) 0%, transparent 50%),
+    hsl(var(--background));
+}
+
+/* Floating dots decoration */
+.hero-dots {
+  background-image: radial-gradient(hsl(var(--primary) / 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Phone mockup frame */
+.phone-frame {
+  border-radius: 32px;
+  border: 6px solid hsl(var(--foreground) / 0.1);
+  box-shadow:
+    0 20px 60px -15px hsl(var(--foreground) / 0.2),
+    0 0 0 1px hsl(var(--foreground) / 0.05),
+    inset 0 0 0 2px hsl(var(--background) / 0.5);
+  overflow: hidden;
+}
+.dark .phone-frame {
+  border-color: hsl(var(--foreground) / 0.15);
+  box-shadow:
+    0 20px 60px -15px hsl(0 0% 0% / 0.5),
+    0 0 0 1px hsl(var(--foreground) / 0.08);
+}
+
+/* Scroll-triggered reveal animation */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Feature card hover */
+.feature-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -12px hsl(var(--primary) / 0.15);
+}
+
+/* Pricing card glow for premium */
+.pricing-glow {
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3), 0 8px 40px -12px hsl(var(--primary) / 0.25);
+}
+
+/* Step connector line */
+.step-connector::after {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: calc(50% + 24px);
+  width: calc(100% - 48px);
+  height: 2px;
+  background: linear-gradient(90deg, hsl(var(--primary) / 0.3), hsl(var(--primary) / 0.1));
+}
+.step-connector:last-child::after {
+  display: none;
+}
+
+/* Testimonial quote styling */
+.testimonial-card {
+  position: relative;
+}
+.testimonial-card::before {
+  content: '\201C';
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  font-size: 3rem;
+  line-height: 1;
+  font-family: Georgia, serif;
+  color: hsl(var(--primary) / 0.15);
+}
