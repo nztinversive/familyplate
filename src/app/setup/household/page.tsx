@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useConvexAuth } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
@@ -32,8 +32,13 @@ export default function HouseholdSetupPage() {
   const createHousehold = useMutation(api.mutations.households.createHousehold);
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
 
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
   if (!authLoading && !isAuthenticated) {
-    router.replace("/");
     return null;
   }
 
