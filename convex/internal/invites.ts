@@ -21,6 +21,10 @@ export const getInviteEmailContext = internalQuery({
       throw new Error("You do not have access to that household.");
     }
 
+    if (viewer.role !== "admin") {
+      throw new Error("Only household admins can send invite emails.");
+    }
+
     const household = await ctx.db.get(args.householdId);
     if (!household) {
       throw new Error("Household not found.");

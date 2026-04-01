@@ -74,6 +74,7 @@ export default function SettingsPage() {
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const profileAllergiesValue = (profile?.allergies ?? []).join(", ");
   const profileDislikesValue = (profile?.dislikes ?? []).join(", ");
+  const canManageMembers = profile?.role === "admin";
 
   useEffect(() => {
     setAllergiesInput(profileAllergiesValue);
@@ -327,12 +328,18 @@ export default function SettingsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowAddMember(true)}
+                      disabled={!canManageMembers}
                       className="gap-1.5 rounded-xl"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
                       Add
                     </Button>
                   </div>
+                  {!canManageMembers && (
+                    <p className="text-xs text-muted-foreground">
+                      Only the household admin can add or invite members.
+                    </p>
+                  )}
                   <div className="space-y-1">
                     {(members ?? []).map((member, index) => (
                       <div key={member._id}>

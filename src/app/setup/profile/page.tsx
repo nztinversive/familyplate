@@ -46,6 +46,8 @@ export default function ProfileSetupPage() {
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const addFamilyMemberMutation = useMutation(api.mutations.profiles.addFamilyMember);
   const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
+  const canManageMembers = myProfile?.role === "admin";
+  const visibleStepMeta = canManageMembers ? STEP_META : STEP_META.slice(0, 2);
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -89,18 +91,21 @@ export default function ProfileSetupPage() {
     setIsLoading(true);
     setError("");
     try {
-      const householdId = (myProfile?.householdId ?? localStorage.getItem("fp_householdId")) as Id<"households"> | null;
-      if (myProfile?._id) {
-        await updateProfile({
-          profileId: myProfile._id,
-          name: name.trim() || undefined,
-          age: age ? parseInt(age) : undefined,
-          dietaryPreferences: selectedDietary.length > 0 ? selectedDietary : undefined,
-          allergies: selectedAllergies.length > 0 ? selectedAllergies : undefined,
-          dislikes: dislikes.length > 0 ? dislikes : undefined,
-        });
+      if (!myProfile?._id) {
+        throw new Error("Profile is still loading. Please try again.");
       }
-      if (householdId && familyMembers.length > 0) {
+
+      const householdId = (myProfile?.householdId ?? localStorage.getItem("fp_householdId")) as Id<"households"> | null;
+      await updateProfile({
+        profileId: myProfile._id,
+        name: name.trim() || undefined,
+        age: age ? parseInt(age) : undefined,
+        dietaryPreferences: selectedDietary.length > 0 ? selectedDietary : undefined,
+        allergies: selectedAllergies.length > 0 ? selectedAllergies : undefined,
+        dislikes: dislikes.length > 0 ? dislikes : undefined,
+      });
+
+      if (canManageMembers && householdId && familyMembers.length > 0) {
         for (const member of familyMembers) {
           await addFamilyMemberMutation({
             householdId, name: member.name, isChild: member.isChild,
@@ -118,6 +123,14 @@ export default function ProfileSetupPage() {
     }
   };
 
+  if (myProfile === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container min-h-screen flex flex-col items-center px-6 py-8 bg-background">
       {/* Header */}
@@ -131,7 +144,7 @@ export default function ProfileSetupPage() {
       <div className="w-full max-w-sm flex-1 flex flex-col">
         {/* Progress stepper */}
         <div className="flex items-center gap-2 mb-8 animate-fade-in">
-          {STEP_META.map((s, i) => {
+          {visibleStepMeta.map((s, i) => {
             const Icon = s.icon;
             const isActive = step >= s.num;
             const isCurrent = step === s.num;
@@ -149,7 +162,7 @@ export default function ProfileSetupPage() {
                 <span className={`text-[11px] font-medium hidden sm:inline transition-colors ${isCurrent ? "text-foreground" : "text-muted-foreground"}`}>
                   {s.label}
                 </span>
-                {i < STEP_META.length - 1 && (
+                {i < visibleStepMeta.length - 1 && (
                   <div className={`h-0.5 flex-1 rounded-full transition-all duration-500 ${isActive && step > s.num ? "bg-primary/40" : "bg-muted"}`} />
                 )}
               </div>
@@ -275,8 +288,12 @@ export default function ProfileSetupPage() {
                     <ArrowLeft className="h-4 w-4" />
                     Back
                   </Button>
-                  <Button className="flex-1 gap-2 rounded-xl" onClick={() => setStep(3)}>
-                    Next
+                  <Button
+                    className="flex-1 gap-2 rounded-xl"
+                    onClick={() => canManageMembers ? setStep(3) : void handleFinish()}
+                    disabled={isLoading}
+                  >
+                    {canManageMembers ? "Next" : isLoading ? "Saving..." : "Finish Setup"}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -286,7 +303,7 @@ export default function ProfileSetupPage() {
         )}
 
         {/* Step 3: Family Members */}
-        {step === 3 && (
+        {canManageMembers && step === 3 && (
           <div className="animate-fade-in-up">
             <div className="text-center mb-6">
               <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent/15 to-accent/5 mb-3">

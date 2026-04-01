@@ -24,6 +24,22 @@ async function getViewerProfile(ctx: MutationCtx) {
   return profile;
 }
 
+function assertHouseholdAdmin(
+  viewer: {
+    householdId: unknown;
+    role: "admin" | "member";
+  },
+  householdId: unknown
+) {
+  if (viewer.householdId !== householdId) {
+    throw new Error("Not a member of this household");
+  }
+
+  if (viewer.role !== "admin") {
+    throw new Error("Only household admins can manage members");
+  }
+}
+
 export const updateProfile = mutation({
   args: {
     profileId: v.id("userProfiles"),
@@ -78,9 +94,7 @@ export const addFamilyMember = mutation({
   },
   handler: async (ctx, args) => {
     const viewer = await getViewerProfile(ctx);
-    if (viewer.householdId !== args.householdId) {
-      throw new Error("Not a member of this household");
-    }
+    assertHouseholdAdmin(viewer, args.householdId);
 
     const normalizedEmail = normalizeEmail(args.email);
     if (args.isChild && normalizedEmail) {
