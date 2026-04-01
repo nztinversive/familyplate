@@ -65,7 +65,7 @@ CRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household mem
 
 For each recipe, list ALL ingredients needed. Mark which ones are already in the pantry (inPantry: true) and which are missing (inPantry: false). Keep missing items to common staples (salt, pepper, oil, water) when possible.
 
-Return exactly 3 suggestions with varied effort levels (one easy, one medium, one harder).`;
+Return exactly 6 suggestions with varied effort levels and cuisines. More options means better filtering.`;
 
     const feedbackNote = feedbackSummary.summary
       ? `\n\nPast meal feedback from the household:\n${feedbackSummary.summary}\n\nUse this feedback to guide your suggestions — lean toward styles similar to favorites.`
@@ -75,7 +75,7 @@ Return exactly 3 suggestions with varied effort levels (one easy, one medium, on
 
 ${pantryList}${allergyNote}${dislikeNote}${feedbackNote}
 
-Suggest 3 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives.`;
+Suggest 6 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives. Vary the cuisines and proteins across all 6 suggestions.`;
 
     const schema = {
       type: "object" as const,
@@ -141,13 +141,19 @@ Suggest 3 dinner recipes I can make tonight using primarily these ingredients. R
         .map((d) => d.toLowerCase().trim())
         .filter(Boolean);
 
-      const safeSuggestions = response.suggestions.slice(0, 3).flatMap((suggestion) => {
-        // Check for dislikes first
+      // Filter ALL suggestions, then take the first 3 safe ones
+      const safeSuggestions: QuickSuggestion[] = [];
+      for (const suggestion of response.suggestions) {
+        if (safeSuggestions.length >= 3) break;
+
+        // Check for dislikes
         const dislikeHits = checkRecipeForDislikes(suggestion.name, suggestion.ingredients, allDislikes);
         if (dislikeHits.length > 0) {
           console.warn(`Dropping quick dinner "${suggestion.name}" — contains dislikes: ${dislikeHits.join(", ")}`);
-          return [];
+          continue;
         }
+
+        // Check for allergens
         try {
           const { ingredients } = filterRecipeIngredientsForHouseholdSafety({
             recipeName: suggestion.name,
@@ -157,30 +163,31 @@ Suggest 3 dinner recipes I can make tonight using primarily these ingredients. R
             contextLabel: "quick dinner suggestion",
           });
 
-          return [
-            {
-              ...suggestion,
-              ingredients,
-              missingItems: Array.from(
-                new Set(
-                  ingredients
-                    .filter((ingredient) => !ingredient.inPantry)
-                    .map((ingredient) => ingredient.name)
-                )
-              ),
-            },
-          ];
+          safeSuggestions.push({
+            ...suggestion,
+            ingredients,
+            missingItems: Array.from(
+              new Set(
+                ingredients
+                  .filter((ingredient) => !ingredient.inPantry)
+                  .map((ingredient) => ingredient.name)
+              )
+            ),
+          });
         } catch (error) {
           console.warn("Dropping invalid quick dinner suggestion", {
             recipeName: suggestion.name,
             error,
           });
-          return [];
         }
-      });
+      }
 
       if (safeSuggestions.length === 0) {
-        throw new Error("Unable to generate any safe dinner suggestions.");
+        throw new Error("Unable to generate any safe dinner suggestions. Please check your allergy and dislike settings.");
+      }
+
+      if (safeSuggestions.length < 3) {
+        console.warn(`Only ${safeSuggestions.length} of 3 suggestions survived safety filtering. AI may be ignoring dietary restrictions.`);
       }
 
       return { suggestions: safeSuggestions };
