@@ -2,8 +2,42 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 
+function requireNonEmptyString(value: string, fieldName: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldName} is required.`);
+  }
+  return trimmed;
+}
+
 function normalizeEmail(email?: string | null) {
   return email?.trim().toLowerCase() ?? "";
+}
+
+function normalizeOptionalString(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function validatePositiveNumber(
+  value: number,
+  fieldName: string,
+  { allowZero = false }: { allowZero?: boolean } = {}
+) {
+  if (!Number.isFinite(value) || (!allowZero && value <= 0) || (allowZero && value < 0)) {
+    throw new Error(`${fieldName} must be greater than ${allowZero ? "or equal to " : ""}zero.`);
+  }
+  return value;
+}
+
+function normalizeStringList(values: string[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 async function getViewerProfile(ctx: MutationCtx) {
@@ -71,11 +105,31 @@ export const updateProfile = mutation({
     }
 
     const cleanUpdates: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        cleanUpdates[key] = value;
-      }
+    if (updates.name !== undefined) {
+      cleanUpdates.name = requireNonEmptyString(updates.name, "Name");
     }
+    if (updates.age !== undefined) {
+      cleanUpdates.age = validatePositiveNumber(updates.age, "Age");
+    }
+    if (updates.weight !== undefined) {
+      cleanUpdates.weight = validatePositiveNumber(updates.weight, "Weight");
+    }
+    if (updates.activityLevel !== undefined) {
+      cleanUpdates.activityLevel = updates.activityLevel;
+    }
+    if (updates.dietaryPreferences !== undefined) {
+      cleanUpdates.dietaryPreferences = normalizeStringList(updates.dietaryPreferences);
+    }
+    if (updates.allergies !== undefined) {
+      cleanUpdates.allergies = normalizeStringList(updates.allergies);
+    }
+    if (updates.dislikes !== undefined) {
+      cleanUpdates.dislikes = normalizeStringList(updates.dislikes);
+    }
+    if (updates.goals !== undefined) {
+      cleanUpdates.goals = normalizeOptionalString(updates.goals);
+    }
+
     await ctx.db.patch(profileId, cleanUpdates);
     return profileId;
   },
@@ -96,7 +150,16 @@ export const addFamilyMember = mutation({
     const viewer = await getViewerProfile(ctx);
     assertHouseholdAdmin(viewer, args.householdId);
 
+    const name = requireNonEmptyString(args.name, "Name");
     const normalizedEmail = normalizeEmail(args.email);
+    const dietaryPreferences = normalizeStringList(args.dietaryPreferences);
+    const allergies = normalizeStringList(args.allergies);
+    const dislikes = normalizeStringList(args.dislikes);
+    const age =
+      args.age !== undefined
+        ? validatePositiveNumber(args.age, "Age")
+        : undefined;
+
     if (args.isChild && normalizedEmail) {
       throw new Error("Child profiles cannot have an invite email.");
     }
@@ -125,16 +188,16 @@ export const addFamilyMember = mutation({
           dislikes: string[];
           age?: number;
         } = {
-          name: args.name,
+          name,
           email: normalizedEmail,
           isChild: args.isChild,
-          dietaryPreferences: args.dietaryPreferences,
-          allergies: args.allergies,
-          dislikes: args.dislikes,
+          dietaryPreferences,
+          allergies,
+          dislikes,
         };
 
-        if (args.age !== undefined) {
-          existingProfileUpdates.age = args.age;
+        if (age !== undefined) {
+          existingProfileUpdates.age = age;
         }
 
         await ctx.db.patch(existingProfile._id, existingProfileUpdates);
@@ -146,14 +209,14 @@ export const addFamilyMember = mutation({
     const profileId = await ctx.db.insert("userProfiles", {
       authId: "", // managed profile, no auth
       householdId: args.householdId,
-      name: args.name,
+      name,
       email: normalizedEmail,
       role: "member",
       isChild: args.isChild,
-      age: args.age,
-      dietaryPreferences: args.dietaryPreferences,
-      allergies: args.allergies,
-      dislikes: args.dislikes,
+      age,
+      dietaryPreferences,
+      allergies,
+      dislikes,
       createdAt: Date.now(),
     });
 
