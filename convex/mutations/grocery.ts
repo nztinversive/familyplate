@@ -15,6 +15,36 @@ function roundQuantity(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function requireNonEmptyString(value: string, fieldName: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldName} is required.`);
+  }
+  return trimmed;
+}
+
+function validateQuantity(quantity: number) {
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Quantity must be greater than zero.");
+  }
+  return roundQuantity(quantity);
+}
+
+function normalizeCustomItem(args: {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+}) {
+  return {
+    name: requireNonEmptyString(args.name, "Name"),
+    quantity: validateQuantity(args.quantity),
+    unit: requireNonEmptyString(args.unit, "Unit"),
+    category: requireNonEmptyString(args.category, "Category"),
+    checked: false,
+  };
+}
+
 function inferCategory(name: string) {
   const normalized = normalizeName(name);
 
@@ -263,15 +293,11 @@ export const addCustomItem = mutation({
       throw new Error("Grocery list not found");
     }
 
+    const newItem = normalizeCustomItem(args);
+
     const items = [
       ...groceryList.items,
-      {
-        name: args.name.trim(),
-        quantity: roundQuantity(args.quantity),
-        unit: args.unit.trim(),
-        category: args.category.trim(),
-        checked: false,
-      },
+      newItem,
     ].sort((a, b) =>
       a.category === b.category
         ? a.name.localeCompare(b.name)
@@ -294,19 +320,12 @@ export const addMyCustomItem = mutation({
     const profile = await getViewerProfile(ctx);
     const householdId = profile.householdId;
     const latestList = await getLatestListForHousehold(ctx, householdId);
+    const newItem = normalizeCustomItem(args);
 
     if (!latestList) {
       const groceryListId = await ctx.db.insert("groceryLists", {
         householdId,
-        items: [
-          {
-            name: args.name.trim(),
-            quantity: roundQuantity(args.quantity),
-            unit: args.unit.trim(),
-            category: args.category.trim(),
-            checked: false,
-          },
-        ],
+        items: [newItem],
         createdAt: Date.now(),
       });
 
@@ -315,13 +334,7 @@ export const addMyCustomItem = mutation({
 
     const items = [
       ...latestList.items,
-      {
-        name: args.name.trim(),
-        quantity: roundQuantity(args.quantity),
-        unit: args.unit.trim(),
-        category: args.category.trim(),
-        checked: false,
-      },
+      newItem,
     ].sort((a, b) =>
       a.category === b.category
         ? a.name.localeCompare(b.name)
