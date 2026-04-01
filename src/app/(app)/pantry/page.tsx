@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Snowflake,
+  ScanLine,
   Trash2,
   Thermometer,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
 import { BarcodeScanner, type BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
+import { SnapGroceries } from "@/components/pantry/SnapGroceries";
 import { QuickAddBar } from "@/components/pantry/QuickAdd";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -144,6 +146,8 @@ export default function PantryPage() {
   const [activeTab, setActiveTab] = useState<"all" | StorageLocation>("all");
   const [showItemDialog, setShowItemDialog] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showSnap, setShowSnap] = useState(false);
+  const [cameraMode, setCameraMode] = useState<"barcode" | "snap">("barcode");
   const [prefillValues, setPrefillValues] = useState<BarcodeScannerResult | undefined>();
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
 
@@ -242,11 +246,20 @@ export default function PantryPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
+                size="sm"
+                onClick={() => setShowSnap(true)}
+                className="gap-1.5"
+              >
+                <Camera className="h-4 w-4" />
+                Snap
+              </Button>
+              <Button
+                variant="outline"
                 size="icon"
                 onClick={() => setShowScanner(true)}
                 aria-label="Scan barcode"
               >
-                <Camera className="h-5 w-5" />
+                <ScanLine className="h-5 w-5" />
               </Button>
               <Button
                 size="icon"
@@ -487,6 +500,32 @@ export default function PantryPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog open={showSnap} onOpenChange={setShowSnap}>
+        <DialogContent className="top-auto bottom-0 left-0 right-0 max-h-[90vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Snap Groceries</DialogTitle>
+            <DialogDescription>Take a photo of groceries to add them</DialogDescription>
+          </DialogHeader>
+          <SnapGroceries
+            onClose={() => setShowSnap(false)}
+            onAdd={async (newItems) => {
+              if (!householdId) return;
+              for (const item of newItems) {
+                await addItem({
+                  householdId,
+                  name: item.name,
+                  quantity: item.quantity,
+                  unit: item.unit,
+                  category: item.category,
+                  storageLocation: "pantry",
+                });
+              }
+              toast(`Added ${newItems.length} item${newItems.length !== 1 ? "s" : ""} from photo!`, "success");
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
