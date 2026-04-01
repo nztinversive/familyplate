@@ -129,6 +129,7 @@ export default defineSchema({
       v.literal("cooked"),
       v.literal("skipped")
     ),
+    pantryDeductedAt: v.optional(v.number()),
   })
     .index("by_mealPlanId", ["mealPlanId"])
     .index("by_mealPlanId_date", ["mealPlanId", "date"]),

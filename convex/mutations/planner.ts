@@ -323,6 +323,7 @@ export const generatePlaceholderPlan = mutation({
         date: formatDate(mealDate),
         mealType: "dinner",
         status: "planned",
+        pantryDeductedAt: undefined,
       });
     }
 
@@ -360,10 +361,18 @@ export const updateMealStatus = mutation({
     }
 
     const previousStatus = meal.status;
-    await ctx.db.patch(args.mealId, { status: args.status });
+    const shouldDeductPantry =
+      args.status === "cooked" &&
+      previousStatus !== "cooked" &&
+      meal.pantryDeductedAt === undefined;
+
+    await ctx.db.patch(args.mealId, {
+      status: args.status,
+      ...(shouldDeductPantry ? { pantryDeductedAt: Date.now() } : {}),
+    });
 
     // Pantry deduction: when marking as "cooked" (from non-cooked), subtract recipe ingredients
-    if (args.status === "cooked" && previousStatus !== "cooked") {
+    if (shouldDeductPantry) {
       const recipe = await ctx.db.get(meal.recipeId);
       if (recipe) {
         const pantryItems = await ctx.db
@@ -427,6 +436,10 @@ export const swapMeal = mutation({
       throw new Error("Meal does not belong to your household");
     }
 
+    if (meal.status === "cooked") {
+      throw new Error("Cooked meals cannot be swapped.");
+    }
+
     const recipe = await ctx.db.get(args.recipeId);
     if (!recipe || recipe.householdId !== householdId) {
       throw new Error("Recipe does not belong to your household");
@@ -435,6 +448,7 @@ export const swapMeal = mutation({
     await ctx.db.patch(args.mealId, {
       recipeId: args.recipeId,
       status: "planned",
+      pantryDeductedAt: undefined,
     });
 
     return args.mealId;
@@ -468,6 +482,10 @@ export const swapMealDates = mutation({
 
     if (!meal || !targetMeal) {
       throw new Error("Meal not found");
+    }
+
+    if (meal.status === "cooked" || targetMeal.status === "cooked") {
+      throw new Error("Cooked meals cannot be moved.");
     }
 
     if (meal.mealPlanId !== targetMeal.mealPlanId) {

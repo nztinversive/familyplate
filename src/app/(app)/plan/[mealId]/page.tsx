@@ -72,6 +72,7 @@ export default function MealDetailPage() {
     (ingredient) => ingredient.inPantry
   ).length;
   const ingredientCount = mealDetail?.recipe?.ingredients.length ?? 0;
+  const canSwapMeal = !!mealDetail && mealDetail.meal.status !== "cooked";
 
   return (
     <AppShell
@@ -165,7 +166,7 @@ export default function MealDetailPage() {
                     size="sm"
                     variant="outline"
                     onClick={() => void handleRefreshAlternatives()}
-                    disabled={isRefreshingAlternatives}
+                    disabled={isRefreshingAlternatives || !canSwapMeal}
                   >
                     <Shuffle className="mr-2 h-4 w-4" />
                     {isRefreshingAlternatives ? "Refreshing..." : "Swap options"}
@@ -231,7 +232,11 @@ export default function MealDetailPage() {
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   Alternative dinners
                 </h2>
-                {mealDetail.alternatives.length === 0 ? (
+                {!canSwapMeal ? (
+                  <p className="text-sm text-muted-foreground">
+                    Cooked meals are locked to preserve your dinner history and pantry usage.
+                  </p>
+                ) : mealDetail.alternatives.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Tap <strong>Swap options</strong> to generate replacement dinner ideas.
                   </p>
@@ -251,7 +256,7 @@ export default function MealDetailPage() {
                           </div>
                           <Button
                             size="sm"
-                            disabled={isApplyingSwap === alternative._id}
+                            disabled={isApplyingSwap === alternative._id || !canSwapMeal}
                             onClick={() => void handleApplyAlternative(alternative._id)}
                           >
                             {isApplyingSwap === alternative._id ? "Applying..." : "Use"}
