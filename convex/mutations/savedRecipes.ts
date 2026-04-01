@@ -27,7 +27,7 @@ export const saveRecipe = mutation({
 
     const existingSaves = await ctx.db
       .query("savedRecipes")
-      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .withIndex("by_savedBy", (q) => q.eq("savedBy", profile._id))
       .collect();
     const existingSave = existingSaves.find((saved) => saved.recipeId === args.recipeId);
 
@@ -64,7 +64,7 @@ export const unsaveRecipe = mutation({
 
     const savedRecipes = await ctx.db
       .query("savedRecipes")
-      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .withIndex("by_savedBy", (q) => q.eq("savedBy", profile._id))
       .collect();
 
     const matchingSaves = savedRecipes.filter((saved) => saved.recipeId === args.recipeId);

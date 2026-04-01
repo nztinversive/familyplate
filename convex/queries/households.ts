@@ -29,9 +29,10 @@ export const getHousehold = query({
 export const getHouseholdByInviteCode = query({
   args: { inviteCode: v.string() },
   handler: async (ctx, args) => {
+    const normalizedInviteCode = args.inviteCode.trim().toUpperCase();
     const household = await ctx.db
       .query("households")
-      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode))
+      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", normalizedInviteCode))
       .unique();
 
     if (!household) {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useParams } from "next/navigation";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import {
@@ -36,13 +37,8 @@ function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
 }
 
-export default function MealDetailPage({
-  params,
-}: {
-  params: {
-    mealId: string;
-  };
-}) {
+export default function MealDetailPage() {
+  const params = useParams<{ mealId: string }>();
   const mealId = params.mealId as Id<"plannedMeals">;
   const mealDetail = useQuery(api.queries.planner.getMealDetail, { mealId });
   const swapAction = useAction(api.actions.swapMeal.swapMeal);

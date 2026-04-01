@@ -15,6 +15,7 @@ import type * as actions_sendInviteEmail from "../actions/sendInviteEmail.js";
 import type * as actions_swapMeal from "../actions/swapMeal.js";
 import type * as auth from "../auth.js";
 import type * as http from "../http.js";
+import type * as internal_invites from "../internal/invites.js";
 import type * as internal_planner from "../internal/planner.js";
 import type * as lib_allergenCheck from "../lib/allergenCheck.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   "actions/swapMeal": typeof actions_swapMeal;
   auth: typeof auth;
   http: typeof http;
+  "internal/invites": typeof internal_invites;
   "internal/planner": typeof internal_planner;
   "lib/allergenCheck": typeof lib_allergenCheck;
   "lib/mealPlanning": typeof lib_mealPlanning;

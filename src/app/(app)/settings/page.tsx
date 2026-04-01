@@ -118,16 +118,12 @@ export default function SettingsPage() {
         dislikes: memberDislikes ? memberDislikes.split(",").map((s) => s.trim()).filter(Boolean) : [],
       });
 
-      if (memberEmail.trim() && !memberIsChild && household?.inviteCode) {
+      if (memberEmail.trim() && !memberIsChild && household?._id) {
         try {
-          const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.onrender.com";
           await sendInviteEmail({
             toEmail: memberEmail.trim(),
             memberName: memberName.trim(),
-            inviterName: profile?.name ?? currentUser.userName ?? "Someone",
-            householdName: household.name,
-            inviteCode: household.inviteCode,
-            appUrl,
+            householdId: household._id,
           });
           setEmailSent(memberEmail.trim());
         } catch (emailErr) {

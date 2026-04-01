@@ -20,7 +20,7 @@ export const getMySavedRecipes = query({
 
     const savedRecipes = await ctx.db
       .query("savedRecipes")
-      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .withIndex("by_savedBy", (q) => q.eq("savedBy", profile._id))
       .collect();
 
     const recipes = await Promise.all(
@@ -30,7 +30,7 @@ export const getMySavedRecipes = query({
           ctx.db.get(savedRecipe.savedBy),
         ]);
 
-        if (!recipe) {
+        if (!recipe || recipe.householdId !== profile.householdId) {
           return null;
         }
 
@@ -66,11 +66,13 @@ export const isRecipeSaved = query({
       return false;
     }
 
-    const savedRecipes = await ctx.db
+    const savedRecipe = await ctx.db
       .query("savedRecipes")
-      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
-      .collect();
+      .withIndex("by_savedBy_recipeId", (q) =>
+        q.eq("savedBy", profile._id).eq("recipeId", args.recipeId)
+      )
+      .first();
 
-    return savedRecipes.some((savedRecipe) => savedRecipe.recipeId === args.recipeId);
+    return savedRecipe !== null;
   },
 });
