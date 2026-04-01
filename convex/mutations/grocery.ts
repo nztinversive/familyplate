@@ -141,7 +141,7 @@ export const generateFromPlan = mutation({
       .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", mealPlan._id))
       .collect();
 
-    const activeMeals = meals.filter((meal) => meal.status !== "skipped");
+    const activeMeals = meals.filter((meal) => meal.status === "planned");
     const recipes = await Promise.all(
       activeMeals.map((meal) => ctx.db.get(meal.recipeId))
     );

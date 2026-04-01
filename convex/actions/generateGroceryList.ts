@@ -62,7 +62,7 @@ export const generateGroceryList: ReturnType<typeof action> = action({
         { name: string; quantity: number; unit: string; category: string }
       >();
 
-      for (const meal of context.meals.filter((meal: { status: string }) => meal.status !== "skipped")) {
+      for (const meal of context.meals.filter((meal: { status: string }) => meal.status === "planned")) {
         for (const ingredient of meal.recipe.ingredients) {
           const key = makeIngredientKey(ingredient.name, ingredient.unit);
           const existing = neededIngredients.get(key);
