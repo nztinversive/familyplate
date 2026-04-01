@@ -14,6 +14,7 @@ export default function JoinHouseholdPage() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
 
   const inviteCode = typeof params.inviteCode === "string" ? params.inviteCode : "";
+  const signInHref = `/?returnTo=${encodeURIComponent(`/join/${encodeURIComponent(inviteCode)}`)}`;
 
   const household = useQuery(
     api.queries.households.getHouseholdByInviteCode,
@@ -129,7 +130,7 @@ export default function JoinHouseholdPage() {
                   <p className="text-sm text-muted-foreground">
                     Sign in or create an account to join this household.
                   </p>
-                  <Button onClick={() => router.push("/")} className="w-full gap-2 rounded-xl" size="lg">
+                  <Button onClick={() => router.push(signInHref)} className="w-full gap-2 rounded-xl" size="lg">
                     Sign In
                     <ArrowRight className="h-4 w-4" />
                   </Button>
