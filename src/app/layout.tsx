@@ -9,7 +9,7 @@ const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 const dmSerif = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://familyplate.onrender.com"),
+  metadataBase: new URL("https://familyplate.co"),
   title: "FamilyPlate",
   description: "Smart family dinner planning & pantry management",
   manifest: "/manifest.json",

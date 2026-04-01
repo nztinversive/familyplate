@@ -120,7 +120,7 @@ export default function SettingsPage() {
 
       if (memberEmail.trim() && !memberIsChild && household?.inviteCode) {
         try {
-          const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.onrender.com";
+          const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.co";
           await sendInviteEmail({
             toEmail: memberEmail.trim(),
             memberName: memberName.trim(),
