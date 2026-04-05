@@ -9,6 +9,7 @@ const FREE_PLAN_LIMIT = 2; // plans per month
 export const handleWebhookEvent = internalMutation({
   args: {
     eventName: v.string(),
+    authId: v.optional(v.string()),
     lsCustomerId: v.string(),
     lsSubscriptionId: v.string(),
     lsVariantId: v.string(),
@@ -17,13 +18,21 @@ export const handleWebhookEvent = internalMutation({
     userEmail: v.string(),
   },
   handler: async (ctx, args) => {
-    // Find the user profile by email or lsCustomerId
-    let profile = args.lsCustomerId
+    // Prefer the authenticated app user passed through Lemon Squeezy custom data.
+    let profile = args.authId
       ? await ctx.db
           .query("userProfiles")
-          .withIndex("by_lsCustomerId", (q) => q.eq("lsCustomerId", args.lsCustomerId))
+          .withIndex("by_authId", (q) => q.eq("authId", args.authId!))
           .first()
       : null;
+
+    // Fallback to an existing Lemon Squeezy customer mapping.
+    if (!profile && args.lsCustomerId) {
+      profile = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_lsCustomerId", (q) => q.eq("lsCustomerId", args.lsCustomerId))
+        .first();
+    }
 
     // Fallback: find by email
     if (!profile && args.userEmail) {
@@ -83,14 +92,23 @@ export const getMySubscription = query({
 
     if (!profile) return { tier: "free" as const, isFamily: false, canGenerate: true, plansUsed: 0, plansLimit: FREE_PLAN_LIMIT };
 
-    const tier = profile.subscriptionTier ?? "free";
-    const isFamily = tier === "family" && (profile.subscriptionStatus === "active" || profile.subscriptionStatus === "on_trial");
+    const householdProfiles = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .collect();
+    const household = await ctx.db.get(profile.householdId);
 
-    // Check monthly plan generation limit for free users
+    const isFamily = householdProfiles.some(
+      (member) =>
+        member.subscriptionTier === "family" &&
+        (member.subscriptionStatus === "active" || member.subscriptionStatus === "on_trial")
+    );
+
+    // Apply free-plan limits at the household level so members share the same quota.
     const now = Date.now();
-    const resetAt = profile.planGenerationsResetAt ?? 0;
+    const resetAt = household?.planGenerationsResetAt ?? 0;
     const monthMs = 30 * 24 * 60 * 60 * 1000;
-    const plansUsed = now - resetAt > monthMs ? 0 : (profile.planGenerationsThisMonth ?? 0);
+    const plansUsed = now - resetAt > monthMs ? 0 : (household?.planGenerationsThisMonth ?? 0);
 
     return {
       tier: isFamily ? "family" as const : "free" as const,
@@ -106,27 +124,24 @@ export const getMySubscription = query({
 });
 
 export const incrementPlanGeneration = internalMutation({
-  args: { authId: v.string() },
+  args: { householdId: v.id("households") },
   handler: async (ctx, args) => {
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
-      .first();
-    if (!profile) return;
+    const household = await ctx.db.get(args.householdId);
+    if (!household) return;
 
     const now = Date.now();
-    const resetAt = profile.planGenerationsResetAt ?? 0;
+    const resetAt = household.planGenerationsResetAt ?? 0;
     const monthMs = 30 * 24 * 60 * 60 * 1000;
 
     if (now - resetAt > monthMs) {
       // Reset counter for new month
-      await ctx.db.patch(profile._id, {
+      await ctx.db.patch(args.householdId, {
         planGenerationsThisMonth: 1,
         planGenerationsResetAt: now,
       });
     } else {
-      await ctx.db.patch(profile._id, {
-        planGenerationsThisMonth: (profile.planGenerationsThisMonth ?? 0) + 1,
+      await ctx.db.patch(args.householdId, {
+        planGenerationsThisMonth: (household.planGenerationsThisMonth ?? 0) + 1,
       });
     }
   },

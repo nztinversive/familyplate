@@ -331,7 +331,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       // Track plan generation for free tier limits
       await ctx.runMutation(
         api.subscriptions.incrementPlanGeneration,
-        { authId: userId as string }
+        { householdId: args.householdId }
       );
 
       return {

@@ -101,10 +101,25 @@ export default function SettingsPage() {
       : subscription.status
         ? subscription.status.replace(/_/g, " ")
         : "active";
+  const buildCheckoutHref = (variantId: string) => {
+    const checkoutUrl = new URL(
+      `https://familyplate.lemonsqueezy.com/buy/${variantId}`
+    );
+
+    if (currentUser?.email) {
+      checkoutUrl.searchParams.set("checkout[email]", currentUser.email);
+    }
+
+    if (currentUser?.authId) {
+      checkoutUrl.searchParams.set("checkout[custom][auth_id]", currentUser.authId);
+    }
+
+    return checkoutUrl.toString();
+  };
   const subscriptionActionHref =
     subscription?.tier === "family"
       ? "https://familyplate.lemonsqueezy.com/billing"
-      : "https://familyplate.lemonsqueezy.com/buy/1485021";
+      : buildCheckoutHref("1485021");
   const subscriptionActionLabel = subscription?.tier === "family" ? "Manage" : "Upgrade";
 
   const resetMemberForm = () => {

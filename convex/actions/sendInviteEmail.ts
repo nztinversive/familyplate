@@ -27,6 +27,10 @@ export const sendInviteEmail = action({
       return { success: false, error: "Email not configured" };
     }
 
+    const fromEmail =
+      process.env.RESEND_FROM_EMAIL?.trim() ||
+      "FamilyPlate <noreply@resend.dev>";
+
     const appUrl = process.env.APP_URL?.trim();
     if (!appUrl) {
       console.error("APP_URL not configured");
@@ -53,7 +57,7 @@ export const sendInviteEmail = action({
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          from: "FamilyPlate <noreply@updates.noahthies.com>",
+          from: fromEmail,
           to: [toEmail],
           subject: `${inviteContext.inviterName} invited you to join ${inviteContext.householdName} on FamilyPlate`,
           html: `

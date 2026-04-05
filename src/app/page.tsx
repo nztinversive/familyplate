@@ -255,6 +255,11 @@ export default function LandingPage() {
     authRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const startSignupFlow = () => {
+    switchPasswordMode("password-signup");
+    scrollToAuth();
+  };
+
   const handleMagicLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
@@ -589,23 +594,11 @@ export default function LandingPage() {
                   <p className="text-xs text-muted-foreground">or $49/year <span className="text-primary font-semibold">(save 32%)</span></p>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button asChild className="w-full rounded-xl shadow-sm">
-                    <a
-                      href="https://familyplate.lemonsqueezy.com/buy/1485021"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Start Family Plan
-                    </a>
+                  <Button className="w-full rounded-xl shadow-sm" onClick={startSignupFlow}>
+                    Create Account to Upgrade
                   </Button>
-                  <Button asChild variant="outline" className="w-full rounded-xl">
-                    <a
-                      href="https://familyplate.lemonsqueezy.com/buy/1485023"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Start Annual Plan
-                    </a>
+                  <Button variant="outline" className="w-full rounded-xl" onClick={startSignupFlow}>
+                    Create Account for Annual
                   </Button>
                   <ul className="space-y-2.5 pt-2">
                     {[

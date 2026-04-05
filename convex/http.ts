@@ -62,6 +62,7 @@ http.route({
 
     await ctx.runMutation(internal.subscriptions.handleWebhookEvent, {
       eventName,
+      authId: typeof customData?.auth_id === "string" ? customData.auth_id : undefined,
       ...subscriptionData,
     });
 

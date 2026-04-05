@@ -9,6 +9,8 @@ export default defineSchema({
     name: v.string(),
     createdBy: v.string(),
     inviteCode: v.string(),
+    planGenerationsThisMonth: v.optional(v.number()),
+    planGenerationsResetAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_inviteCode", ["inviteCode"])
