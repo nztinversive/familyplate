@@ -306,7 +306,6 @@ export default function LandingPage() {
       if (requestedReturnTo) {
         persistPostAuthRedirect(requestedReturnTo);
       } else if (!readStoredPostAuthRedirect()) {
-        // Store a default redirect so the useEffect has it
         persistPostAuthRedirect(
           authMode === "password-signup" ? "/setup/household" : "/plan"
         );
@@ -333,8 +332,7 @@ export default function LandingPage() {
       }
 
       // Don't redirect here — let the useEffect handle it once
-      // isAuthenticated is true and currentUser is loaded. This avoids
-      // racing to a protected page before auth state has settled.
+      // isAuthenticated is true and currentUser is loaded.
       setIsRedirecting(true);
     } catch (err) {
       console.error("Auth failed:", err);
