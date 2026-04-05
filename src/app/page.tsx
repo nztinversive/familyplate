@@ -169,6 +169,7 @@ export default function LandingPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const authRef = useRef<HTMLDivElement>(null);
+  const redirectStartedRef = useRef(false);
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
@@ -200,8 +201,8 @@ export default function LandingPage() {
       isLoading ||
       !isAuthenticated ||
       currentUser === undefined ||
-      isRedirecting ||
-      typeof window === "undefined"
+      typeof window === "undefined" ||
+      redirectStartedRef.current
     ) {
       return;
     }
@@ -213,6 +214,7 @@ export default function LandingPage() {
       currentUser?.postAuthRedirectPath ??
       DEFAULT_POST_AUTH_REDIRECT;
     clearStoredPostAuthRedirect();
+    redirectStartedRef.current = true;
     setIsRedirecting(true);
     window.location.replace(redirectTarget);
   }, [
@@ -220,7 +222,6 @@ export default function LandingPage() {
     hasMounted,
     isAuthenticated,
     isLoading,
-    isRedirecting,
   ]);
 
   const clearPasswordFeedback = () => {
@@ -296,9 +297,7 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      clearStoredPostAuthRedirect();
       setIsRedirecting(true);
-      window.location.href = redirectTarget;
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
