@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthToken } from "@convex-dev/auth/react";
 import { useMutation, useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Home, Users, ArrowRight, ArrowLeft, Copy, Check, UtensilsCrossed, Sparkles } from "lucide-react";
@@ -21,13 +20,11 @@ type Step = "choice" | "create" | "join" | "created";
 
 export default function HouseholdSetupPage() {
   const router = useRouter();
-  const authToken = useAuthToken();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
-  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
   const [step, setStep] = useState<Step>("choice");
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -40,18 +37,14 @@ export default function HouseholdSetupPage() {
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
 
   useEffect(() => {
-    if (authLoading || hasPendingAuthSync) {
-      return;
-    }
+    if (authLoading) return;
 
     if (!isAuthenticated) {
       window.location.replace("/");
       return;
     }
 
-    if (currentUser === undefined) {
-      return;
-    }
+    if (currentUser === undefined) return;
 
     if (
       step === "choice" &&
@@ -59,9 +52,17 @@ export default function HouseholdSetupPage() {
     ) {
       window.location.replace("/plan");
     }
-  }, [authLoading, currentUser, hasPendingAuthSync, isAuthenticated, step]);
+  }, [authLoading, currentUser, isAuthenticated, step]);
 
-  if (!authLoading && !hasPendingAuthSync && !isAuthenticated) {
+  if (authLoading || (isAuthenticated && currentUser === undefined)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -106,7 +107,7 @@ export default function HouseholdSetupPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (authLoading || hasPendingAuthSync || (isAuthenticated && currentUser === undefined)) {
+  if (authLoading || (isAuthenticated && currentUser === undefined)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

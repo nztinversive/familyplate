@@ -1,17 +1,14 @@
 "use client";
 
-import { useAuthToken } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
 import { ReactNode, useEffect } from "react";
 import { api } from "../../../convex/_generated/api";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const authToken = useAuthToken();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
 
   // Check if user has a household (only query when authenticated)
   const currentUser = useQuery(
@@ -29,7 +26,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     redirectPath === "/setup/household" && !isSetupRoute && !isJoinRoute;
 
   useEffect(() => {
-    if (isLoading || hasPendingAuthSync) return;
+    if (isLoading) return;
 
     if (!isAuthenticated) {
       window.location.replace("/");
@@ -48,7 +45,6 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     }
   }, [
     currentUser,
-    hasPendingAuthSync,
     isAuthenticated,
     isJoinRoute,
     isLoading,
@@ -59,7 +55,6 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (
     isLoading ||
-    hasPendingAuthSync ||
     (isAuthenticated && currentUser === undefined) ||
     shouldRedirectToSetup
   ) {

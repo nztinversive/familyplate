@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import {
   UtensilsCrossed,
@@ -98,14 +98,12 @@ function RevealSection({ children, className = "" }: { children: React.ReactNode
 
 export default function LandingPage() {
   const { signIn } = useAuthActions();
-  const authToken = useAuthToken();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const authRef = useRef<HTMLDivElement>(null);
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
-  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
 
   const [hasMounted, setHasMounted] = useState(false);
   const [email, setEmail] = useState("");
@@ -127,7 +125,6 @@ export default function LandingPage() {
     if (
       !hasMounted ||
       isLoading ||
-      hasPendingAuthSync ||
       !isAuthenticated ||
       currentUser === undefined ||
       isRedirecting
@@ -142,7 +139,6 @@ export default function LandingPage() {
   }, [
     currentUser,
     hasMounted,
-    hasPendingAuthSync,
     isAuthenticated,
     isLoading,
     isRedirecting,
@@ -258,7 +254,6 @@ export default function LandingPage() {
   if (
     !hasMounted ||
     isLoading ||
-    hasPendingAuthSync ||
     isRedirecting ||
     isAuthenticated
   ) {
