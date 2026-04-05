@@ -186,7 +186,8 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      // Auth succeeded — useEffect will detect isAuthenticated and redirect
+      // Auth succeeded — force page reload so auth state is fresh
+      window.location.reload();
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
