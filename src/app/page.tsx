@@ -185,7 +185,7 @@ export default function LandingPage() {
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
       setIsRedirecting(true);
-      window.location.href = "/pantry";
+      // useEffect will handle redirect based on profile state
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
