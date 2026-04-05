@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useAuthActions } from "@convex-dev/auth/react";
+import { useAuthActions, useAuthToken } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
 import {
   UtensilsCrossed,
   ArrowRight,
@@ -99,13 +98,14 @@ function RevealSection({ children, className = "" }: { children: React.ReactNode
 
 export default function LandingPage() {
   const { signIn } = useAuthActions();
+  const authToken = useAuthToken();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const router = useRouter();
   const authRef = useRef<HTMLDivElement>(null);
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
+  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
 
   const [hasMounted, setHasMounted] = useState(false);
   const [email, setEmail] = useState("");
@@ -124,13 +124,29 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    if (!hasMounted || isLoading || !isAuthenticated || currentUser === undefined) {
+    if (
+      !hasMounted ||
+      isLoading ||
+      hasPendingAuthSync ||
+      !isAuthenticated ||
+      currentUser === undefined ||
+      isRedirecting
+    ) {
       return;
     }
 
     setIsRedirecting(true);
-    router.replace(currentUser?.postAuthRedirectPath ?? "/setup/household");
-  }, [currentUser, hasMounted, isAuthenticated, isLoading, router]);
+    window.location.replace(
+      currentUser?.postAuthRedirectPath ?? "/setup/household"
+    );
+  }, [
+    currentUser,
+    hasMounted,
+    hasPendingAuthSync,
+    isAuthenticated,
+    isLoading,
+    isRedirecting,
+  ]);
 
   const clearPasswordFeedback = () => {
     setError("");
@@ -191,11 +207,9 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      // Move into the app immediately and let Convex finish syncing auth state.
       setIsRedirecting(true);
-      router.push(
-        authMode === "password-signup" ? "/setup/household" : "/plan"
-      );
+      window.location.href =
+        authMode === "password-signup" ? "/setup/household" : "/plan";
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -241,7 +255,13 @@ export default function LandingPage() {
   };
 
   // Keep the shell hidden until auth settles so logged-in users never see the landing page.
-  if (!hasMounted || isLoading || isRedirecting || isAuthenticated) {
+  if (
+    !hasMounted ||
+    isLoading ||
+    hasPendingAuthSync ||
+    isRedirecting ||
+    isAuthenticated
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

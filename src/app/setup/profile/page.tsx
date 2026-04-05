@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useAuthToken } from "@convex-dev/auth/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { ArrowRight, ArrowLeft, Plus, X, UserPlus, UtensilsCrossed, Heart, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,13 +40,23 @@ const STEP_META = [
 
 export default function ProfileSetupPage() {
   const router = useRouter();
+  const authToken = useAuthToken();
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const addFamilyMemberMutation = useMutation(api.mutations.profiles.addFamilyMember);
-  const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
+  const currentUser = useQuery(
+    api.queries.profiles.getCurrentUser,
+    isAuthenticated ? {} : "skip"
+  );
+  const myProfile = useQuery(
+    api.queries.profiles.getMyProfile,
+    isAuthenticated ? {} : "skip"
+  );
+  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
 
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -53,6 +64,28 @@ export default function ProfileSetupPage() {
     if (myProfile?.name && !name) setName(myProfile.name);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myProfile]);
+
+  useEffect(() => {
+    if (authLoading || hasPendingAuthSync) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      window.location.replace("/");
+      return;
+    }
+
+    if (currentUser === undefined) {
+      return;
+    }
+
+    if (!currentUser?.hasHousehold) {
+      window.location.replace("/setup/household");
+      return;
+    }
+
+  }, [authLoading, currentUser, hasPendingAuthSync, isAuthenticated]);
+
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
   const [dislikeInput, setDislikeInput] = useState("");
@@ -117,6 +150,22 @@ export default function ProfileSetupPage() {
       setIsLoading(false);
     }
   };
+
+  if (!authLoading && !hasPendingAuthSync && !isAuthenticated) {
+    return null;
+  }
+
+  if (
+    authLoading ||
+    hasPendingAuthSync ||
+    (isAuthenticated && (currentUser === undefined || myProfile === undefined))
+  ) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container min-h-screen flex flex-col items-center px-6 py-8 bg-background">
