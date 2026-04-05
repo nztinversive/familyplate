@@ -117,12 +117,14 @@ export default function LandingPage() {
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || currentUser === undefined || isRedirecting) {
+    if (isLoading || !isAuthenticated || currentUser === undefined) {
       return;
     }
 
-    setIsRedirecting(true);
-    window.location.href = currentUser?.profileId ? "/plan" : "/setup/household";
+    if (!isRedirecting) {
+      setIsRedirecting(true);
+      window.location.href = currentUser?.profileId ? "/plan" : "/setup/household";
+    }
   }, [currentUser, isAuthenticated, isLoading, isRedirecting]);
 
   const clearPasswordFeedback = () => {
@@ -184,8 +186,7 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      setIsRedirecting(true);
-      // useEffect will handle redirect based on profile state
+      // Auth succeeded — useEffect will detect isAuthenticated and redirect
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
