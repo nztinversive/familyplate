@@ -297,6 +297,13 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
+      if (authMode === "password-signup") {
+        await signIn("password", {
+          email,
+          password,
+          flow: "signIn",
+        });
+      }
       clearStoredPostAuthRedirect();
       redirectStartedRef.current = true;
       setIsRedirecting(true);
