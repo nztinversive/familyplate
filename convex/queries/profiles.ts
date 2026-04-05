@@ -23,23 +23,26 @@ export const getCurrentUser = query({
     }
 
     const user = await ctx.db.get(userId);
-    if (user === null) {
-      return null;
-    }
-
     const authId = userId as string;
     const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_authId", (q) => q.eq("authId", authId))
       .first();
+    const hasProfile = profile !== null;
+    const hasHousehold = profile?.householdId !== undefined;
+    const needsOnboarding = !hasProfile || !hasHousehold;
 
     return {
       userId,
       authId,
-      email: user.email ?? "",
-      userName: user.name ?? user.email?.split("@")[0] ?? "User",
+      email: user?.email ?? "",
+      userName: user?.name ?? user?.email?.split("@")[0] ?? "User",
       householdId: profile?.householdId ?? null,
       profileId: profile?._id ?? null,
+      hasProfile,
+      hasHousehold,
+      needsOnboarding,
+      postAuthRedirectPath: needsOnboarding ? "/setup/household" : "/plan",
     };
   },
 });

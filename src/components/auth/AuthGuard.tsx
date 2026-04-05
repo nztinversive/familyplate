@@ -18,6 +18,12 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   const isSetupRoute = pathname?.startsWith("/setup");
   const isJoinRoute = pathname?.startsWith("/join");
+  const redirectPath =
+    currentUser === undefined
+      ? undefined
+      : currentUser?.postAuthRedirectPath ?? "/setup/household";
+  const shouldRedirectToSetup =
+    redirectPath === "/setup/household" && !isSetupRoute && !isJoinRoute;
 
   useEffect(() => {
     if (isLoading) return;
@@ -33,26 +39,21 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     // Skip redirects for join routes (invite flow handles its own setup)
     if (isJoinRoute) return;
 
-    // An authenticated session without a profile must finish setup first.
-    if (currentUser === null && !isSetupRoute) {
-      router.replace("/setup/household");
+    if (redirectPath === "/setup/household" && !isSetupRoute) {
+      router.replace(redirectPath);
       return;
     }
+  }, [
+    currentUser,
+    isAuthenticated,
+    isJoinRoute,
+    isLoading,
+    isSetupRoute,
+    redirectPath,
+    router,
+  ]);
 
-    // If user has no household and isn't already on setup, redirect to setup
-    if (!currentUser?.householdId && !isSetupRoute) {
-      router.replace("/setup/household");
-      return;
-    }
-
-    // If user has no profile at all and isn't on setup, redirect to setup
-    if (!currentUser?.profileId && !isSetupRoute) {
-      router.replace("/setup/household");
-      return;
-    }
-  }, [isAuthenticated, isLoading, currentUser, isSetupRoute, isJoinRoute, router]);
-
-  if (isLoading || (isAuthenticated && currentUser === undefined)) {
+  if (isLoading || (isAuthenticated && currentUser === undefined) || shouldRedirectToSetup) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />

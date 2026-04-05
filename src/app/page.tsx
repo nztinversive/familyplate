@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
+import { useRouter } from "next/navigation";
 import {
   UtensilsCrossed,
   ArrowRight,
@@ -99,12 +100,14 @@ function RevealSection({ children, className = "" }: { children: React.ReactNode
 export default function LandingPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const router = useRouter();
   const authRef = useRef<HTMLDivElement>(null);
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
 
+  const [hasMounted, setHasMounted] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<AuthMode>("magic-link");
@@ -117,15 +120,17 @@ export default function LandingPage() {
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || currentUser === undefined) {
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMounted || isLoading || !isAuthenticated || currentUser === undefined) {
       return;
     }
 
-    if (!isRedirecting) {
-      setIsRedirecting(true);
-      window.location.href = currentUser?.profileId ? "/plan" : "/setup/household";
-    }
-  }, [currentUser, isAuthenticated, isLoading, isRedirecting]);
+    setIsRedirecting(true);
+    router.replace(currentUser?.postAuthRedirectPath ?? "/setup/household");
+  }, [currentUser, hasMounted, isAuthenticated, isLoading, router]);
 
   const clearPasswordFeedback = () => {
     setError("");
@@ -186,8 +191,11 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      // Auth succeeded — force page reload so auth state is fresh
-      window.location.reload();
+      // Move into the app immediately and let Convex finish syncing auth state.
+      setIsRedirecting(true);
+      router.push(
+        authMode === "password-signup" ? "/setup/household" : "/plan"
+      );
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -232,17 +240,8 @@ export default function LandingPage() {
     }
   };
 
-  // Show spinner while auth state is resolving or redirect is in progress
-  if (isLoading || isRedirecting || (isAuthenticated && currentUser === undefined)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  // Already authenticated — redirect is handled by useEffect above
-  if (isAuthenticated) {
+  // Keep the shell hidden until auth settles so logged-in users never see the landing page.
+  if (!hasMounted || isLoading || isRedirecting || isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
