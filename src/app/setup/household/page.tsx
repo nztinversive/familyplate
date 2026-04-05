@@ -36,35 +36,16 @@ export default function HouseholdSetupPage() {
   const createHousehold = useMutation(api.mutations.households.createHousehold);
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
 
+  // If user already completed setup, redirect to plan
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      window.location.replace("/");
-      return;
-    }
-
     if (currentUser === undefined) return;
-
     if (
       step === "choice" &&
       currentUser?.postAuthRedirectPath === "/plan"
     ) {
       window.location.replace("/plan");
     }
-  }, [authLoading, currentUser, isAuthenticated, step]);
-
-  if (authLoading || (isAuthenticated && currentUser === undefined)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
+  }, [currentUser, step]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
