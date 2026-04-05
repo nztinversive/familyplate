@@ -300,20 +300,27 @@ export default function LandingPage() {
     setIsSubmitting(true);
     clearPasswordFeedback();
     try {
+      // Persist the intended redirect so the useEffect picks it up once
+      // isAuthenticated flips to true and currentUser loads.
       const requestedReturnTo = readRequestedReturnToFromWindow();
-      const redirectTarget =
-        requestedReturnTo ??
-        readStoredPostAuthRedirect() ??
-        (authMode === "password-signup" ? "/setup/household" : "/plan");
+      if (requestedReturnTo) {
+        persistPostAuthRedirect(requestedReturnTo);
+      } else if (!readStoredPostAuthRedirect()) {
+        // Store a default redirect so the useEffect has it
+        persistPostAuthRedirect(
+          authMode === "password-signup" ? "/setup/household" : "/plan"
+        );
+      }
+
       await signIn("password", {
         email,
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
+
       if (authMode === "password-signup") {
-        // Auto-sign-in after signup. If this fails (e.g. connection reset
-        // during auth state transition), it's non-fatal — the signup
-        // succeeded and the useEffect redirect will handle the rest.
+        // Auto-sign-in after signup. Non-fatal if it fails — the auth
+        // state will settle and the useEffect redirect handles the rest.
         try {
           await signIn("password", {
             email,
@@ -321,26 +328,22 @@ export default function LandingPage() {
             flow: "signIn",
           });
         } catch {
-          // Swallow — signup succeeded, redirect below or useEffect will handle it
+          // Swallow — signup succeeded, useEffect will redirect once auth settles
         }
       }
-      clearStoredPostAuthRedirect();
-      redirectStartedRef.current = true;
+
+      // Don't redirect here — let the useEffect handle it once
+      // isAuthenticated is true and currentUser is loaded. This avoids
+      // racing to a protected page before auth state has settled.
       setIsRedirecting(true);
-      router.replace(redirectTarget);
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
       if (isLikelyAuthTransitionError(message)) {
-        const fallbackRedirectTarget =
-          readRequestedReturnToFromWindow() ??
-          readStoredPostAuthRedirect() ??
-          (authMode === "password-signup" ? "/setup/household" : "/plan");
-        clearStoredPostAuthRedirect();
-        redirectStartedRef.current = true;
+        // Auth likely succeeded but the connection reset — show spinner
+        // and let the useEffect redirect once auth settles.
         setIsRedirecting(true);
-        router.replace(fallbackRedirectTarget);
         return;
       }
       const hasInvalidCredentials =
