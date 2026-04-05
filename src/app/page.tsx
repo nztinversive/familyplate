@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import {
@@ -177,6 +178,7 @@ function RevealSection({ children, className = "" }: { children: React.ReactNode
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const authRef = useRef<HTMLDivElement>(null);
@@ -227,7 +229,7 @@ export default function LandingPage() {
     clearStoredPostAuthRedirect();
     redirectStartedRef.current = true;
     setIsRedirecting(true);
-    window.location.replace(redirectTarget);
+    router.replace(redirectTarget);
   }, [
     currentUser,
     hasMounted,
@@ -325,7 +327,7 @@ export default function LandingPage() {
       clearStoredPostAuthRedirect();
       redirectStartedRef.current = true;
       setIsRedirecting(true);
-      window.location.replace(redirectTarget);
+      router.replace(redirectTarget);
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -338,7 +340,7 @@ export default function LandingPage() {
         clearStoredPostAuthRedirect();
         redirectStartedRef.current = true;
         setIsRedirecting(true);
-        window.location.replace(fallbackRedirectTarget);
+        router.replace(fallbackRedirectTarget);
         return;
       }
       const hasInvalidCredentials =
