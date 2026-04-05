@@ -75,6 +75,7 @@ export default function SettingsPage() {
   const [preferencesSaved, setPreferencesSaved] = useState(false);
   const profileAllergiesValue = (profile?.allergies ?? []).join(", ");
   const profileDislikesValue = (profile?.dislikes ?? []).join(", ");
+  const canManageMembers = profile?.role === "admin";
 
   useEffect(() => {
     setAllergiesInput(profileAllergiesValue);
@@ -132,16 +133,12 @@ export default function SettingsPage() {
         dislikes: memberDislikes ? memberDislikes.split(",").map((s) => s.trim()).filter(Boolean) : [],
       });
 
-      if (memberEmail.trim() && !memberIsChild && household?.inviteCode) {
+      if (memberEmail.trim() && !memberIsChild && household?._id) {
         try {
-          const appUrl = typeof window !== "undefined" ? window.location.origin : "https://familyplate.co";
           await sendInviteEmail({
             toEmail: memberEmail.trim(),
             memberName: memberName.trim(),
-            inviterName: profile?.name ?? currentUser.userName ?? "Someone",
-            householdName: household.name,
-            inviteCode: household.inviteCode,
-            appUrl,
+            householdId: household._id,
           });
           setEmailSent(memberEmail.trim());
         } catch (emailErr) {
@@ -345,12 +342,18 @@ export default function SettingsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowAddMember(true)}
+                      disabled={!canManageMembers}
                       className="gap-1.5 rounded-xl"
                     >
                       <UserPlus className="h-3.5 w-3.5" />
                       Add
                     </Button>
                   </div>
+                  {!canManageMembers && (
+                    <p className="text-xs text-muted-foreground">
+                      Only the household admin can add or invite members.
+                    </p>
+                  )}
                   <div className="space-y-1">
                     {(members ?? []).map((member, index) => (
                       <div key={member._id}>

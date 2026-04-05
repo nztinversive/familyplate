@@ -2,6 +2,38 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 
+function requireNonEmptyString(value: string, fieldName: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(`${fieldName} is required.`);
+  }
+  return trimmed;
+}
+
+function validateQuantity(quantity: number) {
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error("Quantity must be greater than zero.");
+  }
+  return quantity;
+}
+
+function normalizeOptionalString(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function validateOptionalTimestamp(value?: number) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Number.isFinite(value)) {
+    throw new Error("Expiration date is invalid.");
+  }
+
+  return value;
+}
+
 async function getViewerProfile(ctx: MutationCtx) {
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new Error("Not authenticated");
@@ -38,15 +70,22 @@ export const addItem = mutation({
       throw new Error("Not a member of this household");
     }
 
+    const name = requireNonEmptyString(args.name, "Name");
+    const quantity = validateQuantity(args.quantity);
+    const unit = requireNonEmptyString(args.unit, "Unit");
+    const category = requireNonEmptyString(args.category, "Category");
+    const expirationDate = validateOptionalTimestamp(args.expirationDate);
+    const barcode = normalizeOptionalString(args.barcode);
+
     return await ctx.db.insert("pantryItems", {
       householdId: args.householdId,
-      name: args.name,
-      quantity: args.quantity,
-      unit: args.unit,
-      category: args.category,
+      name,
+      quantity,
+      unit,
+      category,
       storageLocation: args.storageLocation,
-      expirationDate: args.expirationDate,
-      barcode: args.barcode,
+      expirationDate,
+      barcode,
       addedBy: profile._id,
       addedAt: Date.now(),
     });
@@ -82,18 +121,28 @@ export const updateItem = mutation({
 
     const updatedItem: typeof item = {
       ...item,
-      ...(args.name !== undefined ? { name: args.name } : {}),
-      ...(args.quantity !== undefined ? { quantity: args.quantity } : {}),
-      ...(args.unit !== undefined ? { unit: args.unit } : {}),
-      ...(args.category !== undefined ? { category: args.category } : {}),
+      ...(args.name !== undefined
+        ? { name: requireNonEmptyString(args.name, "Name") }
+        : {}),
+      ...(args.quantity !== undefined
+        ? { quantity: validateQuantity(args.quantity) }
+        : {}),
+      ...(args.unit !== undefined
+        ? { unit: requireNonEmptyString(args.unit, "Unit") }
+        : {}),
+      ...(args.category !== undefined
+        ? { category: requireNonEmptyString(args.category, "Category") }
+        : {}),
       ...(args.storageLocation !== undefined
         ? { storageLocation: args.storageLocation }
         : {}),
-      ...(args.barcode !== undefined ? { barcode: args.barcode } : {}),
+      ...(args.barcode !== undefined
+        ? { barcode: normalizeOptionalString(args.barcode) }
+        : {}),
     };
 
     if (args.expirationDate !== undefined) {
-      updatedItem.expirationDate = args.expirationDate;
+      updatedItem.expirationDate = validateOptionalTimestamp(args.expirationDate);
     } else if (args.clearExpirationDate) {
       delete updatedItem.expirationDate;
     }

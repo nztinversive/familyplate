@@ -35,6 +35,9 @@ import { Label } from "@/components/ui/label";
 import { api } from "../../convex/_generated/api";
 
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
+const POST_AUTH_REDIRECT_KEY = "fp_post_auth_redirect";
+const POST_AUTH_REDIRECT_MAX_AGE_MS = 30 * 60 * 1000;
+const DEFAULT_POST_AUTH_REDIRECT = "/pantry";
 
 const FEATURES = [
   {
@@ -75,6 +78,72 @@ const HOW_IT_WORKS = [
   { step: "3", title: "Generate Your Plan", description: "7 personalized dinners in seconds.", icon: Sparkles },
   { step: "4", title: "Cook & Rate", description: "Mark meals cooked. Rate them. The AI learns.", icon: Star },
 ];
+
+function sanitizeReturnTo(path: string | null | undefined) {
+  if (!path || !path.startsWith("/") || path.startsWith("//")) {
+    return null;
+  }
+  return path;
+}
+
+function persistPostAuthRedirect(path: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const safePath = sanitizeReturnTo(path);
+  if (!safePath) {
+    window.localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(
+    POST_AUTH_REDIRECT_KEY,
+    JSON.stringify({
+      path: safePath,
+      createdAt: Date.now(),
+    })
+  );
+}
+
+function readStoredPostAuthRedirect() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const raw = window.localStorage.getItem(POST_AUTH_REDIRECT_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as { path?: string; createdAt?: number };
+    const safePath = sanitizeReturnTo(parsed.path ?? null);
+    const createdAt = typeof parsed.createdAt === "number" ? parsed.createdAt : 0;
+    if (!safePath || Date.now() - createdAt > POST_AUTH_REDIRECT_MAX_AGE_MS) {
+      window.localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+      return null;
+    }
+    return safePath;
+  } catch {
+    window.localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    return null;
+  }
+}
+
+function clearStoredPostAuthRedirect() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+}
+
+function readRequestedReturnToFromWindow() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return sanitizeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
+}
 
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -119,6 +188,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     setHasMounted(true);
+    const requestedReturnTo = readRequestedReturnToFromWindow();
+    if (requestedReturnTo) {
+      persistPostAuthRedirect(requestedReturnTo);
+    }
   }, []);
 
   useEffect(() => {
@@ -127,15 +200,21 @@ export default function LandingPage() {
       isLoading ||
       !isAuthenticated ||
       currentUser === undefined ||
-      isRedirecting
+      isRedirecting ||
+      typeof window === "undefined"
     ) {
       return;
     }
 
+    const requestedReturnTo = readRequestedReturnToFromWindow();
+    const redirectTarget =
+      requestedReturnTo ??
+      readStoredPostAuthRedirect() ??
+      currentUser?.postAuthRedirectPath ??
+      DEFAULT_POST_AUTH_REDIRECT;
+    clearStoredPostAuthRedirect();
     setIsRedirecting(true);
-    window.location.replace(
-      currentUser?.postAuthRedirectPath ?? "/setup/household"
-    );
+    window.location.replace(redirectTarget);
   }, [
     currentUser,
     hasMounted,
@@ -182,6 +261,10 @@ export default function LandingPage() {
     setIsSubmitting(true);
     setError("");
     try {
+      const requestedReturnTo = readRequestedReturnToFromWindow();
+      if (requestedReturnTo) {
+        persistPostAuthRedirect(requestedReturnTo);
+      }
       await signIn("resend", { email });
       setMagicLinkSent(true);
     } catch (err) {
@@ -198,14 +281,19 @@ export default function LandingPage() {
     setIsSubmitting(true);
     clearPasswordFeedback();
     try {
+      const requestedReturnTo = readRequestedReturnToFromWindow();
+      const redirectTarget =
+        requestedReturnTo ??
+        readStoredPostAuthRedirect() ??
+        (authMode === "password-signup" ? "/setup/household" : "/plan");
       await signIn("password", {
         email,
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
+      clearStoredPostAuthRedirect();
       setIsRedirecting(true);
-      window.location.href =
-        authMode === "password-signup" ? "/setup/household" : "/plan";
+      window.location.href = redirectTarget;
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);

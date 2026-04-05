@@ -110,7 +110,9 @@ export default defineSchema({
     savedAt: v.number(),
   })
     .index("by_householdId", ["householdId"])
-    .index("by_recipeId", ["recipeId"]),
+    .index("by_recipeId", ["recipeId"])
+    .index("by_savedBy", ["savedBy"])
+    .index("by_savedBy_recipeId", ["savedBy", "recipeId"]),
 
   weeklyMealPlans: defineTable({
     householdId: v.id("households"),
@@ -136,6 +138,7 @@ export default defineSchema({
       v.literal("cooked"),
       v.literal("skipped")
     ),
+    pantryDeductedAt: v.optional(v.number()),
   })
     .index("by_mealPlanId", ["mealPlanId"])
     .index("by_mealPlanId_date", ["mealPlanId", "date"]),

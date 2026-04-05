@@ -14,6 +14,10 @@ export const submitFeedback = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Must be signed in.");
 
+    if (!Number.isInteger(args.rating) || args.rating < 1 || args.rating > 5) {
+      throw new Error("Rating must be a whole number between 1 and 5.");
+    }
+
     const profile = await ctx.db
       .query("userProfiles")
       .withIndex("by_authId", (q) => q.eq("authId", userId as string))

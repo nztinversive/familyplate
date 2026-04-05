@@ -575,7 +575,14 @@ export default function PlanPage() {
                   const isBusy = busyMealId === meal._id;
                   const isSwapOpen = swappingMealId === meal._id;
                   const isMoveSource = movingMealId === meal._id;
-                  const isMoveTarget = movingMealId !== null && movingMealId !== meal._id;
+                  const canMoveMeal =
+                    meal.status !== "cooked" && displayPlan.meals.length > 1;
+                  const isMoveTarget =
+                    movingMealId !== null &&
+                    movingMealId !== meal._id &&
+                    meal.status !== "cooked";
+                  const canSwapMeal =
+                    meal.status !== "cooked" && swapOptions.length > 0;
                   const StatusIcon = STATUS_ICONS[meal.status] ?? CalendarDays;
 
                   return (
@@ -596,7 +603,15 @@ export default function PlanPage() {
                         <button
                           type="button"
                           className="w-full p-4 pb-3 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-lg"
-                          onClick={() => movingMealId ? void handleMoveMealSelect(meal._id) : openRecipeDialog(meal.recipe)}
+                          onClick={() => {
+                            if (movingMealId) {
+                              if (meal.status !== "cooked") {
+                                void handleMoveMealSelect(meal._id);
+                              }
+                              return;
+                            }
+                            openRecipeDialog(meal.recipe);
+                          }}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1 space-y-1">
@@ -659,7 +674,7 @@ export default function PlanPage() {
                               );
                             })}
                           </div>
-                          {displayPlan.meals.length > 1 && (
+                          {canMoveMeal && (
                             <button
                               type="button"
                               onClick={() => {
@@ -673,7 +688,7 @@ export default function PlanPage() {
                               <ArrowLeftRight className="h-3 w-3" />
                             </button>
                           )}
-                          {swapOptions.length > 0 && (
+                          {canSwapMeal && (
                             <button
                               onClick={() => {
                                 setMovingMealId(null);
@@ -687,7 +702,7 @@ export default function PlanPage() {
                         </div>
 
                         {/* Swap panel */}
-                        {isSwapOpen && swapOptions.length > 0 && (
+                        {isSwapOpen && canSwapMeal && (
                           <div className="border-t bg-muted/20 px-3 py-3 animate-fade-in">
                             <p className="text-xs font-medium text-muted-foreground mb-2">Swap with:</p>
                             <div className="grid gap-1.5">

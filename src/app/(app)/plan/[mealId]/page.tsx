@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { useParams } from "next/navigation";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import {
@@ -36,13 +37,8 @@ function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
 }
 
-export default function MealDetailPage({
-  params,
-}: {
-  params: {
-    mealId: string;
-  };
-}) {
+export default function MealDetailPage() {
+  const params = useParams<{ mealId: string }>();
   const mealId = params.mealId as Id<"plannedMeals">;
   const mealDetail = useQuery(api.queries.planner.getMealDetail, { mealId });
   const swapAction = useAction(api.actions.swapMeal.swapMeal);
@@ -76,6 +72,7 @@ export default function MealDetailPage({
     (ingredient) => ingredient.inPantry
   ).length;
   const ingredientCount = mealDetail?.recipe?.ingredients.length ?? 0;
+  const canSwapMeal = !!mealDetail && mealDetail.meal.status !== "cooked";
 
   return (
     <AppShell
@@ -169,7 +166,7 @@ export default function MealDetailPage({
                     size="sm"
                     variant="outline"
                     onClick={() => void handleRefreshAlternatives()}
-                    disabled={isRefreshingAlternatives}
+                    disabled={isRefreshingAlternatives || !canSwapMeal}
                   >
                     <Shuffle className="mr-2 h-4 w-4" />
                     {isRefreshingAlternatives ? "Refreshing..." : "Swap options"}
@@ -235,7 +232,11 @@ export default function MealDetailPage({
                 <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
                   Alternative dinners
                 </h2>
-                {mealDetail.alternatives.length === 0 ? (
+                {!canSwapMeal ? (
+                  <p className="text-sm text-muted-foreground">
+                    Cooked meals are locked to preserve your dinner history and pantry usage.
+                  </p>
+                ) : mealDetail.alternatives.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Tap <strong>Swap options</strong> to generate replacement dinner ideas.
                   </p>
@@ -255,7 +256,7 @@ export default function MealDetailPage({
                           </div>
                           <Button
                             size="sm"
-                            disabled={isApplyingSwap === alternative._id}
+                            disabled={isApplyingSwap === alternative._id || !canSwapMeal}
                             onClick={() => void handleApplyAlternative(alternative._id)}
                           >
                             {isApplyingSwap === alternative._id ? "Applying..." : "Use"}

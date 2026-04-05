@@ -297,6 +297,7 @@ export const saveGeneratedMealPlan = internalMutation({
         date: meal.date,
         mealType: "dinner",
         status: "planned",
+        pantryDeductedAt: undefined,
       });
     }
 

@@ -301,12 +301,11 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           }
         }
 
-        // If ALL candidates have dislike violations, use the first one but warn
+        // Refuse to generate a meal slot that still violates household dislikes.
         if (primaryIndex === -1) {
-          console.warn(
-            `All candidates for ${weekDates[index]} contain dislikes — AI failed to respect dislike preferences. Using first candidate.`
+          throw new Error(
+            `AI generated only dislike-violating recipes for ${weekDates[index]}.`
           );
-          primaryIndex = 0;
         }
 
         // Build final primary + alternatives (move chosen candidate to primary slot)
