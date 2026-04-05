@@ -112,6 +112,8 @@ export default function LandingPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [resetLinkSent, setResetLinkSent] = useState(false);
   const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
 
   useEffect(() => {
@@ -125,16 +127,29 @@ export default function LandingPage() {
 
   const clearPasswordFeedback = () => {
     setError("");
+    setResetLinkSent(false);
     setShowCreateAccountPrompt(false);
   };
 
   const switchPasswordMode = (mode: Extract<AuthMode, "password-signin" | "password-signup">) => {
     setAuthMode(mode);
+    setForgotPassword(false);
     clearPasswordFeedback();
   };
 
   const switchToMagicLink = () => {
     setAuthMode("magic-link");
+    setForgotPassword(false);
+    clearPasswordFeedback();
+  };
+
+  const openForgotPassword = () => {
+    setForgotPassword(true);
+    clearPasswordFeedback();
+  };
+
+  const closeForgotPassword = () => {
+    setForgotPassword(false);
     clearPasswordFeedback();
   };
 
@@ -191,6 +206,25 @@ export default function LandingPage() {
             : "Could not sign in. Please try again.");
         }
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setIsSubmitting(true);
+    clearPasswordFeedback();
+    try {
+      await signIn("password", {
+        email,
+        flow: "reset",
+      });
+      setResetLinkSent(true);
+    } catch (err) {
+      console.error("Password reset failed:", err);
+      setError("Unable to send reset link. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -636,6 +670,54 @@ export default function LandingPage() {
                       Sign in with password
                     </Button>
                   </>
+                ) : forgotPassword ? (
+                  <>
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      {error && (
+                        <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">{error}</div>
+                      )}
+                      {resetLinkSent && (
+                        <div className="p-3 rounded-xl bg-primary/10 text-sm text-primary animate-scale-in">
+                          Check your email for a reset link
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label htmlFor="email-reset">Email</Label>
+                        <Input
+                          id="email-reset"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            clearPasswordFeedback();
+                          }}
+                          required
+                          className="h-12 rounded-xl"
+                        />
+                      </div>
+                      <Button type="submit" className="w-full h-12 text-base rounded-xl gap-2 shadow-sm" size="lg" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                        {isSubmitting ? "Sending reset link..." : "Send Reset Link"}
+                      </Button>
+                    </form>
+                    <div className="flex flex-col gap-2 mt-4">
+                      <button
+                        type="button"
+                        onClick={closeForgotPassword}
+                        className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Back to sign in
+                      </button>
+                      <button
+                        type="button"
+                        onClick={switchToMagicLink}
+                        className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+                      >
+                        Back to magic link
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <>
                     <form onSubmit={handlePassword} className="space-y-4">
@@ -673,6 +755,15 @@ export default function LandingPage() {
                           className="h-12 rounded-xl"
                         />
                       </div>
+                      {authMode === "password-signin" && (
+                        <button
+                          type="button"
+                          onClick={openForgotPassword}
+                          className="block text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Forgot password?
+                        </button>
+                      )}
                       <Button type="submit" className="w-full h-12 text-base rounded-xl gap-2 shadow-sm" size="lg" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                         {isSubmitting
