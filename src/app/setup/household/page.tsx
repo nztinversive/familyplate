@@ -47,6 +47,15 @@ export default function HouseholdSetupPage() {
     }
   }, [currentUser, step]);
 
+  // Wait for auth to be ready before showing the form
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!householdName) return;
