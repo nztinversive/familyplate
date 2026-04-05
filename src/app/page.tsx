@@ -145,6 +145,14 @@ function readRequestedReturnToFromWindow() {
   return sanitizeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
 }
 
+function isLikelyAuthTransitionError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("connection lost while action was in flight") ||
+    (normalized.includes("connection lost") && normalized.includes("auth:signin"))
+  );
+}
+
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -312,6 +320,17 @@ export default function LandingPage() {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
+      if (isLikelyAuthTransitionError(message)) {
+        const fallbackRedirectTarget =
+          readRequestedReturnToFromWindow() ??
+          readStoredPostAuthRedirect() ??
+          (authMode === "password-signup" ? "/setup/household" : "/plan");
+        clearStoredPostAuthRedirect();
+        redirectStartedRef.current = true;
+        setIsRedirecting(true);
+        window.location.replace(fallbackRedirectTarget);
+        return;
+      }
       const hasInvalidCredentials =
         lower.includes("invalid") || lower.includes("credentials");
       if (authMode === "password-signup") {
