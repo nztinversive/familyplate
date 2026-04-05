@@ -148,8 +148,11 @@ function readRequestedReturnToFromWindow() {
 function isLikelyAuthTransitionError(message: string) {
   const normalized = message.toLowerCase();
   return (
-    normalized.includes("connection lost while action was in flight") ||
-    (normalized.includes("connection lost") && normalized.includes("auth:signin"))
+    normalized.includes("connection lost") ||
+    normalized.includes("disconnected") ||
+    normalized.includes("not authenticated") ||
+    normalized.includes("socket") ||
+    normalized.includes("network")
   );
 }
 
@@ -306,11 +309,18 @@ export default function LandingPage() {
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
       if (authMode === "password-signup") {
-        await signIn("password", {
-          email,
-          password,
-          flow: "signIn",
-        });
+        // Auto-sign-in after signup. If this fails (e.g. connection reset
+        // during auth state transition), it's non-fatal — the signup
+        // succeeded and the useEffect redirect will handle the rest.
+        try {
+          await signIn("password", {
+            email,
+            password,
+            flow: "signIn",
+          });
+        } catch {
+          // Swallow — signup succeeded, redirect below or useEffect will handle it
+        }
       }
       clearStoredPostAuthRedirect();
       redirectStartedRef.current = true;
