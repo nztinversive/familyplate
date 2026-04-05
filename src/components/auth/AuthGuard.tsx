@@ -33,6 +33,12 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     // Skip redirects for join routes (invite flow handles its own setup)
     if (isJoinRoute) return;
 
+    // An authenticated session without a profile must finish setup first.
+    if (currentUser === null && !isSetupRoute) {
+      router.replace("/setup/household");
+      return;
+    }
+
     // If user has no household and isn't already on setup, redirect to setup
     if (!currentUser?.householdId && !isSetupRoute) {
       router.replace("/setup/household");

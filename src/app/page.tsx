@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import {
   UtensilsCrossed,
   ArrowRight,
@@ -32,6 +32,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { api } from "../../convex/_generated/api";
 
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
 
@@ -99,6 +100,10 @@ export default function LandingPage() {
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const authRef = useRef<HTMLDivElement>(null);
+  const currentUser = useQuery(
+    api.queries.profiles.getCurrentUser,
+    isAuthenticated ? {} : "skip"
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -107,17 +112,31 @@ export default function LandingPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [showCreateAccountPrompt, setShowCreateAccountPrompt] = useState(false);
 
-  if ((isAuthenticated && !isLoading) || isRedirecting) {
-    if (!isRedirecting && typeof window !== "undefined") {
-      window.location.href = "/plan";
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || currentUser === undefined || isRedirecting) {
+      return;
     }
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
+
+    setIsRedirecting(true);
+    window.location.href = currentUser?.profileId ? "/plan" : "/setup/household";
+  }, [currentUser, isAuthenticated, isLoading, isRedirecting]);
+
+  const clearPasswordFeedback = () => {
+    setError("");
+    setShowCreateAccountPrompt(false);
+  };
+
+  const switchPasswordMode = (mode: Extract<AuthMode, "password-signin" | "password-signup">) => {
+    setAuthMode(mode);
+    clearPasswordFeedback();
+  };
+
+  const switchToMagicLink = () => {
+    setAuthMode("magic-link");
+    clearPasswordFeedback();
+  };
 
   const scrollToAuth = () => {
     authRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -143,7 +162,7 @@ export default function LandingPage() {
     e.preventDefault();
     if (!email || !password) return;
     setIsSubmitting(true);
-    setError("");
+    clearPasswordFeedback();
     try {
       await signIn("password", {
         email,
@@ -156,21 +175,28 @@ export default function LandingPage() {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
+      const hasInvalidCredentials =
+        lower.includes("invalid") || lower.includes("credentials");
       if (authMode === "password-signup") {
         setError(lower.includes("already") || lower.includes("server error")
           ? "An account with this email may already exist. Try signing in instead."
           : `Could not create account: ${message}`);
       } else {
-        setError(lower.includes("invalid") || lower.includes("credentials") || lower.includes("server error")
-          ? "Invalid email or password."
-          : "Could not sign in. Please try again.");
+        if (hasInvalidCredentials) {
+          setShowCreateAccountPrompt(true);
+          setError("We couldn't sign you in with that email and password. New here? Create an account first.");
+        } else {
+          setError(lower.includes("server error")
+            ? "Could not sign in right now. Please try again."
+            : "Could not sign in. Please try again.");
+        }
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && currentUser === undefined) || isRedirecting) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -605,7 +631,7 @@ export default function LandingPage() {
                       <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
                       <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
                     </div>
-                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => { setAuthMode("password-signin"); setError(""); }}>
+                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => switchPasswordMode("password-signin")}>
                       <KeyRound className="h-4 w-4" />
                       Sign in with password
                     </Button>
@@ -618,11 +644,34 @@ export default function LandingPage() {
                       )}
                       <div className="space-y-2">
                         <Label htmlFor="email-pw">Email</Label>
-                        <Input id="email-pw" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12 rounded-xl" />
+                        <Input
+                          id="email-pw"
+                          type="email"
+                          placeholder="you@example.com"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            clearPasswordFeedback();
+                          }}
+                          required
+                          className="h-12 rounded-xl"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="password">Password</Label>
-                        <Input id="password" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} className="h-12 rounded-xl" />
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            clearPasswordFeedback();
+                          }}
+                          required
+                          minLength={8}
+                          className="h-12 rounded-xl"
+                        />
                       </div>
                       <Button type="submit" className="w-full h-12 text-base rounded-xl gap-2 shadow-sm" size="lg" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
@@ -632,10 +681,18 @@ export default function LandingPage() {
                       </Button>
                     </form>
                     <div className="flex flex-col gap-2 mt-4">
-                      <button onClick={() => { setAuthMode(authMode === "password-signup" ? "password-signin" : "password-signup"); setError(""); }} className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                        {authMode === "password-signup" ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+                      <button
+                        type="button"
+                        onClick={() => switchPasswordMode(authMode === "password-signup" ? "password-signin" : "password-signup")}
+                        className="text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {authMode === "password-signup" ? "Already have an account? Sign in" : "New here? Create account"}
                       </button>
-                      <button onClick={() => { setAuthMode("magic-link"); setError(""); }} className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors">
+                      <button
+                        type="button"
+                        onClick={switchToMagicLink}
+                        className="text-center text-xs text-muted-foreground/70 hover:text-foreground transition-colors"
+                      >
                         ← Back to magic link
                       </button>
                     </div>
