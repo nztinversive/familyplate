@@ -35,12 +35,26 @@ export default function HouseholdSetupPage() {
   const [copied, setCopied] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [authSyncTimedOut, setAuthSyncTimedOut] = useState(false);
 
   const createHousehold = useMutation(api.mutations.households.createHousehold);
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
 
   useEffect(() => {
-    if (authLoading || hasPendingAuthSync) {
+    if (!hasPendingAuthSync) {
+      setAuthSyncTimedOut(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAuthSyncTimedOut(true);
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [hasPendingAuthSync]);
+
+  useEffect(() => {
+    if (authLoading || (hasPendingAuthSync && !authSyncTimedOut)) {
       return;
     }
 
@@ -57,15 +71,15 @@ export default function HouseholdSetupPage() {
     ) {
       window.location.replace("/plan");
     }
-  }, [authLoading, currentUser, hasPendingAuthSync, isAuthenticated, step]);
+  }, [authLoading, authSyncTimedOut, currentUser, hasPendingAuthSync, isAuthenticated, step]);
 
-  if (!authLoading && !hasPendingAuthSync && !isAuthenticated) {
+  if (!authLoading && (!hasPendingAuthSync || authSyncTimedOut) && !isAuthenticated) {
     return null;
   }
 
   if (
     authLoading ||
-    hasPendingAuthSync ||
+    (hasPendingAuthSync && !authSyncTimedOut) ||
     (isAuthenticated && currentUser === undefined)
   ) {
     return (

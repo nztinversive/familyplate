@@ -45,6 +45,7 @@ export default function ProfileSetupPage() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [authSyncTimedOut, setAuthSyncTimedOut] = useState(false);
 
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const addFamilyMemberMutation = useMutation(api.mutations.profiles.addFamilyMember);
@@ -60,6 +61,19 @@ export default function ProfileSetupPage() {
   const canManageMembers = myProfile?.role === "admin";
   const visibleStepMeta = canManageMembers ? STEP_META : STEP_META.slice(0, 2);
 
+  useEffect(() => {
+    if (!hasPendingAuthSync) {
+      setAuthSyncTimedOut(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setAuthSyncTimedOut(true);
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [hasPendingAuthSync]);
+
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
   useEffect(() => {
@@ -68,7 +82,7 @@ export default function ProfileSetupPage() {
   }, [myProfile]);
 
   useEffect(() => {
-    if (authLoading || hasPendingAuthSync) {
+    if (authLoading || (hasPendingAuthSync && !authSyncTimedOut)) {
       return;
     }
 
@@ -86,7 +100,7 @@ export default function ProfileSetupPage() {
       return;
     }
 
-  }, [authLoading, currentUser, hasPendingAuthSync, isAuthenticated]);
+  }, [authLoading, authSyncTimedOut, currentUser, hasPendingAuthSync, isAuthenticated]);
 
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
@@ -156,13 +170,13 @@ export default function ProfileSetupPage() {
     }
   };
 
-  if (!authLoading && !hasPendingAuthSync && !isAuthenticated) {
+  if (!authLoading && (!hasPendingAuthSync || authSyncTimedOut) && !isAuthenticated) {
     return null;
   }
 
   if (
     authLoading ||
-    hasPendingAuthSync ||
+    (hasPendingAuthSync && !authSyncTimedOut) ||
     (isAuthenticated && (currentUser === undefined || myProfile === undefined))
   ) {
     return (

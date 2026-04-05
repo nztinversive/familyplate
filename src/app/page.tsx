@@ -297,7 +297,6 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
-      setIsRedirecting(true);
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
