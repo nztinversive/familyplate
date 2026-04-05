@@ -297,6 +297,10 @@ export default function LandingPage() {
         password,
         flow: authMode === "password-signup" ? "signUp" : "signIn",
       });
+      clearStoredPostAuthRedirect();
+      redirectStartedRef.current = true;
+      setIsRedirecting(true);
+      window.location.replace(redirectTarget);
     } catch (err) {
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
