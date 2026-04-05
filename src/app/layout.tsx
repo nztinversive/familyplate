@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
-import { ConvexProvider } from "@/components/providers/ConvexProvider";
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ToastProvider } from "@/components/ui/toast";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 
@@ -51,7 +51,7 @@ export const viewport: Viewport = {
   themeColor: "#1a9d5c",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -62,10 +62,10 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("familyplate-theme");if(t==="dark"||(t===null&&window.matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}` }} />
       </head>
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
-        <ConvexProvider>
+        <ConvexAuthNextjsServerProvider>
           <OfflineIndicator />
           <ToastProvider>{children}</ToastProvider>
-        </ConvexProvider>
+        </ConvexAuthNextjsServerProvider>
       </body>
     </html>
   );
