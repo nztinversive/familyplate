@@ -149,6 +149,7 @@ export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
@@ -248,6 +249,10 @@ export default function PlanPage() {
   };
 
   const handleGeneratePlan = async () => {
+    if (subscription && !subscription.canGenerate) {
+      setGenerateError(`You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`);
+      return;
+    }
     setIsGenerating(true);
     setGenerateError(null);
     try {

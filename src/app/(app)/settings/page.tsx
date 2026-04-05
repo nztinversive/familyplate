@@ -461,6 +461,31 @@ export default function SettingsPage() {
           </>
         )}
 
+        {/* Subscription */}
+        <Card className="opacity-0 animate-fade-in stagger-4">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                  <ShieldCheck className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Subscription</p>
+                  <p className="text-xs text-muted-foreground">Free plan</p>
+                </div>
+              </div>
+              <a
+                href="https://familyplate.lemonsqueezy.com/billing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-primary font-medium hover:underline"
+              >
+                Upgrade
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Appearance */}
         <Card className="opacity-0 animate-fade-in stagger-4">
           <CardContent className="p-4">

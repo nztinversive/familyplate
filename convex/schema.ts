@@ -34,10 +34,19 @@ export default defineSchema({
     allergies: v.array(v.string()),
     dislikes: v.array(v.string()),
     goals: v.optional(v.string()),
+    subscriptionTier: v.optional(v.union(v.literal("free"), v.literal("family"))),
+    lsCustomerId: v.optional(v.string()),
+    lsSubscriptionId: v.optional(v.string()),
+    lsVariantId: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()),
+    subscriptionEndsAt: v.optional(v.string()),
+    planGenerationsThisMonth: v.optional(v.number()),
+    planGenerationsResetAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_householdId", ["householdId"])
-    .index("by_authId", ["authId"]),
+    .index("by_authId", ["authId"])
+    .index("by_lsCustomerId", ["lsCustomerId"]),
 
   pantryItems: defineTable({
     householdId: v.id("households"),

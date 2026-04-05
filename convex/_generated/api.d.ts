@@ -37,6 +37,7 @@ import type * as queries_pantry from "../queries/pantry.js";
 import type * as queries_planner from "../queries/planner.js";
 import type * as queries_profiles from "../queries/profiles.js";
 import type * as queries_savedRecipes from "../queries/savedRecipes.js";
+import type * as subscriptions from "../subscriptions.js";
 
 import type {
   ApiFromModules,
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   "queries/planner": typeof queries_planner;
   "queries/profiles": typeof queries_profiles;
   "queries/savedRecipes": typeof queries_savedRecipes;
+  subscriptions: typeof subscriptions;
 }>;
 
 /**

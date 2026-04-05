@@ -329,6 +329,12 @@ export const generateMealPlan: ReturnType<typeof action> = action({
         }
       )) as Id<"weeklyMealPlans">;
 
+      // Track plan generation for free tier limits
+      await ctx.runMutation(
+        api.subscriptions.incrementPlanGeneration,
+        { authId: userId as string }
+      );
+
       return {
         mealPlanId,
       };
