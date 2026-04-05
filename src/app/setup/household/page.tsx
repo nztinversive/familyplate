@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthToken } from "@convex-dev/auth/react";
 import { useMutation, useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Home, Users, ArrowRight, ArrowLeft, Copy, Check, UtensilsCrossed, Sparkles } from "lucide-react";
@@ -20,11 +21,13 @@ type Step = "choice" | "create" | "join" | "created";
 
 export default function HouseholdSetupPage() {
   const router = useRouter();
+  const authToken = useAuthToken();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip"
   );
+  const hasPendingAuthSync = authToken !== null && !isAuthenticated;
   const [step, setStep] = useState<Step>("choice");
   const [householdName, setHouseholdName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -36,19 +39,35 @@ export default function HouseholdSetupPage() {
   const createHousehold = useMutation(api.mutations.households.createHousehold);
   const joinHousehold = useMutation(api.mutations.households.joinHousehold);
 
-  // If user already completed setup, redirect to plan
   useEffect(() => {
+    if (authLoading || hasPendingAuthSync) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      window.location.replace("/");
+      return;
+    }
+
     if (currentUser === undefined) return;
+
     if (
       step === "choice" &&
       currentUser?.postAuthRedirectPath === "/plan"
     ) {
       window.location.replace("/plan");
     }
-  }, [currentUser, step]);
+  }, [authLoading, currentUser, hasPendingAuthSync, isAuthenticated, step]);
 
-  // Wait for auth to be ready before showing the form
-  if (authLoading || !isAuthenticated) {
+  if (!authLoading && !hasPendingAuthSync && !isAuthenticated) {
+    return null;
+  }
+
+  if (
+    authLoading ||
+    hasPendingAuthSync ||
+    (isAuthenticated && currentUser === undefined)
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -96,14 +115,6 @@ export default function HouseholdSetupPage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
-
-  if (authLoading || (isAuthenticated && currentUser === undefined)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
 
   return (
     <div className="app-container min-h-screen flex flex-col items-center px-6 py-8 bg-background">
