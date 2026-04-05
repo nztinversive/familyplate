@@ -230,7 +230,17 @@ export default function LandingPage() {
     }
   };
 
-  if (isLoading || (isAuthenticated && currentUser === undefined) || isRedirecting) {
+  // Show spinner while auth state is resolving or redirect is in progress
+  if (isLoading || isRedirecting || (isAuthenticated && currentUser === undefined)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Already authenticated — redirect is handled by useEffect above
+  if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
