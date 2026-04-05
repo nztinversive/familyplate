@@ -110,7 +110,7 @@ export default function LandingPage() {
 
   if ((isAuthenticated && !isLoading) || isRedirecting) {
     if (!isRedirecting && typeof window !== "undefined") {
-      window.location.href = "/pantry";
+      window.location.href = "/plan";
     }
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">

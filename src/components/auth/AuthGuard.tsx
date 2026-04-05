@@ -17,6 +17,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   );
 
   const isSetupRoute = pathname?.startsWith("/setup");
+  const isJoinRoute = pathname?.startsWith("/join");
 
   useEffect(() => {
     if (isLoading) return;
@@ -29,18 +30,21 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     // Wait for user query to resolve
     if (currentUser === undefined) return;
 
+    // Skip redirects for join routes (invite flow handles its own setup)
+    if (isJoinRoute) return;
+
     // If user has no household and isn't already on setup, redirect to setup
-    if (currentUser && !currentUser.householdId && !isSetupRoute) {
+    if (!currentUser?.householdId && !isSetupRoute) {
       router.replace("/setup/household");
       return;
     }
 
     // If user has no profile at all and isn't on setup, redirect to setup
-    if (currentUser && !currentUser.profileId && !isSetupRoute) {
+    if (!currentUser?.profileId && !isSetupRoute) {
       router.replace("/setup/household");
       return;
     }
-  }, [isAuthenticated, isLoading, currentUser, isSetupRoute, router]);
+  }, [isAuthenticated, isLoading, currentUser, isSetupRoute, isJoinRoute, router]);
 
   if (isLoading || (isAuthenticated && currentUser === undefined)) {
     return (
