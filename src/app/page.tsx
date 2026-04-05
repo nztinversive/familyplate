@@ -772,10 +772,16 @@ export default function LandingPage() {
                       <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
                       <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
                     </div>
-                    <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => switchPasswordMode("password-signin")}>
-                      <KeyRound className="h-4 w-4" />
-                      Sign in with password
-                    </Button>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button variant="outline" className="w-full h-11 rounded-xl gap-2" onClick={() => switchPasswordMode("password-signin")}>
+                        <KeyRound className="h-4 w-4" />
+                        Sign in
+                      </Button>
+                      <Button className="w-full h-11 rounded-xl gap-2" onClick={() => switchPasswordMode("password-signup")}>
+                        <ArrowRight className="h-4 w-4" />
+                        Create account
+                      </Button>
+                    </div>
                   </>
                 ) : forgotPassword ? (
                   <>

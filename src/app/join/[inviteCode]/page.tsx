@@ -131,7 +131,7 @@ export default function JoinHouseholdPage() {
                     Sign in or create an account to join this household.
                   </p>
                   <Button onClick={() => router.push(signInHref)} className="w-full gap-2 rounded-xl" size="lg">
-                    Sign In
+                    Continue to Sign In / Sign Up
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
