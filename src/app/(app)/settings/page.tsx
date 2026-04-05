@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
+  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
     currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
@@ -91,6 +92,19 @@ export default function SettingsPage() {
   const hasPreferenceChanges =
     parsedAllergies.join("|") !== (profile?.allergies ?? []).join("|") ||
     parsedDislikes.join("|") !== (profile?.dislikes ?? []).join("|");
+  const subscriptionTierLabel =
+    subscription === undefined ? "Loading..." : subscription.tier === "family" ? "Family" : "Free";
+  const subscriptionStatusLabel =
+    subscription === undefined
+      ? "Checking subscription"
+      : subscription.status
+        ? subscription.status.replace(/_/g, " ")
+        : "active";
+  const subscriptionActionHref =
+    subscription?.tier === "family"
+      ? "https://familyplate.lemonsqueezy.com/billing"
+      : "https://familyplate.lemonsqueezy.com/buy/1485021";
+  const subscriptionActionLabel = subscription?.tier === "family" ? "Manage" : "Upgrade";
 
   const resetMemberForm = () => {
     setMemberName("");
@@ -471,16 +485,18 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium">Subscription</p>
-                  <p className="text-xs text-muted-foreground">Free plan</p>
+                  <p className="text-xs text-muted-foreground">
+                    {subscriptionTierLabel} plan • {subscriptionStatusLabel}
+                  </p>
                 </div>
               </div>
               <a
-                href="https://familyplate.lemonsqueezy.com/billing"
+                href={subscriptionActionHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-primary font-medium hover:underline"
               >
-                Upgrade
+                {subscriptionActionLabel}
               </a>
             </div>
           </CardContent>

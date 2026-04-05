@@ -415,8 +415,23 @@ export default function LandingPage() {
                   <p className="text-xs text-muted-foreground">or $49/year <span className="text-primary font-semibold">(save 32%)</span></p>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full rounded-xl shadow-sm" onClick={scrollToAuth}>
-                    Start Free Trial
+                  <Button asChild className="w-full rounded-xl shadow-sm">
+                    <a
+                      href="https://familyplate.lemonsqueezy.com/buy/1485021"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Start Family Plan
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full rounded-xl">
+                    <a
+                      href="https://familyplate.lemonsqueezy.com/buy/1485023"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Start Annual Plan
+                    </a>
                   </Button>
                   <ul className="space-y-2.5 pt-2">
                     {[
