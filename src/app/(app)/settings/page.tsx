@@ -120,6 +120,7 @@ export default function SettingsPage() {
     subscription?.tier === "family"
       ? "https://familyplate.lemonsqueezy.com/billing"
       : buildCheckoutHref("1485021");
+  const subscriptionAnnualHref = buildCheckoutHref("1485023");
   const subscriptionActionLabel = subscription?.tier === "family" ? "Manage" : "Upgrade";
 
   const resetMemberForm = () => {
@@ -496,27 +497,47 @@ export default function SettingsPage() {
         {/* Subscription */}
         <Card className="opacity-0 animate-fade-in stagger-4">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                  <ShieldCheck className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Subscription</p>
-                  <p className="text-xs text-muted-foreground">
-                    {subscriptionTierLabel} plan • {subscriptionStatusLabel}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                <ShieldCheck className="h-5 w-5 text-primary" />
               </div>
-              <a
-                href={subscriptionActionHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary font-medium hover:underline"
-              >
-                {subscriptionActionLabel}
-              </a>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Subscription</p>
+                <p className="text-xs text-muted-foreground">
+                  {subscriptionTierLabel} plan • {subscriptionStatusLabel}
+                </p>
+              </div>
+              {subscription?.tier === "family" && (
+                <a
+                  href={subscriptionActionHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary font-medium hover:underline"
+                >
+                  Manage
+                </a>
+              )}
             </div>
+            {subscription?.tier !== "family" && (
+              <div className="flex gap-2">
+                <a
+                  href={subscriptionActionHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-medium h-9 px-3 hover:bg-primary/90 transition-colors"
+                >
+                  Monthly — $5.99/mo
+                </a>
+                <a
+                  href={subscriptionAnnualHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 inline-flex items-center justify-center rounded-xl border border-primary text-primary text-sm font-medium h-9 px-3 hover:bg-primary/5 transition-colors"
+                >
+                  Annual — Save 32%
+                </a>
+              </div>
+            )}
           </CardContent>
         </Card>
 

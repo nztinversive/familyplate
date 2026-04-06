@@ -161,7 +161,22 @@ export default function ProfileSetupPage() {
           });
         }
       }
-      router.push("/pantry");
+      // Check if user selected a paid plan from the landing page
+      const selectedPlan = localStorage.getItem("fp_selected_plan");
+      if (selectedPlan === "monthly" || selectedPlan === "annual") {
+        localStorage.removeItem("fp_selected_plan");
+        const variantId = selectedPlan === "annual" ? "1485023" : "1485021";
+        const checkoutUrl = new URL(`https://familyplate.lemonsqueezy.com/buy/${variantId}`);
+        if (currentUser?.email) {
+          checkoutUrl.searchParams.set("checkout[email]", currentUser.email);
+        }
+        if (currentUser?.authId) {
+          checkoutUrl.searchParams.set("checkout[custom][auth_id]", currentUser.authId);
+        }
+        window.location.href = checkoutUrl.toString();
+      } else {
+        router.push("/pantry");
+      }
     } catch (err) {
       console.error("Profile setup failed:", err);
       setError(err instanceof Error ? err.message : "Failed to save profile.");

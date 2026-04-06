@@ -36,7 +36,9 @@ import { Label } from "@/components/ui/label";
 import { api } from "../../convex/_generated/api";
 
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
+type SelectedPlan = "monthly" | "annual" | null;
 const POST_AUTH_REDIRECT_KEY = "fp_post_auth_redirect";
+const SELECTED_PLAN_KEY = "fp_selected_plan";
 const POST_AUTH_REDIRECT_MAX_AGE_MS = 30 * 60 * 1000;
 const DEFAULT_POST_AUTH_REDIRECT = "/pantry";
 
@@ -269,7 +271,10 @@ export default function LandingPage() {
     authRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const startSignupFlow = () => {
+  const startSignupFlow = (plan?: SelectedPlan) => {
+    if (plan && typeof window !== "undefined") {
+      localStorage.setItem(SELECTED_PLAN_KEY, plan);
+    }
     switchPasswordMode("password-signup");
     scrollToAuth();
   };
@@ -598,7 +603,7 @@ export default function LandingPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full rounded-xl" onClick={scrollToAuth}>
+                  <Button variant="outline" className="w-full rounded-xl" onClick={() => { localStorage.removeItem(SELECTED_PLAN_KEY); scrollToAuth(); }}>
                     Get Started Free
                   </Button>
                   <ul className="space-y-2.5 pt-2">
@@ -635,11 +640,11 @@ export default function LandingPage() {
                   <p className="text-xs text-muted-foreground">or $49/year <span className="text-primary font-semibold">(save 32%)</span></p>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full rounded-xl shadow-sm" onClick={startSignupFlow}>
-                    Create Account to Upgrade
+                  <Button className="w-full rounded-xl shadow-sm" onClick={() => startSignupFlow("monthly")}>
+                    Get Monthly Plan
                   </Button>
-                  <Button variant="outline" className="w-full rounded-xl" onClick={startSignupFlow}>
-                    Create Account for Annual
+                  <Button variant="outline" className="w-full rounded-xl" onClick={() => startSignupFlow("annual")}>
+                    Get Annual Plan — Save 32%
                   </Button>
                   <ul className="space-y-2.5 pt-2">
                     {[
