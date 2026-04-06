@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 
 const MONTHLY_VARIANT_ID = "1485021";
 const ANNUAL_VARIANT_ID = "1485023";
+const TEST_VARIANT_ID = "1492777";
 const FREE_PLAN_LIMIT = 2; // plans per month
 
 export const handleWebhookEvent = internalMutation({
@@ -47,8 +48,12 @@ export const handleWebhookEvent = internalMutation({
       return;
     }
 
+    const isPaidVariant =
+      args.lsVariantId === MONTHLY_VARIANT_ID ||
+      args.lsVariantId === ANNUAL_VARIANT_ID ||
+      args.lsVariantId === TEST_VARIANT_ID;
     const isFamily =
-      (args.lsVariantId === MONTHLY_VARIANT_ID || args.lsVariantId === ANNUAL_VARIANT_ID) &&
+      isPaidVariant &&
       (args.status === "active" || args.status === "on_trial");
 
     switch (args.eventName) {
