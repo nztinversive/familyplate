@@ -5,17 +5,17 @@ import { useAction } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import {
   ChefHat,
-  ChevronDown,
   Clock3,
   Loader2,
   Sparkles,
   UtensilsCrossed,
+  X,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 type Suggestion = {
   name: string;
@@ -33,10 +33,21 @@ type Suggestion = {
   missingItems: string[];
 };
 
+const CRAVING_CHIPS = [
+  { label: "Chicken", emoji: "🍗" },
+  { label: "Beef", emoji: "🥩" },
+  { label: "Pasta", emoji: "🍝" },
+  { label: "Seafood", emoji: "🦐" },
+  { label: "Vegetarian", emoji: "🥬" },
+  { label: "Comfort Food", emoji: "🍲" },
+  { label: "Stir Fry", emoji: "🥘" },
+  { label: "Tacos", emoji: "🌮" },
+];
+
 function getEffortColor(level: string) {
-  if (level === "easy") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (level === "medium") return "bg-amber-50 text-amber-700 border-amber-200";
-  return "bg-red-50 text-red-700 border-red-200";
+  if (level === "easy") return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
+  if (level === "medium") return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800";
+  return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800";
 }
 
 export default function TonightPage() {
@@ -45,14 +56,21 @@ export default function TonightPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [craving, setCraving] = useState("");
+  const [customCraving, setCustomCraving] = useState("");
+  const [activeCraving, setActiveCraving] = useState("");
 
   const handleGenerate = async () => {
+    const cravingValue = craving || customCraving.trim();
     setIsLoading(true);
     setError("");
     setSuggestions([]);
     setExpandedIndex(null);
+    setActiveCraving(cravingValue);
     try {
-      const result = await suggestFromPantry({});
+      const result = await suggestFromPantry({
+        craving: cravingValue || undefined,
+      });
       if (result.suggestions.length === 0) {
         setError("Add some items to your pantry first so I can suggest recipes.");
       } else {
@@ -63,6 +81,20 @@ export default function TonightPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const selectChip = (label: string) => {
+    if (craving === label) {
+      setCraving("");
+    } else {
+      setCraving(label);
+      setCustomCraving("");
+    }
+  };
+
+  const clearCraving = () => {
+    setCraving("");
+    setCustomCraving("");
   };
 
   return (
@@ -76,7 +108,7 @@ export default function TonightPage() {
     >
       <div className="space-y-4 px-4 py-4 page-transition">
         {suggestions.length === 0 && !isLoading && !error && (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center animate-fade-in-up">
+          <div className="flex flex-col items-center justify-center px-4 py-8 text-center animate-fade-in-up">
             <div className="relative mb-6">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-accent/10">
                 <UtensilsCrossed className="h-11 w-11 text-primary" />
@@ -84,22 +116,70 @@ export default function TonightPage() {
               <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center animate-pulse-soft">
                 <Sparkles className="h-4 w-4 text-accent" />
               </div>
-              {/* Floating food emojis */}
               <div className="absolute -bottom-2 -left-4 text-lg animate-pulse-soft" style={{ animationDelay: "0.3s" }}>🍳</div>
               <div className="absolute top-0 -left-5 text-sm animate-pulse-soft" style={{ animationDelay: "0.8s" }}>🥘</div>
               <div className="absolute -bottom-1 right-[-18px] text-sm animate-pulse-soft" style={{ animationDelay: "1.2s" }}>🍲</div>
             </div>
-            <h3 className="mb-2 text-xl font-semibold tracking-tight">What can I make tonight?</h3>
+            <h3 className="mb-2 text-xl font-semibold tracking-tight">What sounds good tonight?</h3>
             <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
-              I&apos;ll look at your pantry and suggest 3 dinners you can make right now — no trip to the store needed.
+              Pick a craving or just hit suggest — I&apos;ll find 3 dinners from your pantry.
             </p>
-            <p className="mb-8 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
-              💡 Tip: The more items in your <a href="/pantry" className="underline text-primary">pantry</a>, the better the suggestions.
-            </p>
+
+            {/* Craving chips */}
+            <div className="w-full max-w-sm mb-4">
+              <p className="text-xs font-medium text-muted-foreground mb-2.5">I&apos;m in the mood for...</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {CRAVING_CHIPS.map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    onClick={() => selectChip(chip.label)}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all duration-200 ${
+                      craving === chip.label
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm scale-105"
+                        : "border-input bg-background text-foreground hover:border-primary/30 hover:bg-muted/30"
+                    }`}
+                  >
+                    <span>{chip.emoji}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom craving input */}
+            <div className="w-full max-w-sm mb-6">
+              <div className="relative">
+                <Input
+                  placeholder="Or type anything... &quot;something spicy&quot;, &quot;Thai&quot;"
+                  value={customCraving}
+                  onChange={(e) => {
+                    setCustomCraving(e.target.value);
+                    if (e.target.value) setCraving("");
+                  }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void handleGenerate(); } }}
+                  className="h-11 rounded-xl pr-10 text-sm"
+                />
+                {customCraving && (
+                  <button
+                    type="button"
+                    onClick={() => setCustomCraving("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
               <Sparkles className="h-4 w-4" />
-              Suggest Dinners
+              {craving || customCraving ? `Suggest ${craving || customCraving} Dinners` : "Suggest Dinners"}
             </Button>
+
+            <p className="mt-4 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
+              💡 The more items in your <a href="/pantry" className="underline text-primary">pantry</a>, the better the suggestions.
+            </p>
           </div>
         )}
 
@@ -110,7 +190,9 @@ export default function TonightPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             </div>
-            <p className="text-sm font-medium">Checking your pantry...</p>
+            <p className="text-sm font-medium">
+              {activeCraving ? `Finding ${activeCraving.toLowerCase()} recipes...` : "Checking your pantry..."}
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               Finding the best dinner options
             </p>
@@ -132,6 +214,22 @@ export default function TonightPage() {
             <Button variant="outline" onClick={() => void handleGenerate()} className="rounded-xl">
               Try Again
             </Button>
+          </div>
+        )}
+
+        {/* Active craving badge above results */}
+        {suggestions.length > 0 && activeCraving && (
+          <div className="flex items-center justify-center gap-2 animate-fade-in">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1 text-sm font-medium">
+              Showing: {activeCraving}
+              <button
+                type="button"
+                onClick={() => { setActiveCraving(""); clearCraving(); }}
+                className="hover:bg-primary/20 rounded-full p-0.5"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
           </div>
         )}
 
@@ -163,7 +261,6 @@ export default function TonightPage() {
                         {suggestion.description}
                       </p>
                     </div>
-                    {/* Pantry match ring */}
                     <div className="shrink-0 flex flex-col items-center">
                       <div className="relative h-11 w-11">
                         <svg className="h-11 w-11 -rotate-90" viewBox="0 0 44 44">
@@ -271,16 +368,37 @@ export default function TonightPage() {
         })}
 
         {suggestions.length > 0 && (
-          <Button
-            variant="outline"
-            className="w-full gap-2 rounded-xl opacity-0 animate-fade-in"
-            style={{ animationDelay: "0.4s" }}
-            onClick={() => void handleGenerate()}
-            disabled={isLoading}
-          >
-            <Sparkles className="h-4 w-4" />
-            Suggest Different Dinners
-          </Button>
+          <div className="space-y-3">
+            {/* Quick re-generate with different craving */}
+            <div className="flex flex-wrap justify-center gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+              {CRAVING_CHIPS.filter(c => c.label !== activeCraving).slice(0, 4).map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setCraving(chip.label);
+                    setCustomCraving("");
+                    void handleGenerate();
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-input bg-background px-2.5 py-1 text-xs font-medium hover:border-primary/30 hover:bg-muted/30 transition-all disabled:opacity-50"
+                >
+                  <span>{chip.emoji}</span>
+                  <span>{chip.label}</span>
+                </button>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              className="w-full gap-2 rounded-xl opacity-0 animate-fade-in"
+              style={{ animationDelay: "0.4s" }}
+              onClick={() => void handleGenerate()}
+              disabled={isLoading}
+            >
+              <Sparkles className="h-4 w-4" />
+              Suggest Different Dinners
+            </Button>
+          </div>
         )}
       </div>
     </AppShell>

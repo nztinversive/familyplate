@@ -1,5 +1,6 @@
 "use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
@@ -17,8 +18,10 @@ type QuickSuggestion = {
 };
 
 export const suggestFromPantry = action({
-  args: {},
-  handler: async (ctx): Promise<{ suggestions: QuickSuggestion[] }> => {
+  args: {
+    craving: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ suggestions: QuickSuggestion[] }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Must be signed in.");
 
@@ -71,11 +74,15 @@ Return exactly 6 suggestions with varied effort levels and cuisines. More option
       ? `\n\nPast meal feedback from the household:\n${feedbackSummary.summary}\n\nUse this feedback to guide your suggestions — lean toward styles similar to favorites.`
       : "";
 
+    const cravingNote = args.craving?.trim()
+      ? `\n\nCRAVING: The user is in the mood for: "${args.craving.trim()}". Prioritize recipes featuring this ingredient, protein, cuisine, or style. All 6 suggestions should relate to this craving.`
+      : "";
+
     const userPrompt = `Here are the items currently in my pantry:
 
-${pantryList}${allergyNote}${dislikeNote}${feedbackNote}
+${pantryList}${allergyNote}${dislikeNote}${cravingNote}${feedbackNote}
 
-Suggest 6 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives. Vary the cuisines and proteins across all 6 suggestions.`;
+Suggest 6 dinner recipes I can make tonight using primarily these ingredients. Remember: NEVER include any allergen ingredients or their derivatives.${args.craving?.trim() ? ` Focus on "${args.craving.trim()}" recipes.` : " Vary the cuisines and proteins across all 6 suggestions."}`;
 
     const schema = {
       type: "object" as const,
