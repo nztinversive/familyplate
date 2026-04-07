@@ -10,6 +10,7 @@ import {
   BookOpen,
   CalendarDays,
   CheckCircle2,
+  ChefHat,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -27,6 +28,7 @@ import { useToast } from "@/components/ui/toast";
 import { OnboardingGuide } from "@/components/layout/OnboardingGuide";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { CustomRecipeDialog } from "@/components/plan/CustomRecipeDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -145,6 +147,12 @@ function getRecipeEmoji(tags: string[]) {
   return "🍽️";
 }
 
+function getRecipeSourceLabel(source: RecipeDoc["source"]) {
+  if (source === "custom") return "Custom";
+  if (source === "curated") return "Curated";
+  return "AI";
+}
+
 export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
@@ -177,6 +185,7 @@ export default function PlanPage() {
   const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] = useState<RecipeDoc | null>(null);
   const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
+  const [showAddRecipeDialog, setShowAddRecipeDialog] = useState(false);
 
   // Week navigation
   const sortedWeeks = useMemo(() => {
@@ -361,6 +370,10 @@ export default function PlanPage() {
     } finally {
       setSavingRecipeId(null);
     }
+  };
+
+  const handleCustomRecipeCreated = () => {
+    setActiveTab("cookbook");
   };
 
   return (
@@ -733,6 +746,25 @@ export default function PlanPage() {
               </TabsContent>
 
               <TabsContent value="recipes" className="space-y-3">
+                <Card className="overflow-hidden border-dashed bg-gradient-to-br from-primary/8 via-background to-primary/5">
+                  <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                          <ChefHat className="h-4 w-4 text-primary" />
+                        </div>
+                        <h3 className="font-semibold">Add your own recipes</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Save household favorites and let everyone in your family reuse them.
+                      </p>
+                    </div>
+                    <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                      Add Recipe
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 {(recipeSuggestions ?? []).map((recipe, index) => (
                   <Card
                     key={recipe._id}
@@ -742,7 +774,7 @@ export default function PlanPage() {
                       <button
                         type="button"
                         className="w-full text-left"
-                        onClick={() => setSelectedRecipeId(recipe._id)}
+                        onClick={() => openRecipeDialog(recipe)}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 min-w-0 flex-1">
@@ -751,9 +783,14 @@ export default function PlanPage() {
                               {recipe.description}
                             </p>
                           </div>
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-2 py-1 text-xs font-medium capitalize shrink-0">
-                            {getEffortIcon(recipe.effortLevel)} {recipe.effortLevel}
-                          </span>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {recipe.source === "custom" && (
+                              <Badge variant="outline">Custom</Badge>
+                            )}
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-2 py-1 text-xs font-medium capitalize">
+                              {getEffortIcon(recipe.effortLevel)} {recipe.effortLevel}
+                            </span>
+                          </div>
                         </div>
                         <div className="flex flex-wrap gap-1.5 mt-2.5">
                           <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
@@ -776,6 +813,20 @@ export default function PlanPage() {
               </TabsContent>
 
               <TabsContent value="cookbook" className="space-y-3">
+                <Card className="overflow-hidden border-dashed bg-gradient-to-br from-primary/8 via-background to-primary/5">
+                  <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <h3 className="font-semibold">Build your family cookbook</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Add handwritten staples, quick kid dinners, or any recipe you want in the rotation.
+                      </p>
+                    </div>
+                    <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                      Add Recipe
+                    </Button>
+                  </CardContent>
+                </Card>
+
                 {cookbookRecipes.length === 0 ? (
                   <Card className="overflow-hidden border-dashed">
                     <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
@@ -785,9 +836,12 @@ export default function PlanPage() {
                       <div className="space-y-1">
                         <h3 className="text-lg font-semibold">Your cookbook is empty</h3>
                         <p className="text-sm text-muted-foreground">
-                          Tap the heart on any recipe to save it here.
+                          Save recipes from your plan or add your own family favorites here.
                         </p>
                       </div>
+                      <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                        Add Your First Recipe
+                      </Button>
                     </CardContent>
                   </Card>
                 ) : (
@@ -808,6 +862,9 @@ export default function PlanPage() {
                               {saved.recipe.description}
                             </p>
                             <div className="flex flex-wrap gap-1.5 mt-2">
+                              {saved.recipe.source === "custom" && (
+                                <Badge variant="outline">Custom</Badge>
+                              )}
                               <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
                                 {getEffortIcon(saved.recipe.effortLevel)} {saved.recipe.effortLevel}
                               </span>
@@ -851,6 +908,12 @@ export default function PlanPage() {
         }}
       />
 
+      <CustomRecipeDialog
+        open={showAddRecipeDialog}
+        onOpenChange={setShowAddRecipeDialog}
+        onCreated={handleCustomRecipeCreated}
+      />
+
       <Dialog
         open={selectedRecipeId !== null}
         onOpenChange={(open) => {
@@ -891,6 +954,7 @@ export default function PlanPage() {
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-3">
+                  <Badge variant="outline">{getRecipeSourceLabel(selectedRecipe.source)}</Badge>
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium capitalize">
                     {getEffortIcon(selectedRecipe.effortLevel)} {selectedRecipe.effortLevel}
                   </span>
@@ -987,13 +1051,17 @@ export default function PlanPage() {
                   <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                     Tags
                   </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRecipe.tags.map((tag) => (
-                      <Badge key={tag} variant="outline">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
+                  {selectedRecipe.tags.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedRecipe.tags.map((tag) => (
+                        <Badge key={tag} variant="outline">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No tags yet.</p>
+                  )}
                 </section>
               </div>
 

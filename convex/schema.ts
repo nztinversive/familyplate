@@ -72,6 +72,7 @@ export default defineSchema({
 
   recipeSuggestions: defineTable({
     householdId: v.id("households"),
+    createdBy: v.optional(v.id("userProfiles")),
     title: v.string(),
     description: v.string(),
     ingredients: v.array(
@@ -101,7 +102,7 @@ export default defineSchema({
       })
     ),
     usedPantryItems: v.optional(v.array(v.string())),
-    source: v.union(v.literal("ai"), v.literal("curated")),
+    source: v.union(v.literal("ai"), v.literal("curated"), v.literal("custom")),
     createdAt: v.number(),
   }).index("by_householdId", ["householdId"]),
 
