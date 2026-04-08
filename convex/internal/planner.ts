@@ -413,6 +413,7 @@ export const getQuickDinnerContext = internalQuery({
 
     return {
       householdId: membership.householdId,
+      profileId: membership._id,
       pantryItems: pantryItems.map((item) => ({
         name: item.name,
         quantity: item.quantity,
@@ -425,6 +426,75 @@ export const getQuickDinnerContext = internalQuery({
         dislikes: p.dislikes ?? [],
       })),
     };
+  },
+});
+
+const quickDinnerSuggestionValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  effortLevel: v.union(v.literal("easy"), v.literal("medium"), v.literal("hard")),
+  estimatedTime: v.number(),
+  servings: v.number(),
+  ingredients: v.array(ingredientValidator),
+  instructions: v.array(v.string()),
+  missingItems: v.array(v.string()),
+});
+
+export const saveQuickDinnerSuggestions = internalMutation({
+  args: {
+    householdId: v.id("households"),
+    createdBy: v.id("userProfiles"),
+    suggestions: v.array(quickDinnerSuggestionValidator),
+  },
+  handler: async (ctx, args) => {
+    // Delete previous quick-dinner suggestions for this household
+    const existing = await ctx.db
+      .query("recipeSuggestions")
+      .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+      .collect();
+
+    const oldQuickDinners = existing.filter((r) =>
+      r.tags.includes("quick-dinner")
+    );
+
+    for (const old of oldQuickDinners) {
+      // Also clean up any saved references
+      const savedRefs = await ctx.db
+        .query("savedRecipes")
+        .withIndex("by_recipeId", (q) => q.eq("recipeId", old._id))
+        .collect();
+      for (const ref of savedRefs) {
+        await ctx.db.delete(ref._id);
+      }
+      await ctx.db.delete(old._id);
+    }
+
+    // Insert new suggestions
+    const ids = [];
+    const now = Date.now();
+    for (let i = 0; i < args.suggestions.length; i++) {
+      const s = args.suggestions[i];
+      const id = await ctx.db.insert("recipeSuggestions", {
+        householdId: args.householdId,
+        createdBy: args.createdBy,
+        title: s.name,
+        description: s.description,
+        ingredients: s.ingredients,
+        instructions: s.instructions,
+        effortLevel: s.effortLevel,
+        estimatedTime: s.estimatedTime,
+        servings: s.servings,
+        tags: ["quick-dinner"],
+        usedPantryItems: s.ingredients
+          .filter((ing) => ing.inPantry)
+          .map((ing) => ing.name),
+        source: "ai",
+        createdAt: now + i,
+      });
+      ids.push(id);
+    }
+
+    return ids;
   },
 });
 

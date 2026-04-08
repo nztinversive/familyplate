@@ -263,3 +263,28 @@ export const getMealDetail = query({
     };
   },
 });
+
+export const getQuickDinnerSuggestions = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return [];
+
+    const recipes = await ctx.db
+      .query("recipeSuggestions")
+      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .collect();
+
+    return recipes
+      .filter((r) => r.tags.includes("quick-dinner"))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 3);
+  },
+});

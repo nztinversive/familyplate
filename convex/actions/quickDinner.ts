@@ -7,6 +7,7 @@ import { generateStructuredJson } from "../lib/openaiMealPlanner";
 import { checkRecipeForDislikes, filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
 
 type QuickSuggestion = {
+  _id?: string;
   name: string;
   description: string;
   effortLevel: string;
@@ -27,7 +28,7 @@ export const suggestFromPantry = action({
 
     const authId = userId as string;
 
-    let pantryContext: { householdId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
+    let pantryContext: { householdId: string; profileId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
     try {
       pantryContext = await ctx.runQuery(
         api.internal.planner.getQuickDinnerContext,
@@ -210,7 +211,25 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
         console.warn(`Only ${safeSuggestions.length} of 3 suggestions survived safety filtering. AI may be ignoring dietary restrictions.`);
       }
 
-      return { suggestions: safeSuggestions };
+      // Persist suggestions to DB so they survive page navigation
+      const recipeIds = await ctx.runMutation(
+        api.internal.planner.saveQuickDinnerSuggestions,
+        {
+          householdId: pantryContext.householdId as any,
+          createdBy: pantryContext.profileId as any,
+          suggestions: safeSuggestions.map((s) => ({
+            ...s,
+            effortLevel: s.effortLevel as "easy" | "medium" | "hard",
+          })),
+        }
+      ) as string[];
+
+      return {
+        suggestions: safeSuggestions.map((s, i) => ({
+          ...s,
+          _id: recipeIds[i],
+        })),
+      };
     } catch (err) {
       console.error("Quick dinner suggestion failed:", err);
       throw new ConvexError("Unable to generate dinner suggestions right now. Please try again.");

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useAction } from "convex/react";
+import { useMemo, useState } from "react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import {
   ChefHat,
   Clock3,
+  Heart,
   Loader2,
   Sparkles,
   UtensilsCrossed,
@@ -19,6 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 type Suggestion = {
+  _id?: string;
   name: string;
   description: string;
   effortLevel: string;
@@ -53,7 +56,12 @@ function getEffortColor(level: string) {
 
 export default function TonightPage() {
   const suggestFromPantry = useAction(api.actions.quickDinner.suggestFromPantry);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const persistedSuggestions = useQuery(api.queries.planner.getQuickDinnerSuggestions, {});
+  const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const saveRecipeMutation = useMutation(api.mutations.savedRecipes.saveRecipe);
+  const unsaveRecipeMutation = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+
+  const [freshSuggestions, setFreshSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -61,12 +69,47 @@ export default function TonightPage() {
   const [customCraving, setCustomCraving] = useState("");
   const [activeCraving, setActiveCraving] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+
+  // Map persisted DB suggestions to the local Suggestion shape
+  const initialSuggestions = useMemo<Suggestion[]>(() => {
+    if (!persistedSuggestions || persistedSuggestions.length === 0) return [];
+    return persistedSuggestions.map((r) => ({
+      _id: r._id,
+      name: r.title,
+      description: r.description,
+      effortLevel: r.effortLevel,
+      estimatedTime: r.estimatedTime,
+      servings: r.servings,
+      ingredients: r.ingredients,
+      instructions: r.instructions,
+      missingItems: r.ingredients.filter((ing) => !ing.inPantry).map((ing) => ing.name),
+    }));
+  }, [persistedSuggestions]);
+
+  // Show fresh results if just generated, otherwise show persisted
+  const suggestions = freshSuggestions.length > 0 ? freshSuggestions : initialSuggestions;
+
+  const handleToggleSave = async (recipeId: string) => {
+    setSavingRecipeId(recipeId);
+    try {
+      const typedId = recipeId as Id<"recipeSuggestions">;
+      const isSaved = savedRecipes?.some((s) => s.recipe._id === typedId);
+      if (isSaved) {
+        await unsaveRecipeMutation({ recipeId: typedId });
+      } else {
+        await saveRecipeMutation({ recipeId: typedId });
+      }
+    } finally {
+      setSavingRecipeId(null);
+    }
+  };
 
   const handleGenerate = async (overrideCraving?: string) => {
     const cravingValue = overrideCraving ?? (craving || customCraving.trim());
     setIsLoading(true);
     setError("");
-    setSuggestions([]);
+    setFreshSuggestions([]);
     setExpandedIndex(null);
     setActiveCraving(cravingValue);
     setHasGenerated(true);
@@ -77,7 +120,7 @@ export default function TonightPage() {
       if (result.suggestions.length === 0) {
         setError("Add some items to your pantry first so I can suggest recipes.");
       } else {
-        setSuggestions(result.suggestions);
+        setFreshSuggestions(result.suggestions);
       }
     } catch (err) {
       setError(
@@ -324,6 +367,18 @@ export default function TonightPage() {
                     }`}>
                       {pantryCount}/{totalCount} in pantry
                     </span>
+                    {suggestion._id && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); void handleToggleSave(suggestion._id!); }}
+                        disabled={savingRecipeId === suggestion._id}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                        aria-label={savedRecipes?.some((s) => s.recipe._id === suggestion._id) ? "Remove from cookbook" : "Save to cookbook"}
+                      >
+                        <Heart className={`h-3.5 w-3.5 ${savedRecipes?.some((s) => s.recipe._id === suggestion._id) ? "fill-current text-primary" : ""}`} />
+                        {savedRecipes?.some((s) => s.recipe._id === suggestion._id) ? "Saved" : "Save"}
+                      </button>
+                    )}
                   </div>
                 </button>
 

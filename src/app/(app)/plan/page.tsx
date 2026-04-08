@@ -21,6 +21,7 @@ import {
   ListChecks,
   RefreshCw,
   Share2,
+  ShoppingCart,
   Shuffle,
   Sparkles,
   UtensilsCrossed,
@@ -169,6 +170,7 @@ export default function PlanPage() {
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
+  const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const { toast } = useToast();
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -187,6 +189,7 @@ export default function PlanPage() {
   const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [showAddRecipeDialog, setShowAddRecipeDialog] = useState(false);
+  const [addingToGrocery, setAddingToGrocery] = useState(false);
 
   // Week navigation
   const sortedWeeks = useMemo(() => {
@@ -374,6 +377,28 @@ export default function PlanPage() {
       else await saveRecipe({ recipeId });
     } finally {
       setSavingRecipeId(null);
+    }
+  };
+
+  const handleAddMissingToGrocery = async (ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>) => {
+    const missing = ingredients.filter((ing) => !ing.inPantry);
+    if (missing.length === 0) return;
+    setAddingToGrocery(true);
+    try {
+      for (const ing of missing) {
+        await addGroceryItem({
+          name: ing.name,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          category: "Other",
+        });
+      }
+      toast(`Added ${missing.length} item${missing.length > 1 ? "s" : ""} to grocery list`, "success");
+    } catch (err) {
+      console.error("Failed to add to grocery list:", err);
+      toast("Failed to add items to grocery list", "error");
+    } finally {
+      setAddingToGrocery(false);
     }
   };
 
@@ -717,6 +742,18 @@ export default function PlanPage() {
                               <Shuffle className="h-3 w-3" />
                             </button>
                           )}
+                          <button
+                            onClick={() => void handleToggleSavedRecipe(meal.recipe._id)}
+                            disabled={savingRecipeId === meal.recipe._id}
+                            className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                              savedRecipes?.some((s) => s.recipe._id === meal.recipe._id)
+                                ? "text-primary"
+                                : "text-muted-foreground hover:bg-muted/60"
+                            }`}
+                            aria-label={savedRecipes?.some((s) => s.recipe._id === meal.recipe._id) ? "Remove from cookbook" : "Save to cookbook"}
+                          >
+                            <Heart className={`h-3 w-3 ${savedRecipes?.some((s) => s.recipe._id === meal.recipe._id) ? "fill-current" : ""}`} />
+                          </button>
                         </div>
 
                         {/* Swap panel */}
@@ -1031,6 +1068,20 @@ export default function PlanPage() {
                       </div>
                     ))}
                   </div>
+                  {selectedRecipe.ingredients.some((ing) => !ing.inPantry) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-3 gap-2 rounded-xl"
+                      disabled={addingToGrocery}
+                      onClick={() => void handleAddMissingToGrocery(selectedRecipe.ingredients)}
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      {addingToGrocery
+                        ? "Adding..."
+                        : `Add ${selectedRecipe.ingredients.filter((ing) => !ing.inPantry).length} missing to grocery list`}
+                    </Button>
+                  )}
                 </section>
 
                 <section className="space-y-3">
