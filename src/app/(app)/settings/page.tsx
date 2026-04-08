@@ -66,6 +66,7 @@ export default function SettingsPage() {
   const [memberAllergies, setMemberAllergies] = useState("");
   const [memberDislikes, setMemberDislikes] = useState("");
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [addMemberError, setAddMemberError] = useState("");
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [emailSent, setEmailSent] = useState<string | null>(null);
   const [allergiesInput, setAllergiesInput] = useState("");
@@ -137,6 +138,7 @@ export default function SettingsPage() {
   const handleAddMember = async () => {
     if (!memberName.trim() || !currentUser?.householdId) return;
     setIsAddingMember(true);
+    setAddMemberError("");
     try {
       await addFamilyMember({
         householdId: currentUser.householdId as Id<"households">,
@@ -159,6 +161,8 @@ export default function SettingsPage() {
           setEmailSent(memberEmail.trim());
         } catch (emailErr) {
           console.error("Failed to send invite email:", emailErr);
+          // Member was added but invite email failed — not blocking
+          setEmailSent(null);
         }
       }
 
@@ -166,6 +170,7 @@ export default function SettingsPage() {
       setShowAddMember(false);
     } catch (err) {
       console.error("Failed to add member:", err);
+      setAddMemberError("Failed to add family member. Please try again.");
     } finally {
       setIsAddingMember(false);
     }
@@ -679,6 +684,9 @@ export default function SettingsPage() {
               />
             </div>
 
+            {addMemberError && (
+              <p className="text-sm text-destructive text-center">{addMemberError}</p>
+            )}
             <Button type="submit" className="w-full" disabled={!memberName.trim() || isAddingMember}>
               {isAddingMember ? "Adding..." : "Add Member"}
             </Button>

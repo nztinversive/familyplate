@@ -231,7 +231,10 @@ export default function TonightPage() {
         {/* Error state */}
         {error && !isLoading && (
           <div className="flex flex-col items-center justify-center px-4 py-8 text-center animate-scale-in">
-            <p className="text-sm text-muted-foreground">{error}</p>
+            <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+            <Button variant="outline" onClick={() => void handleGenerate()} className="rounded-xl">
+              Try Again
+            </Button>
           </div>
         )}
 

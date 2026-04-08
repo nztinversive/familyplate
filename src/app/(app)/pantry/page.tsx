@@ -226,10 +226,15 @@ export default function PantryPage() {
     const nextQuantity = Math.round((item.quantity + delta) * 100) / 100;
     if (nextQuantity <= 0) return;
 
-    await updateItem({
-      itemId: item._id,
-      quantity: nextQuantity,
-    });
+    try {
+      await updateItem({
+        itemId: item._id,
+        quantity: nextQuantity,
+      });
+    } catch (err) {
+      console.error("Failed to update quantity:", err);
+      toast("Failed to update quantity", "error");
+    }
   };
 
   return (

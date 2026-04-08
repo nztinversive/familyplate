@@ -113,6 +113,9 @@ export default function GroceryPage() {
     setBusyIndex(itemIndex);
     try {
       await removeItem({ groceryListId, itemIndex });
+    } catch (err) {
+      console.error("Failed to remove item:", err);
+      toast("Failed to remove item", "error");
     } finally {
       setBusyIndex(null);
     }
