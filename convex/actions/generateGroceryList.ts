@@ -1,6 +1,6 @@
 "use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -44,7 +44,7 @@ export const generateGroceryList: ReturnType<typeof action> = action({
   ): Promise<{ groceryListId: Id<"groceryLists"> }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      throw new Error("You must be signed in to generate a grocery list.");
+      throw new ConvexError("You must be signed in to generate a grocery list.");
     }
 
     try {
@@ -114,8 +114,9 @@ export const generateGroceryList: ReturnType<typeof action> = action({
         groceryListId,
       };
     } catch (error) {
+      if (error instanceof ConvexError) throw error;
       console.error("generateGroceryList failed", error);
-      throw new Error("Unable to generate the grocery list right now.");
+      throw new ConvexError("Unable to generate the grocery list right now. Please try again.");
     }
   },
 });

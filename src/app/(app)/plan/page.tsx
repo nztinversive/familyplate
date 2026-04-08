@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../../../convex/_generated/api";
 import type { Doc, Id } from "../../../../convex/_generated/dataModel";
 import {
@@ -282,7 +283,11 @@ export default function PlanPage() {
       }
     } catch (err) {
       console.error("Plan generation failed:", err);
-      setGenerateError("Something went wrong generating your plan. Please try again.");
+      setGenerateError(
+        err instanceof ConvexError
+          ? (err.data as string)
+          : "Something went wrong generating your plan. Please try again."
+      );
     } finally {
       setIsGenerating(false);
     }

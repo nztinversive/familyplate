@@ -1,6 +1,6 @@
 "use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -106,7 +106,7 @@ export const swapMeal: ReturnType<typeof action> = action({
   ): Promise<{ mealId: Id<"plannedMeals"> }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      throw new Error("You must be signed in to refresh meal options.");
+      throw new ConvexError("You must be signed in to refresh meal options.");
     }
 
     try {
@@ -279,8 +279,9 @@ export const swapMeal: ReturnType<typeof action> = action({
         mealId: args.mealId,
       };
     } catch (error) {
+      if (error instanceof ConvexError) throw error;
       console.error("swapMeal failed", error);
-      throw new Error("Unable to refresh dinner options right now.");
+      throw new ConvexError("Unable to refresh dinner options right now. Please try again.");
     }
   },
 });

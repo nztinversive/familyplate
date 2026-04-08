@@ -1,6 +1,6 @@
 "use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -114,7 +114,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
   ): Promise<{ mealPlanId: Id<"weeklyMealPlans"> }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      throw new Error("You must be signed in to generate a meal plan.");
+      throw new ConvexError("You must be signed in to generate a meal plan.");
     }
 
     try {
@@ -338,8 +338,9 @@ export const generateMealPlan: ReturnType<typeof action> = action({
         mealPlanId,
       };
     } catch (error) {
+      if (error instanceof ConvexError) throw error;
       console.error("generateMealPlan failed", error);
-      throw new Error("Unable to generate a dinner plan right now.");
+      throw new ConvexError("Unable to generate a dinner plan right now. Please try again.");
     }
   },
 });
