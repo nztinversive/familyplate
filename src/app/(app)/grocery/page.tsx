@@ -41,6 +41,7 @@ export default function GroceryPage() {
   const addCustomItem = useMutation(api.mutations.grocery.addCustomItem);
   const addMyCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const removeItem = useMutation(api.mutations.grocery.removeItem);
+  const clearAllItems = useMutation(api.mutations.grocery.clearAll);
   const addToPantry = useMutation(api.mutations.pantry.addItem);
 
   const { toast } = useToast();
@@ -48,6 +49,7 @@ export default function GroceryPage() {
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "remaining" | "checked">("all");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const items = useMemo(() => groceryList?.items ?? [], [groceryList?.items]);
   const checkedCount = items.filter((item) => item.checked).length;
@@ -77,6 +79,18 @@ export default function GroceryPage() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleClearAll = async () => {
+    if (!groceryList) return;
+    try {
+      await clearAllItems({ groceryListId: groceryList._id });
+      toast("Grocery list cleared", "info");
+    } catch (err) {
+      console.error("Failed to clear grocery list:", err);
+      toast("Failed to clear list", "error");
+    }
+    setShowClearConfirm(false);
   };
 
   const handleToggle = async (groceryListId: Id<"groceryLists">, itemIndex: number) => {
@@ -227,6 +241,28 @@ export default function GroceryPage() {
                 <TabsTrigger value="checked">Checked</TabsTrigger>
               </TabsList>
             </Tabs>
+
+            {!showClearConfirm ? (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowClearConfirm(true)}
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                >
+                  Clear all items
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-2 animate-fade-in">
+                <span className="text-xs text-muted-foreground">Clear all items?</span>
+                <Button variant="destructive" size="sm" className="h-7 text-xs" onClick={() => void handleClearAll()}>
+                  Yes, clear
+                </Button>
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setShowClearConfirm(false)}>
+                  Cancel
+                </Button>
+              </div>
+            )}
 
             <div className="space-y-5">
               {groupedItems.map((group) => (

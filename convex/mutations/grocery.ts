@@ -371,3 +371,19 @@ export const removeItem = mutation({
     return args.groceryListId;
   },
 });
+
+export const clearAll = mutation({
+  args: {
+    groceryListId: v.id("groceryLists"),
+  },
+  handler: async (ctx, args) => {
+    const profile = await getViewerProfile(ctx);
+    const groceryList = await ctx.db.get(args.groceryListId);
+    if (!groceryList || groceryList.householdId !== profile.householdId) {
+      throw new Error("Grocery list not found");
+    }
+
+    await ctx.db.patch(args.groceryListId, { items: [] });
+    return args.groceryListId;
+  },
+});
