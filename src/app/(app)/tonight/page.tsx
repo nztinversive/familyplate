@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAction } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../../../convex/_generated/api";
 import {
   ChefHat,
@@ -59,14 +60,16 @@ export default function TonightPage() {
   const [craving, setCraving] = useState("");
   const [customCraving, setCustomCraving] = useState("");
   const [activeCraving, setActiveCraving] = useState("");
+  const [hasGenerated, setHasGenerated] = useState(false);
 
-  const handleGenerate = async () => {
-    const cravingValue = craving || customCraving.trim();
+  const handleGenerate = async (overrideCraving?: string) => {
+    const cravingValue = overrideCraving ?? (craving || customCraving.trim());
     setIsLoading(true);
     setError("");
     setSuggestions([]);
     setExpandedIndex(null);
     setActiveCraving(cravingValue);
+    setHasGenerated(true);
     try {
       const result = await suggestFromPantry({
         craving: cravingValue || undefined,
@@ -77,7 +80,13 @@ export default function TonightPage() {
         setSuggestions(result.suggestions);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(
+        err instanceof ConvexError
+          ? (err.data as string)
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -92,10 +101,7 @@ export default function TonightPage() {
     }
   };
 
-  const clearCraving = () => {
-    setCraving("");
-    setCustomCraving("");
-  };
+  const showInitialState = !hasGenerated && suggestions.length === 0;
 
   return (
     <AppShell
@@ -107,27 +113,33 @@ export default function TonightPage() {
       }
     >
       <div className="space-y-4 px-4 py-4 page-transition">
-        {suggestions.length === 0 && !isLoading && !error && (
-          <div className="flex flex-col items-center justify-center px-4 py-8 text-center animate-fade-in-up">
-            <div className="relative mb-6">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-accent/10">
-                <UtensilsCrossed className="h-11 w-11 text-primary" />
+        {/* Hero — only on first visit */}
+        {showInitialState && (
+          <div className="flex flex-col items-center justify-center px-4 pt-6 pb-2 text-center animate-fade-in-up">
+            <div className="relative mb-5">
+              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-accent/10">
+                <UtensilsCrossed className="h-10 w-10 text-primary" />
               </div>
-              <div className="absolute -top-1 -right-1 w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center animate-pulse-soft">
-                <Sparkles className="h-4 w-4 text-accent" />
+              <div className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-accent/10 flex items-center justify-center animate-pulse-soft">
+                <Sparkles className="h-3.5 w-3.5 text-accent" />
               </div>
-              <div className="absolute -bottom-2 -left-4 text-lg animate-pulse-soft" style={{ animationDelay: "0.3s" }}>🍳</div>
-              <div className="absolute top-0 -left-5 text-sm animate-pulse-soft" style={{ animationDelay: "0.8s" }}>🥘</div>
-              <div className="absolute -bottom-1 right-[-18px] text-sm animate-pulse-soft" style={{ animationDelay: "1.2s" }}>🍲</div>
+              <div className="absolute -bottom-2 -left-3 text-base animate-pulse-soft" style={{ animationDelay: "0.3s" }}>🍳</div>
+              <div className="absolute top-0 -left-4 text-xs animate-pulse-soft" style={{ animationDelay: "0.8s" }}>🥘</div>
+              <div className="absolute -bottom-1 right-[-14px] text-xs animate-pulse-soft" style={{ animationDelay: "1.2s" }}>🍲</div>
             </div>
-            <h3 className="mb-2 text-xl font-semibold tracking-tight">What sounds good tonight?</h3>
-            <p className="mb-6 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
+            <h3 className="mb-1.5 text-xl font-semibold tracking-tight">What sounds good tonight?</h3>
+            <p className="mb-4 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
               Pick a craving or just hit suggest — I&apos;ll find 3 dinners from your pantry.
             </p>
+          </div>
+        )}
 
+        {/* Craving selector — always visible unless loading */}
+        {!isLoading && (
+          <div className="animate-fade-in">
             {/* Craving chips */}
-            <div className="w-full max-w-sm mb-4">
-              <p className="text-xs font-medium text-muted-foreground mb-2.5">I&apos;m in the mood for...</p>
+            <div className="mb-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2 text-center">I&apos;m in the mood for...</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {CRAVING_CHIPS.map((chip) => (
                   <button
@@ -148,10 +160,10 @@ export default function TonightPage() {
             </div>
 
             {/* Custom craving input */}
-            <div className="w-full max-w-sm mb-6">
+            <div className="max-w-sm mx-auto mb-3">
               <div className="relative">
                 <Input
-                  placeholder="Or type anything... &quot;something spicy&quot;, &quot;Thai&quot;"
+                  placeholder='Or type anything... "something spicy", "Thai"'
                   value={customCraving}
                   onChange={(e) => {
                     setCustomCraving(e.target.value);
@@ -172,22 +184,30 @@ export default function TonightPage() {
               </div>
             </div>
 
-            <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
-              <Sparkles className="h-4 w-4" />
-              {craving || customCraving ? `Suggest ${craving || customCraving} Dinners` : "Suggest Dinners"}
-            </Button>
+            {/* Generate button */}
+            <div className="flex justify-center">
+              <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
+                <Sparkles className="h-4 w-4" />
+                {craving || customCraving
+                  ? `Suggest ${craving || customCraving} Dinners`
+                  : suggestions.length > 0 ? "Suggest Different Dinners" : "Suggest Dinners"}
+              </Button>
+            </div>
 
-            <p className="mt-4 max-w-[260px] text-xs text-muted-foreground/70 leading-relaxed">
-              💡 The more items in your <a href="/pantry" className="underline text-primary">pantry</a>, the better the suggestions.
-            </p>
+            {showInitialState && (
+              <p className="mt-3 text-center text-xs text-muted-foreground/70 leading-relaxed">
+                💡 The more items in your <a href="/pantry" className="underline text-primary">pantry</a>, the better the suggestions.
+              </p>
+            )}
           </div>
         )}
 
+        {/* Loading state */}
         {isLoading && (
-          <div className="flex flex-col items-center justify-center px-4 py-16 text-center animate-fade-in">
-            <div className="relative mb-6">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center px-4 py-12 text-center animate-fade-in">
+            <div className="relative mb-5">
+              <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-7 w-7 animate-spin text-primary" />
               </div>
             </div>
             <p className="text-sm font-medium">
@@ -196,7 +216,7 @@ export default function TonightPage() {
             <p className="text-xs text-muted-foreground mt-1">
               Finding the best dinner options
             </p>
-            <div className="flex gap-1 mt-4">
+            <div className="flex gap-1 mt-3">
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
@@ -208,12 +228,10 @@ export default function TonightPage() {
           </div>
         )}
 
-        {error && (
-          <div className="flex flex-col items-center justify-center px-4 py-12 text-center animate-scale-in">
-            <p className="mb-4 text-sm text-muted-foreground">{error}</p>
-            <Button variant="outline" onClick={() => void handleGenerate()} className="rounded-xl">
-              Try Again
-            </Button>
+        {/* Error state */}
+        {error && !isLoading && (
+          <div className="flex flex-col items-center justify-center px-4 py-8 text-center animate-scale-in">
+            <p className="text-sm text-muted-foreground">{error}</p>
           </div>
         )}
 
@@ -224,7 +242,7 @@ export default function TonightPage() {
               Showing: {activeCraving}
               <button
                 type="button"
-                onClick={() => { setActiveCraving(""); clearCraving(); }}
+                onClick={() => { setActiveCraving(""); setCraving(""); setCustomCraving(""); }}
                 className="hover:bg-primary/20 rounded-full p-0.5"
               >
                 <X className="h-3 w-3" />
@@ -233,6 +251,7 @@ export default function TonightPage() {
           </div>
         )}
 
+        {/* Suggestion cards */}
         {suggestions.map((suggestion, index) => {
           const isExpanded = expandedIndex === index;
           const pantryCount = suggestion.ingredients.filter(i => i.inPantry).length;
@@ -366,40 +385,6 @@ export default function TonightPage() {
             </Card>
           );
         })}
-
-        {suggestions.length > 0 && (
-          <div className="space-y-3">
-            {/* Quick re-generate with different craving */}
-            <div className="flex flex-wrap justify-center gap-2 opacity-0 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-              {CRAVING_CHIPS.filter(c => c.label !== activeCraving).slice(0, 4).map((chip) => (
-                <button
-                  key={chip.label}
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => {
-                    setCraving(chip.label);
-                    setCustomCraving("");
-                    void handleGenerate();
-                  }}
-                  className="inline-flex items-center gap-1 rounded-full border border-input bg-background px-2.5 py-1 text-xs font-medium hover:border-primary/30 hover:bg-muted/30 transition-all disabled:opacity-50"
-                >
-                  <span>{chip.emoji}</span>
-                  <span>{chip.label}</span>
-                </button>
-              ))}
-            </div>
-            <Button
-              variant="outline"
-              className="w-full gap-2 rounded-xl opacity-0 animate-fade-in"
-              style={{ animationDelay: "0.4s" }}
-              onClick={() => void handleGenerate()}
-              disabled={isLoading}
-            >
-              <Sparkles className="h-4 w-4" />
-              Suggest Different Dinners
-            </Button>
-          </div>
-        )}
       </div>
     </AppShell>
   );

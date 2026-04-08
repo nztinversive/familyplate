@@ -1,6 +1,6 @@
 "use node";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { action } from "../_generated/server";
 import { internal as api } from "../_generated/api";
 import { generateStructuredJson } from "../lib/openaiMealPlanner";
@@ -23,24 +23,37 @@ export const suggestFromPantry = action({
   },
   handler: async (ctx, args): Promise<{ suggestions: QuickSuggestion[] }> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Must be signed in.");
+    if (!userId) throw new ConvexError("Must be signed in.");
 
     const authId = userId as string;
 
-    const pantryContext = await ctx.runQuery(
-      api.internal.planner.getQuickDinnerContext,
-      { authId }
-    ) as { householdId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
+    let pantryContext: { householdId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
+    try {
+      pantryContext = await ctx.runQuery(
+        api.internal.planner.getQuickDinnerContext,
+        { authId }
+      ) as typeof pantryContext;
+    } catch (err) {
+      console.error("Failed to load pantry context:", err);
+      throw new ConvexError("Could not load your pantry. Please make sure your profile is set up.");
+    }
 
     if (!pantryContext.pantryItems || pantryContext.pantryItems.length === 0) {
       return { suggestions: [] };
     }
 
     // Fetch feedback history
-    const feedbackSummary = await ctx.runQuery(
-      api.internal.planner.getHouseholdFeedbackSummary,
-      { householdId: pantryContext.householdId as any }
-    ) as { summary: string; favorites: string[]; disliked: string[] };
+    let feedbackSummary: { summary: string; favorites: string[]; disliked: string[] };
+    try {
+      feedbackSummary = await ctx.runQuery(
+        api.internal.planner.getHouseholdFeedbackSummary,
+        { householdId: pantryContext.householdId as any }
+      ) as typeof feedbackSummary;
+    } catch (err) {
+      console.error("Failed to load feedback summary:", err);
+      // Non-critical — proceed without feedback
+      feedbackSummary = { summary: "", favorites: [], disliked: [] };
+    }
 
     const pantryList = pantryContext.pantryItems
       .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
@@ -190,7 +203,7 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
       }
 
       if (safeSuggestions.length === 0) {
-        throw new Error("Unable to generate any safe dinner suggestions. Please check your allergy and dislike settings.");
+        throw new ConvexError("Unable to generate any safe dinner suggestions. Please check your allergy and dislike settings.");
       }
 
       if (safeSuggestions.length < 3) {
@@ -200,7 +213,7 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
       return { suggestions: safeSuggestions };
     } catch (err) {
       console.error("Quick dinner suggestion failed:", err);
-      throw new Error("Unable to generate dinner suggestions right now.");
+      throw new ConvexError("Unable to generate dinner suggestions right now. Please try again.");
     }
   },
 });
