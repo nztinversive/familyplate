@@ -18,7 +18,7 @@ export function MobileNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 nav-glass border-t pb-safe">
-      <div className="mx-auto max-w-[430px] flex items-center justify-around h-16 px-1">
+      <div className="relative mx-auto max-w-[430px] flex items-center justify-around h-16 px-1">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -33,6 +33,9 @@ export function MobileNav() {
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
+              {isActive && (
+                <span className="absolute -top-2 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary animate-nav-indicator" />
+              )}
               <div className={cn(
                 "flex items-center justify-center h-8 w-8 rounded-xl transition-all duration-300",
                 isActive && "bg-primary/10 scale-110"
@@ -48,9 +51,6 @@ export function MobileNav() {
               )}>
                 {item.label}
               </span>
-              {isActive && (
-                <span className="absolute -top-px left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full bg-primary animate-nav-indicator" />
-              )}
             </Link>
           );
         })}
