@@ -44,7 +44,7 @@ import { PANTRY_CATEGORIES } from "@/lib/pantryCategories";
 type StorageLocation = "pantry" | "fridge" | "freezer";
 type PantryItem = Doc<"pantryItems">;
 
-const CATEGORIES = [...PANTRY_CATEGORIES];
+const CATEGORIES: string[] = [...PANTRY_CATEGORIES];
 
 const UNITS = [
   "items",
