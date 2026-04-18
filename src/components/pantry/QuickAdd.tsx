@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { inferPantryCategory, type PantryCategory } from "@/lib/pantryCategories";
 
 type ParsedItem = {
   name: string;
   quantity: number;
   unit: string;
+  category: PantryCategory;
 };
 
 const UNIT_PATTERNS: Array<{ pattern: RegExp; unit: string }> = [
@@ -71,7 +73,12 @@ function parseNaturalLanguage(input: string): ParsedItem[] {
       name = name.charAt(0).toUpperCase() + name.slice(1);
     }
 
-    return { name, quantity: Math.max(0.1, quantity), unit };
+    return {
+      name,
+      quantity: Math.max(0.1, quantity),
+      unit,
+      category: inferPantryCategory(name, unit),
+    };
   }).filter((item) => item.name.length > 0);
 }
 

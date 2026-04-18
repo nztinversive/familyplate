@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type Suggestion = {
   _id?: string;
@@ -83,7 +84,9 @@ export default function TonightPage() {
       servings: r.servings,
       ingredients: r.ingredients,
       instructions: r.instructions,
-      missingItems: r.ingredients.filter((ing) => !ing.inPantry).map((ing) => ing.name),
+      missingItems: r.ingredients
+        .filter((ing) => !isIngredientAvailable(ing))
+        .map((ing) => ing.name),
     }));
   }, [persistedSuggestions]);
 
@@ -300,7 +303,9 @@ export default function TonightPage() {
         {/* Suggestion cards */}
         {suggestions.map((suggestion, index) => {
           const isExpanded = expandedIndex === index;
-          const pantryCount = suggestion.ingredients.filter(i => i.inPantry).length;
+          const pantryCount = suggestion.ingredients.filter((ingredient) =>
+            isIngredientAvailable(ingredient)
+          ).length;
           const totalCount = suggestion.ingredients.length;
           const matchPct = totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
           const circumference = 2 * Math.PI * 18;
@@ -404,21 +409,25 @@ export default function TonightPage() {
                         Ingredients
                       </p>
                       <div className="space-y-1.5">
-                        {suggestion.ingredients.map((ing, i) => (
-                          <div key={i} className="flex items-center gap-2.5 text-sm">
-                            <span
-                              className={`h-2 w-2 shrink-0 rounded-full ${
-                                ing.inPantry ? "bg-primary" : "bg-muted-foreground/25"
-                              }`}
-                            />
-                            <span className={ing.inPantry ? "" : "text-muted-foreground"}>
-                              {ing.quantity} {ing.unit} {ing.name}
-                            </span>
-                            {ing.inPantry && (
-                              <span className="text-[10px] font-medium text-primary bg-primary/8 rounded px-1 py-0.5">In pantry</span>
-                            )}
-                          </div>
-                        ))}
+                        {suggestion.ingredients.map((ing, i) => {
+                          const isAvailable = isIngredientAvailable(ing);
+
+                          return (
+                            <div key={i} className="flex items-center gap-2.5 text-sm">
+                              <span
+                                className={`h-2 w-2 shrink-0 rounded-full ${
+                                  isAvailable ? "bg-primary" : "bg-muted-foreground/25"
+                                }`}
+                              />
+                              <span className={isAvailable ? "" : "text-muted-foreground"}>
+                                {ing.quantity} {ing.unit} {ing.name}
+                              </span>
+                              {isAvailable && (
+                                <span className="text-[10px] font-medium text-primary bg-primary/8 rounded px-1 py-0.5">In pantry</span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 

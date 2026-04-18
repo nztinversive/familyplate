@@ -36,6 +36,17 @@ export function normalizeIngredientName(value: string) {
     .trim();
 }
 
+export function isAlwaysAvailableIngredient(name: string) {
+  const normalized = normalizeIngredientName(name);
+
+  return [
+    "water",
+    "cold water",
+    "warm water",
+    "hot water",
+  ].includes(normalized);
+}
+
 export function roundQuantity(value: number) {
   return Math.round(value * 100) / 100;
 }

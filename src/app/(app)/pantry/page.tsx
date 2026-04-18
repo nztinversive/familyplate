@@ -39,23 +39,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PANTRY_CATEGORIES } from "@/lib/pantryCategories";
 
 type StorageLocation = "pantry" | "fridge" | "freezer";
 type PantryItem = Doc<"pantryItems">;
 
-const CATEGORIES = [
-  "Produce",
-  "Fresh",
-  "Dairy",
-  "Meat",
-  "Grains",
-  "Canned",
-  "Snacks",
-  "Beverages",
-  "Condiments",
-  "Frozen",
-  "Other",
-];
+const CATEGORIES = [...PANTRY_CATEGORIES];
 
 const UNITS = [
   "items",
@@ -301,7 +290,7 @@ export default function PantryPage() {
                   name: item.name,
                   quantity: item.quantity,
                   unit: item.unit,
-                  category: "Other",
+                  category: item.category,
                   storageLocation: "pantry",
                 });
               }

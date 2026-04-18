@@ -22,6 +22,7 @@ import { RecipeFeedbackSummary } from "@/components/feedback/RecipeFeedbackSumma
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 function formatDateLabel(dateStr: string) {
   const date = new Date(`${dateStr}T12:00:00`);
@@ -69,7 +70,7 @@ export default function MealDetailPage() {
   };
 
   const pantryMatchCount = (mealDetail?.recipe?.ingredients ?? []).filter(
-    (ingredient) => ingredient.inPantry
+    (ingredient) => isIngredientAvailable(ingredient)
   ).length;
   const ingredientCount = mealDetail?.recipe?.ingredients.length ?? 0;
   const canSwapMeal = !!mealDetail && mealDetail.meal.status !== "cooked";
@@ -173,35 +174,39 @@ export default function MealDetailPage() {
                   </Button>
                 </div>
                 <div className="space-y-2">
-                  {mealDetail.recipe.ingredients.map((ingredient) => (
-                    <div
-                      key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
-                      className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 px-3 py-3"
-                    >
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">{ingredient.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={ingredient.inPantry ? "secondary" : "outline"}
-                        className="shrink-0"
+                  {mealDetail.recipe.ingredients.map((ingredient) => {
+                    const isAvailable = isIngredientAvailable(ingredient);
+
+                    return (
+                      <div
+                        key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
+                        className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 px-3 py-3"
                       >
-                        {ingredient.inPantry ? (
-                          <>
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            In pantry
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Need to buy
-                          </>
-                        )}
-                      </Badge>
-                    </div>
-                  ))}
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">{ingredient.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={isAvailable ? "secondary" : "outline"}
+                          className="shrink-0"
+                        >
+                          {isAvailable ? (
+                            <>
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              In pantry
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="mr-1 h-3 w-3" />
+                              Need to buy
+                            </>
+                          )}
+                        </Badge>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>

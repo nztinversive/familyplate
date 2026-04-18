@@ -6,6 +6,7 @@ import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   inferCategory,
+  isAlwaysAvailableIngredient,
   makeIngredientKey,
   roundQuantity,
 } from "../lib/mealPlanning";
@@ -64,6 +65,10 @@ export const generateGroceryList: ReturnType<typeof action> = action({
 
       for (const meal of context.meals.filter((meal: { status: string }) => meal.status === "planned")) {
         for (const ingredient of meal.recipe.ingredients) {
+          if (isAlwaysAvailableIngredient(ingredient.name)) {
+            continue;
+          }
+
           const key = makeIngredientKey(ingredient.name, ingredient.unit);
           const existing = neededIngredients.get(key);
           const nextQuantity = (existing?.quantity ?? 0) + ingredient.quantity;

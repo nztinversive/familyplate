@@ -1,6 +1,7 @@
 import { validateRecipeAllergens } from "./allergenCheck";
 import {
   getUsedPantryItemsFromIngredients,
+  isAlwaysAvailableIngredient,
   normalizeIngredientName,
   pantryItemsForIngredient,
 } from "./mealPlanning";
@@ -177,7 +178,9 @@ export function filterRecipeIngredientsForHouseholdSafety({
     .filter((ingredient) => !violatingIngredientNames.has(ingredient.name))
     .map((ingredient) => ({
       ...ingredient,
-      inPantry: pantryItemsForIngredient(ingredient.name, pantryItems).length > 0,
+      inPantry:
+        isAlwaysAvailableIngredient(ingredient.name) ||
+        pantryItemsForIngredient(ingredient.name, pantryItems).length > 0,
     }));
 
   if (safeIngredients.length === 0) {

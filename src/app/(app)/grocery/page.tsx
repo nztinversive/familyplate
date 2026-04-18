@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
 
 const CATEGORIES = [
   "Produce",
@@ -51,14 +52,23 @@ export default function GroceryPage() {
   const [activeTab, setActiveTab] = useState<"all" | "remaining" | "checked">("all");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  const items = useMemo(() => groceryList?.items ?? [], [groceryList?.items]);
+  // Preserve the original DB index when filtering out always-available items
+  // (like water), since Convex mutations like toggleItem/removeItem operate
+  // on the unfiltered items array by index.
+  const items = useMemo(
+    () =>
+      (groceryList?.items ?? [])
+        .map((item, originalIndex) => ({ ...item, originalIndex }))
+        .filter((item) => !isAlwaysAvailableIngredient(item.name)),
+    [groceryList?.items]
+  );
   const checkedCount = items.filter((item) => item.checked).length;
   const totalCount = items.length;
   const progressPct = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
   const groupedItems = useMemo(() => {
     const filteredItems = items
-      .map((item, index) => ({ ...item, index }))
+      .map((item) => ({ ...item, index: item.originalIndex }))
       .filter((item) => {
         if (activeTab === "remaining") return !item.checked;
         if (activeTab === "checked") return item.checked;

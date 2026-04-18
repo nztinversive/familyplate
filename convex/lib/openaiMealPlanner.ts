@@ -1,5 +1,6 @@
 import {
   getUsedPantryItemsFromIngredients,
+  isAlwaysAvailableIngredient,
   normalizeUnit,
   pantryItemsForIngredient,
   roundQuantity,
@@ -139,7 +140,9 @@ export function sanitizeRecipe(
     description: recipe.description.trim(),
     ingredients: ingredients.map((ingredient) => ({
       ...ingredient,
-      inPantry: pantryItemsForIngredient(ingredient.name, pantryItems).length > 0,
+      inPantry:
+        isAlwaysAvailableIngredient(ingredient.name) ||
+        pantryItemsForIngredient(ingredient.name, pantryItems).length > 0,
     })),
     instructions: (recipe.instructions ?? [])
       .map((instruction) => instruction.trim())

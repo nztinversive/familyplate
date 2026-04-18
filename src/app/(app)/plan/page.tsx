@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
 
@@ -381,7 +382,7 @@ export default function PlanPage() {
   };
 
   const handleAddMissingToGrocery = async (ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>) => {
-    const missing = ingredients.filter((ing) => !ing.inPantry);
+    const missing = ingredients.filter((ing) => !isIngredientAvailable(ing));
     if (missing.length === 0) return;
     setAddingToGrocery(true);
     try {
@@ -1042,33 +1043,37 @@ export default function PlanPage() {
                     Ingredients
                   </h4>
                   <div className="space-y-2">
-                    {selectedRecipe.ingredients.map((ingredient) => (
-                      <div
-                        key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
-                        className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3.5 py-3"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <span className={`h-2 w-2 rounded-full shrink-0 ${
-                            ingredient.inPantry ? "bg-primary" : "bg-muted-foreground/25"
-                          }`} />
-                          <div>
-                            <p className="text-sm font-medium">{ingredient.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
-                            </p>
+                    {selectedRecipe.ingredients.map((ingredient) => {
+                      const isAvailable = isIngredientAvailable(ingredient);
+
+                      return (
+                        <div
+                          key={`${ingredient.name}-${ingredient.unit}-${ingredient.quantity}`}
+                          className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3.5 py-3"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${
+                              isAvailable ? "bg-primary" : "bg-muted-foreground/25"
+                            }`} />
+                            <div>
+                              <p className="text-sm font-medium">{ingredient.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
+                              </p>
+                            </div>
                           </div>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            isAvailable
+                              ? "bg-primary/10 text-primary"
+                              : "bg-accent/10 text-accent"
+                          }`}>
+                            {isAvailable ? "Have it" : "Need it"}
+                          </span>
                         </div>
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          ingredient.inPantry
-                            ? "bg-primary/10 text-primary"
-                            : "bg-accent/10 text-accent"
-                        }`}>
-                          {ingredient.inPantry ? "Have it" : "Need it"}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                  {selectedRecipe.ingredients.some((ing) => !ing.inPantry) && (
+                  {selectedRecipe.ingredients.some((ing) => !isIngredientAvailable(ing)) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -1079,7 +1084,7 @@ export default function PlanPage() {
                       <ShoppingCart className="h-3.5 w-3.5" />
                       {addingToGrocery
                         ? "Adding..."
-                        : `Add ${selectedRecipe.ingredients.filter((ing) => !ing.inPantry).length} missing to grocery list`}
+                        : `Add ${selectedRecipe.ingredients.filter((ing) => !isIngredientAvailable(ing)).length} missing to grocery list`}
                     </Button>
                   )}
                 </section>

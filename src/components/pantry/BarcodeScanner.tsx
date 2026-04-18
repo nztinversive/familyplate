@@ -6,6 +6,7 @@ import { AlertCircle, Camera, Loader2, ScanLine, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { normalizePantryCategory } from "@/lib/pantryCategories";
 
 export type BarcodeScannerResult = {
   barcode: string;
@@ -296,7 +297,7 @@ async function lookupProduct(barcode: string): Promise<BarcodeScannerResult> {
   return {
     barcode,
     name,
-    category: mapOpenFoodFactsCategory(rawCategory),
+    category: normalizePantryCategory(rawCategory),
     quantity,
     unit,
     found: true,
@@ -321,52 +322,6 @@ function parseQuantity(rawQuantity?: string): { quantity: string; unit: string }
     quantity: simpleMatch[1].replace(",", "."),
     unit: simpleMatch[2]?.trim() || "items",
   };
-}
-
-function mapOpenFoodFactsCategory(rawCategory: string): string {
-  const category = rawCategory.toLowerCase();
-
-  if (containsAny(category, ["fruit", "vegetable", "produce", "salad", "fresh"])) {
-    return "Produce";
-  }
-
-  if (containsAny(category, ["milk", "yogurt", "cheese", "dairy", "butter", "cream"])) {
-    return "Dairy";
-  }
-
-  if (containsAny(category, ["meat", "chicken", "beef", "pork", "turkey", "seafood", "fish"])) {
-    return "Meat";
-  }
-
-  if (containsAny(category, ["pasta", "rice", "bread", "grain", "cereal", "flour", "oat"])) {
-    return "Grains";
-  }
-
-  if (containsAny(category, ["canned", "jarred", "beans", "soup"])) {
-    return "Canned";
-  }
-
-  if (containsAny(category, ["snack", "chips", "cookie", "cracker", "candy", "bar"])) {
-    return "Snacks";
-  }
-
-  if (containsAny(category, ["drink", "beverage", "juice", "soda", "water", "coffee", "tea"])) {
-    return "Beverages";
-  }
-
-  if (containsAny(category, ["condiment", "sauce", "dressing", "ketchup", "mustard", "spice"])) {
-    return "Condiments";
-  }
-
-  if (containsAny(category, ["frozen", "ice cream"])) {
-    return "Frozen";
-  }
-
-  return "Other";
-}
-
-function containsAny(value: string, keywords: string[]) {
-  return keywords.some((keyword) => value.includes(keyword));
 }
 
 function getCameraErrorMessage(error: unknown) {
