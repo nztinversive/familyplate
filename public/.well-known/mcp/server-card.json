@@ -1,0 +1,32 @@
+{
+  "$schema": "https://github.com/modelcontextprotocol/modelcontextprotocol/raw/main/schema/server-card.json",
+  "serverInfo": {
+    "name": "familyplate",
+    "title": "FamilyPlate",
+    "version": "1.0.0",
+    "description": "Smart family dinner planning & pantry management. Expose pantry items, meal plans, saved recipes, and grocery list actions to agents.",
+    "homepage": "https://familyplate.co",
+    "documentation": "https://familyplate.co/",
+    "vendor": {
+      "name": "FamilyPlate",
+      "url": "https://familyplate.co"
+    }
+  },
+  "transport": {
+    "type": "webmcp",
+    "description": "FamilyPlate exposes tools via WebMCP in-browser. Open https://familyplate.co/ and use navigator.modelContext to discover available tools."
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    },
+    "resources": {
+      "subscribe": false,
+      "listChanged": false
+    }
+  },
+  "authentication": {
+    "type": "oauth2",
+    "metadata": "https://familyplate.co/.well-known/oauth-protected-resource"
+  }
+}

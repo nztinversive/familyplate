@@ -1,0 +1,124 @@
+# robots.txt for FamilyPlate
+# https://familyplate.co
+
+# Default rules for all crawlers
+User-agent: *
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+# AI training crawlers
+User-agent: GPTBot
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: CCBot
+Allow: /
+Disallow: /pantry
+Disallow: /plan
+Disallow: /tonight
+Disallow: /grocery
+Disallow: /settings
+Disallow: /setup
+Disallow: /join
+Disallow: /api/
+
+User-agent: Bytespider
+Disallow: /
+
+# Content Signals — declares AI content usage preferences
+# https://contentsignals.org/
+Content-Signal: ai-train=no, search=yes, ai-input=yes
+
+# Sitemap
+Sitemap: https://familyplate.co/sitemap.xml

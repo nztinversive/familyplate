@@ -1,0 +1,33 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://familyplate.co/",
+      "service-desc": [
+        {
+          "href": "https://familyplate.co/.well-known/mcp/server-card.json",
+          "type": "application/json",
+          "title": "FamilyPlate MCP Server Card"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://familyplate.co/",
+          "type": "text/html",
+          "title": "FamilyPlate documentation"
+        },
+        {
+          "href": "https://familyplate.co/",
+          "type": "text/markdown",
+          "title": "FamilyPlate documentation (markdown)"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://effervescent-gecko-133.convex.cloud/",
+          "type": "application/json",
+          "title": "Convex backend health endpoint"
+        }
+      ]
+    }
+  ]
+}

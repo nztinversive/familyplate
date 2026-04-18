@@ -1,0 +1,18 @@
+{
+  "resource": "https://familyplate.co",
+  "authorization_servers": [
+    "https://effervescent-gecko-133.convex.cloud"
+  ],
+  "bearer_methods_supported": ["header"],
+  "resource_documentation": "https://familyplate.co/",
+  "scopes_supported": [
+    "read:pantry",
+    "write:pantry",
+    "read:plan",
+    "write:plan",
+    "read:recipes",
+    "write:recipes",
+    "read:grocery",
+    "write:grocery"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/agent-skills-discovery-rfc/main/schemas/v0.2.0/index.schema.json",
+  "version": "0.2.0",
+  "issuer": "https://familyplate.co",
+  "skills": [
+    {
+      "name": "suggest-dinner",
+      "type": "markdown",
+      "description": "Suggest 3 dinner recipes to cook tonight using pantry items, respecting allergies and dislikes. Supports craving filters like 'Chicken' or 'something spicy'.",
+      "url": "https://familyplate.co/.well-known/agent-skills/suggest-dinner.md",
+      "sha256": "2ff587a08d094590c46bbb3ffadeafc6e755eccdc848cef6e37da135a80b94e2"
+    },
+    {
+      "name": "generate-plan",
+      "type": "markdown",
+      "description": "Generate a personalized 7-night dinner plan with alternatives, using the household's pantry, preferences, allergies, and past meal feedback.",
+      "url": "https://familyplate.co/.well-known/agent-skills/generate-plan.md",
+      "sha256": "545ea417283c4d4a6b44b2f43cca5c534a89955bd61ee8d40d1cf83ac4abfc85"
+    },
+    {
+      "name": "manage-pantry",
+      "type": "markdown",
+      "description": "Add, update, or remove items in the household's pantry. Supports bulk natural-language input like '2 lbs chicken, milk, 3 onions'.",
+      "url": "https://familyplate.co/.well-known/agent-skills/manage-pantry.md",
+      "sha256": "fa3c25c1bee63e07302bd9c974171904b39acd8b9d68da07a5c45e0893ab6094"
+    }
+  ]
+}
