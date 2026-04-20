@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, ChefHat, Clock3, UtensilsCrossed } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ChefHat, Clock3, UtensilsCrossed } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConversionCTA } from "./ConversionCTA";
 import { EmbeddedDinnerForm } from "./EmbeddedDinnerForm";
 
 export type AeoExample = {
@@ -223,12 +223,7 @@ export function AeoLandingPage({ content }: { content: AeoContent }) {
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
             FamilyPlate plans 7 dinners around your pantry, your family's allergies, and what they actually liked last week.
           </p>
-          <Link href="/">
-            <Button size="lg" className="gap-1.5 rounded-xl">
-              Start planning free
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </Link>
+          <ConversionCTA sourcePage={`/${content.slug}`} />
           <p className="text-xs text-muted-foreground">No credit card required.</p>
         </CardContent>
       </Card>

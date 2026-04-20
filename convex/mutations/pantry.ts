@@ -48,6 +48,76 @@ async function getViewerProfile(ctx: MutationCtx) {
   return profile;
 }
 
+function inferCategory(name: string): string {
+  const n = name.trim().toLowerCase();
+  if (!n) return "Other";
+  if (/frozen|ice cream|popsicle/.test(n)) return "Frozen";
+  if (/chicken|beef|pork|turkey|bacon|sausage|ham|salmon|tuna|fish|shrimp|seafood|meat/.test(n)) return "Meat";
+  if (/milk|cheese|yogurt|butter|cream|kefir/.test(n)) return "Dairy";
+  if (/lettuce|spinach|kale|broccoli|cauliflower|carrot|celery|cucumber|zucchini|onion|garlic|potato|tomato|pepper|avocado|mushroom|cilantro|parsley|basil|ginger|lime|lemon|apple|banana|berry|melon|peach|fruit|vegetable|veggie/.test(n)) return "Produce";
+  if (/egg|bread|bagel|roll|bun|tofu/.test(n)) return "Fresh";
+  if (/rice|pasta|cereal|oats|flour|noodle|quinoa|tortilla|wrap|grain/.test(n)) return "Grains";
+  if (/canned|soup|broth|stock|beans?|chickpea|lentil/.test(n)) return "Canned";
+  if (/sauce|dressing|ketchup|mustard|mayo|oil|vinegar|syrup|spice|seasoning|salsa|jam|jelly|peanut butter/.test(n)) return "Condiments";
+  if (/juice|soda|water|coffee|tea|drink|beverage/.test(n)) return "Beverages";
+  if (/chip|cracker|cookie|pretzel|popcorn|candy|chocolate|snack/.test(n)) return "Snacks";
+  return "Other";
+}
+
+export const bulkImportFromGenerator = mutation({
+  args: {
+    items: v.array(v.string()),
+    allergies: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const profile = await getViewerProfile(ctx);
+
+    const cleanItems = Array.from(
+      new Set(
+        args.items
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0 && s.length <= 80)
+          .slice(0, 60)
+      )
+    );
+
+    const now = Date.now();
+    let inserted = 0;
+    for (const name of cleanItems) {
+      await ctx.db.insert("pantryItems", {
+        householdId: profile.householdId,
+        name,
+        quantity: 1,
+        unit: "items",
+        category: inferCategory(name),
+        storageLocation: /frozen/i.test(name)
+          ? "freezer"
+          : /milk|cheese|yogurt|butter|cream|egg|fresh|deli|tofu/i.test(name)
+            ? "fridge"
+            : "pantry",
+        addedBy: profile._id,
+        addedAt: now,
+      });
+      inserted++;
+    }
+
+    if (args.allergies && args.allergies.length > 0) {
+      const cleanAllergies = Array.from(
+        new Set([
+          ...profile.allergies,
+          ...args.allergies
+            .map((a) => a.trim())
+            .filter((a) => a.length > 0 && a.length <= 40)
+            .slice(0, 20),
+        ])
+      );
+      await ctx.db.patch(profile._id, { allergies: cleanAllergies });
+    }
+
+    return { inserted };
+  },
+});
+
 export const addItem = mutation({
   args: {
     householdId: v.id("households"),

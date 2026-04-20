@@ -32,6 +32,7 @@ import type * as mutations_households from "../mutations/households.js";
 import type * as mutations_pantry from "../mutations/pantry.js";
 import type * as mutations_planner from "../mutations/planner.js";
 import type * as mutations_profiles from "../mutations/profiles.js";
+import type * as mutations_publicEvents from "../mutations/publicEvents.js";
 import type * as mutations_recipes from "../mutations/recipes.js";
 import type * as mutations_savedRecipes from "../mutations/savedRecipes.js";
 import type * as queries_feedback from "../queries/feedback.js";
@@ -75,6 +76,7 @@ declare const fullApi: ApiFromModules<{
   "mutations/pantry": typeof mutations_pantry;
   "mutations/planner": typeof mutations_planner;
   "mutations/profiles": typeof mutations_profiles;
+  "mutations/publicEvents": typeof mutations_publicEvents;
   "mutations/recipes": typeof mutations_recipes;
   "mutations/savedRecipes": typeof mutations_savedRecipes;
   "queries/feedback": typeof queries_feedback;

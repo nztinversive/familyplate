@@ -214,4 +214,15 @@ export default defineSchema({
   })
     .index("by_dayKey", ["dayKey"])
     .index("by_dayKey_ipHash", ["dayKey", "ipHash"]),
+
+  publicEvents: defineTable({
+    name: v.string(),
+    sourcePage: v.optional(v.string()),
+    planId: v.optional(v.id("publicPlans")),
+    fingerprint: v.optional(v.string()),
+    metadata: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_name_createdAt", ["name", "createdAt"])
+    .index("by_sourcePage", ["sourcePage"]),
 });

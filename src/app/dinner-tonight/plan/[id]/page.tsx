@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
-import { ArrowRight, ChefHat, Clock3, UtensilsCrossed } from "lucide-react";
+import { ChefHat, Clock3, UtensilsCrossed } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConversionCTA } from "@/components/aeo/ConversionCTA";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL ?? "https://placeholder.convex.cloud";
 
@@ -252,14 +252,16 @@ export default async function PlanPage({
             <h3 className="font-display text-xl">Want a full week of dinners like this?</h3>
             <p className="text-sm text-muted-foreground">
               FamilyPlate plans 7 dinners around your pantry, learns what your family likes, and
-              builds the grocery list automatically.
+              builds the grocery list automatically. We'll save these pantry items so you don't have to enter them twice.
             </p>
-            <Link href="/">
-              <Button size="lg" className="gap-1.5 rounded-xl">
-                Start planning free
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <ConversionCTA
+              pantryItems={[plan.pantryText]}
+              allergies={plan.allergies}
+              craving={plan.craving}
+              sourcePage={`/dinner-tonight/plan/${id}`}
+              planId={id}
+              label="Start planning free with these items"
+            />
             <p className="text-xs text-muted-foreground">No credit card required.</p>
           </CardContent>
         </Card>

@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import {
-  ArrowRight,
   ChefHat,
   Clock3,
   Loader2,
@@ -19,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { ConversionCTA } from "@/components/aeo/ConversionCTA";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
 type Suggestion = {
@@ -63,9 +62,9 @@ function effortColor(level: string) {
 }
 
 export default function DinnerTonightPage() {
-  const router = useRouter();
   const { toast } = useToast();
   const generate = useAction(api.actions.publicDinner.generate);
+  const logEvent = useMutation(api.mutations.publicEvents.logEvent);
 
   const [pantryText, setPantryText] = useState("");
   const [allergies, setAllergies] = useState<string[]>([]);
@@ -252,6 +251,14 @@ export default function DinnerTonightPage() {
               <Link
                 href={`/dinner-tonight/plan/${planId}`}
                 className="text-xs text-primary hover:underline"
+                onClick={() => {
+                  void logEvent({
+                    name: "plan_shared",
+                    sourcePage: "/dinner-tonight",
+                    planId: planId as never,
+                    fingerprint: getOrCreateFingerprint(),
+                  }).catch(() => {});
+                }}
               >
                 Share this plan ↗
               </Link>
@@ -382,16 +389,16 @@ export default function DinnerTonightPage() {
             <CardContent className="space-y-3 p-5 text-center">
               <h3 className="font-display text-xl">Want this every week?</h3>
               <p className="text-sm text-muted-foreground">
-                FamilyPlate plans 7 dinners around your pantry, your family's allergies, and what you actually liked last week.
+                FamilyPlate plans 7 dinners around your pantry, your family's allergies, and what you actually liked last week. We'll save what you typed so you don't have to enter it twice.
               </p>
-              <Button
-                onClick={() => router.push("/")}
-                className="gap-1.5 rounded-xl"
-                size="lg"
-              >
-                Start planning free
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+              <ConversionCTA
+                pantryItems={[pantryText]}
+                allergies={allergies}
+                craving={craving || undefined}
+                sourcePage="/dinner-tonight"
+                planId={planId ?? undefined}
+                label="Start planning free with these items"
+              />
               <p className="text-xs text-muted-foreground">No credit card required.</p>
             </CardContent>
           </Card>
