@@ -3,6 +3,7 @@ import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexProvider } from "@/components/providers/ConvexProvider";
+import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { WebMCPProvider } from "@/components/agent/WebMCPProvider";
@@ -66,9 +67,11 @@ export default async function RootLayout({
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
         <ConvexAuthNextjsServerProvider>
           <ConvexProvider>
-            <WebMCPProvider />
-            <OfflineIndicator />
-            <ToastProvider>{children}</ToastProvider>
+            <PostHogProvider>
+              <WebMCPProvider />
+              <OfflineIndicator />
+              <ToastProvider>{children}</ToastProvider>
+            </PostHogProvider>
           </ConvexProvider>
         </ConvexAuthNextjsServerProvider>
       </body>

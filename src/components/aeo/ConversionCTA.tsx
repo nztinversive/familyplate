@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { ArrowRight } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
+import { track } from "@/lib/analytics";
 import { setPendingPantry } from "@/lib/pendingPantry";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
@@ -42,7 +43,13 @@ export function ConversionCTA({
       });
     }
 
-    // Fire-and-forget analytics
+    // Fire-and-forget analytics — PostHog (primary) + Convex (server-side audit)
+    track("cta_clicked", {
+      source_page: sourcePage,
+      plan_id: planId,
+      pantry_count: pantryItems?.length ?? 0,
+      had_allergies: (allergies?.length ?? 0) > 0,
+    });
     void logEvent({
       name: "cta_clicked",
       sourcePage,

@@ -9,6 +9,7 @@ import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { track } from "@/lib/analytics";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
 type Props = {
@@ -40,6 +41,12 @@ export function EmbeddedDinnerForm({
       return;
     }
     setIsLoading(true);
+    track("generator_started", {
+      source_page: sourcePage,
+      pantry_chars: pantryText.trim().length,
+      allergy_count: defaultAllergies.length,
+      had_craving: !!defaultCraving,
+    });
     try {
       const result = await generate({
         pantryText: pantryText.trim(),
@@ -47,6 +54,11 @@ export function EmbeddedDinnerForm({
         craving: defaultCraving || undefined,
         fingerprint: getOrCreateFingerprint(),
         sourcePage,
+      });
+      track("generator_completed", {
+        source_page: sourcePage,
+        plan_id: result.planId,
+        suggestion_count: result.suggestions.length,
       });
       router.push(`/dinner-tonight/plan/${result.planId}`);
     } catch (err) {

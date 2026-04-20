@@ -46,6 +46,17 @@ async function loadPlan(id: string): Promise<Plan | null> {
   }
 }
 
+function isPlanIndexable(plan: Plan): boolean {
+  if (plan.suggestions.length < 3) return false;
+  if (plan.pantryText.trim().length < 15) return false;
+  for (const s of plan.suggestions) {
+    if (!s.name.trim() || !s.description.trim()) return false;
+    if (s.ingredients.length < 3) return false;
+    if (s.instructions.length < 3) return false;
+  }
+  return true;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -61,11 +72,12 @@ export async function generateMetadata({
   }
 
   const titles = plan.suggestions.map((s) => s.name).slice(0, 3).join(", ");
+  const indexable = isPlanIndexable(plan);
   return {
     title: `Dinner ideas: ${titles} | FamilyPlate`,
     description: `3 dinner ideas generated from your pantry: ${titles}. Free pantry-to-dinner generator from FamilyPlate.`,
     alternates: { canonical: `/dinner-tonight/plan/${id}` },
-    robots: { index: false, follow: true },
+    robots: { index: indexable, follow: true },
     openGraph: {
       title: `Tonight's dinner: ${plan.suggestions[0]?.name ?? "3 ideas"}`,
       description: `3 family dinner ideas built around what's in the kitchen.`,

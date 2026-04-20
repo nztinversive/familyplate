@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { ConversionCTA } from "@/components/aeo/ConversionCTA";
+import { track } from "@/lib/analytics";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
 type Suggestion = {
@@ -95,6 +96,12 @@ export default function DinnerTonightPage() {
     setSuggestions([]);
     setPlanId(null);
     setExpandedIndex(0);
+    track("generator_started", {
+      source_page: "/dinner-tonight",
+      pantry_chars: pantryText.trim().length,
+      allergy_count: allergies.length,
+      had_craving: craving.trim().length > 0,
+    });
     try {
       const result = await generate({
         pantryText: pantryText.trim(),
@@ -105,6 +112,11 @@ export default function DinnerTonightPage() {
       });
       setSuggestions(result.suggestions);
       setPlanId(result.planId);
+      track("generator_completed", {
+        source_page: "/dinner-tonight",
+        plan_id: result.planId,
+        suggestion_count: result.suggestions.length,
+      });
     } catch (err) {
       toast(
         err instanceof ConvexError
@@ -252,6 +264,10 @@ export default function DinnerTonightPage() {
                 href={`/dinner-tonight/plan/${planId}`}
                 className="text-xs text-primary hover:underline"
                 onClick={() => {
+                  track("plan_shared", {
+                    source_page: "/dinner-tonight",
+                    plan_id: planId,
+                  });
                   void logEvent({
                     name: "plan_shared",
                     sourcePage: "/dinner-tonight",
