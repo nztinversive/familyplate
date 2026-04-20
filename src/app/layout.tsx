@@ -11,6 +11,25 @@ import { WebMCPProvider } from "@/components/agent/WebMCPProvider";
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-body" });
 const dmSerif = DM_Serif_Display({ weight: "400", subsets: ["latin"], variable: "--font-display" });
 
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "FamilyPlate",
+  url: "https://familyplate.co",
+  logo: "https://familyplate.co/icon-512.png",
+  description: "AI-powered family meal planning that builds weekly dinners around your pantry, allergies, and taste preferences.",
+  slogan: "Smart family dinner planning & pantry management",
+};
+
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "FamilyPlate",
+  url: "https://familyplate.co",
+  description: "AI-powered family meal planning that builds weekly dinners around your pantry, allergies, and taste preferences.",
+  publisher: { "@type": "Organization", name: "FamilyPlate" },
+};
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://familyplate.co"),
   title: "FamilyPlate",
@@ -63,6 +82,14 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `try{var t=localStorage.getItem("familyplate-theme");if(t==="dark"||(t===null&&window.matchMedia("(prefers-color-scheme:dark)").matches))document.documentElement.classList.add("dark")}catch(e){}` }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
+        />
       </head>
       <body className={`${dmSans.variable} ${dmSerif.variable} ${dmSans.className}`}>
         <ConvexAuthNextjsServerProvider>
