@@ -10,6 +10,7 @@
 
 import type * as actions_generateGroceryList from "../actions/generateGroceryList.js";
 import type * as actions_generateMealPlan from "../actions/generateMealPlan.js";
+import type * as actions_publicDinner from "../actions/publicDinner.js";
 import type * as actions_quickDinner from "../actions/quickDinner.js";
 import type * as actions_recognizeGroceries from "../actions/recognizeGroceries.js";
 import type * as actions_sendInviteEmail from "../actions/sendInviteEmail.js";
@@ -18,6 +19,7 @@ import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as internal_invites from "../internal/invites.js";
 import type * as internal_planner from "../internal/planner.js";
+import type * as internal_publicDinner from "../internal/publicDinner.js";
 import type * as lib_allergenCheck from "../lib/allergenCheck.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
 import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
@@ -38,6 +40,7 @@ import type * as queries_households from "../queries/households.js";
 import type * as queries_pantry from "../queries/pantry.js";
 import type * as queries_planner from "../queries/planner.js";
 import type * as queries_profiles from "../queries/profiles.js";
+import type * as queries_publicDinner from "../queries/publicDinner.js";
 import type * as queries_savedRecipes from "../queries/savedRecipes.js";
 import type * as subscriptions from "../subscriptions.js";
 
@@ -50,6 +53,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "actions/generateGroceryList": typeof actions_generateGroceryList;
   "actions/generateMealPlan": typeof actions_generateMealPlan;
+  "actions/publicDinner": typeof actions_publicDinner;
   "actions/quickDinner": typeof actions_quickDinner;
   "actions/recognizeGroceries": typeof actions_recognizeGroceries;
   "actions/sendInviteEmail": typeof actions_sendInviteEmail;
@@ -58,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "internal/invites": typeof internal_invites;
   "internal/planner": typeof internal_planner;
+  "internal/publicDinner": typeof internal_publicDinner;
   "lib/allergenCheck": typeof lib_allergenCheck;
   "lib/mealPlanning": typeof lib_mealPlanning;
   "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
@@ -78,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "queries/pantry": typeof queries_pantry;
   "queries/planner": typeof queries_planner;
   "queries/profiles": typeof queries_profiles;
+  "queries/publicDinner": typeof queries_publicDinner;
   "queries/savedRecipes": typeof queries_savedRecipes;
   subscriptions: typeof subscriptions;
 }>;

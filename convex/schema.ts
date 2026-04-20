@@ -174,4 +174,44 @@ export default defineSchema({
   })
     .index("by_recipeId", ["recipeId"])
     .index("by_oderId", ["oderId"]),
+
+  publicPlans: defineTable({
+    pantryText: v.string(),
+    allergies: v.array(v.string()),
+    craving: v.optional(v.string()),
+    suggestions: v.array(
+      v.object({
+        name: v.string(),
+        description: v.string(),
+        effortLevel: v.union(
+          v.literal("easy"),
+          v.literal("medium"),
+          v.literal("hard")
+        ),
+        estimatedTime: v.number(),
+        servings: v.number(),
+        ingredients: v.array(
+          v.object({
+            name: v.string(),
+            quantity: v.number(),
+            unit: v.string(),
+            inPantry: v.boolean(),
+          })
+        ),
+        instructions: v.array(v.string()),
+        missingItems: v.array(v.string()),
+      })
+    ),
+    sourcePage: v.optional(v.string()),
+    ipHash: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_createdAt", ["createdAt"]),
+
+  publicGenerationLog: defineTable({
+    dayKey: v.string(),
+    ipHash: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_dayKey", ["dayKey"])
+    .index("by_dayKey_ipHash", ["dayKey", "ipHash"]),
 });
