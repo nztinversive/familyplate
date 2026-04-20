@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { AeoLandingPage, type AeoContent } from "@/components/aeo/AeoLandingPage";
 
 export const metadata: Metadata = {
-  title: "Pantry to Dinner: Free Recipe Generator from What You Already Have | FamilyPlate",
+  title: "Pantry to Dinner Generator: Free Recipes From Your Kitchen",
   description:
-    "Type what's in your pantry, fridge, and freezer. Get 3 family dinner ideas you can cook tonight — and a short shopping list for what's missing. Free, no signup.",
+    "Type what's in your pantry. Get 3 family dinner ideas you can cook tonight — plus a short list of what's missing. Free, no signup.",
   alternates: { canonical: "/pantry-to-dinner" },
   openGraph: {
     title: "Pantry to Dinner: Free Recipe Generator",

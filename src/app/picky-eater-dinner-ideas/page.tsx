@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AeoLandingPage, type AeoContent } from "@/components/aeo/AeoLandingPage";
 
 export const metadata: Metadata = {
-  title: "Picky Eater Dinner Ideas: 3 Family Dinners Generated From Your Pantry | FamilyPlate",
+  title: "Picky Eater Dinner Ideas From Your Pantry | FamilyPlate",
   description:
     "Picky eaters at the table? Generate 3 mild, recognizable dinners from what's in your kitchen. Free, no signup. Real food kids actually eat.",
   alternates: { canonical: "/picky-eater-dinner-ideas" },

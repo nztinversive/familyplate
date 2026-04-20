@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { AeoLandingPage, type AeoContent } from "@/components/aeo/AeoLandingPage";
 
 export const metadata: Metadata = {
-  title: "Allergy-Safe Meal Planner: Free Dinner Ideas That Skip Your Allergens | FamilyPlate",
+  title: "Allergy-Safe Meal Planner: Free Dinner Generator | FamilyPlate",
   description:
-    "Tell it what you're allergic to and what's in your pantry. Get 3 family dinners that exclude the allergen and all its derivatives. Server-side safety check included.",
+    "Tag your allergens. Get 3 family dinners that exclude the allergen AND its derivatives. Server-side safety check, no signup.",
   alternates: { canonical: "/allergy-safe-meal-planner" },
   openGraph: {
     title: "Allergy-Safe Meal Planner — Free Dinner Generator",
