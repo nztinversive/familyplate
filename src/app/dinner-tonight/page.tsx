@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
 type Suggestion = {
@@ -63,13 +64,13 @@ function effortColor(level: string) {
 
 export default function DinnerTonightPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const generate = useAction(api.actions.publicDinner.generate);
 
   const [pantryText, setPantryText] = useState("");
   const [allergies, setAllergies] = useState<string[]>([]);
   const [craving, setCraving] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [planId, setPlanId] = useState<string | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
@@ -88,11 +89,10 @@ export default function DinnerTonightPage() {
 
   const handleGenerate = async () => {
     if (!pantryText.trim()) {
-      setError("Add a few pantry items first.");
+      toast("Add a few pantry items first.", "error");
       return;
     }
     setIsLoading(true);
-    setError("");
     setSuggestions([]);
     setPlanId(null);
     setExpandedIndex(0);
@@ -107,12 +107,13 @@ export default function DinnerTonightPage() {
       setSuggestions(result.suggestions);
       setPlanId(result.planId);
     } catch (err) {
-      setError(
+      toast(
         err instanceof ConvexError
           ? (err.data as string)
           : err instanceof Error
             ? err.message
-            : "Something went wrong"
+            : "Something went wrong",
+        "error"
       );
     } finally {
       setIsLoading(false);
@@ -239,9 +240,6 @@ export default function DinnerTonightPage() {
             )}
           </Button>
 
-          {error && (
-            <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>
-          )}
         </CardContent>
       </Card>
 

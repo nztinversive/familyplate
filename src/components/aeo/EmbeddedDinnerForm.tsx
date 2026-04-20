@@ -8,6 +8,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { getOrCreateFingerprint } from "@/lib/publicFingerprint";
 
 type Props = {
@@ -28,18 +29,17 @@ export function EmbeddedDinnerForm({
   placeholder = "e.g. chicken thighs, rice, frozen broccoli, garlic...",
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const generate = useAction(api.actions.publicDinner.generate);
   const [pantryText, setPantryText] = useState(defaultPantry);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!pantryText.trim()) {
-      setError("Add a few pantry items first.");
+      toast("Add a few pantry items first.", "error");
       return;
     }
     setIsLoading(true);
-    setError("");
     try {
       const result = await generate({
         pantryText: pantryText.trim(),
@@ -50,12 +50,13 @@ export function EmbeddedDinnerForm({
       });
       router.push(`/dinner-tonight/plan/${result.planId}`);
     } catch (err) {
-      setError(
+      toast(
         err instanceof ConvexError
           ? (err.data as string)
           : err instanceof Error
             ? err.message
-            : "Something went wrong"
+            : "Something went wrong",
+        "error"
       );
       setIsLoading(false);
     }
@@ -89,7 +90,6 @@ export function EmbeddedDinnerForm({
           </>
         )}
       </Button>
-      {error && <p className="text-center text-sm text-red-600">{error}</p>}
       <p className="text-center text-xs text-muted-foreground">
         Free. No signup needed for first 5 generations per day.
       </p>
