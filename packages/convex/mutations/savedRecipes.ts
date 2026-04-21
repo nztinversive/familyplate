@@ -44,6 +44,56 @@ export const saveRecipe = mutation({
   },
 });
 
+export const importFromPublicPlan = mutation({
+  args: {
+    planId: v.id("publicPlans"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", userId as string))
+      .first();
+    if (!profile) throw new Error("Profile not found");
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) return { saved: 0 };
+
+    const now = Date.now();
+    let saved = 0;
+    for (const s of plan.suggestions) {
+      const recipeId = await ctx.db.insert("recipeSuggestions", {
+        householdId: profile.householdId,
+        createdBy: profile._id,
+        title: s.name,
+        description: s.description,
+        ingredients: s.ingredients,
+        instructions: s.instructions,
+        effortLevel: s.effortLevel,
+        estimatedTime: s.estimatedTime,
+        servings: s.servings,
+        tags: [],
+        usedPantryItems: s.ingredients
+          .filter((ing) => ing.inPantry)
+          .map((ing) => ing.name),
+        source: "ai",
+        createdAt: now,
+      });
+      await ctx.db.insert("savedRecipes", {
+        householdId: profile.householdId,
+        recipeId,
+        savedBy: profile._id,
+        savedAt: now,
+      });
+      saved++;
+    }
+
+    return { saved };
+  },
+});
+
 export const unsaveRecipe = mutation({
   args: {
     recipeId: v.id("recipeSuggestions"),

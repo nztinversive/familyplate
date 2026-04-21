@@ -6,6 +6,7 @@ export type PendingPantry = {
   allergies: string[];
   craving?: string;
   source: string;
+  planId?: string;
   savedAt: number;
 };
 
@@ -25,6 +26,7 @@ export function setPendingPantry(payload: Omit<PendingPantry, "savedAt">) {
       allergies: (payload.allergies ?? []).slice(0, 20),
       craving: payload.craving,
       source: payload.source,
+      planId: payload.planId,
       savedAt: Date.now(),
     };
     window.localStorage.setItem(KEY, JSON.stringify(data));

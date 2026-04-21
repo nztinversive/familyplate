@@ -34,12 +34,13 @@ export function ConversionCTA({
   const logEvent = useMutation(api.mutations.publicEvents.logEvent);
 
   const handleClick = () => {
-    if (pantryItems && pantryItems.length > 0) {
+    if ((pantryItems && pantryItems.length > 0) || planId) {
       setPendingPantry({
-        items: pantryItems,
+        items: pantryItems ?? [],
         allergies: allergies ?? [],
         craving,
         source: sourcePage,
+        planId,
       });
     }
 

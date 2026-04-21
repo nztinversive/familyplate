@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Loader2, Sparkles, X } from "lucide-react";
 import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
@@ -19,25 +20,44 @@ export function PendingPantryBanner() {
   const [isImporting, setIsImporting] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const importItems = useMutation(api.mutations.pantry.bulkImportFromGenerator);
+  const importRecipes = useMutation(api.mutations.savedRecipes.importFromPublicPlan);
   const { toast } = useToast();
 
   useEffect(() => {
     const data = getPendingPantry();
-    if (data && data.items.length > 0) setPending(data);
+    if (data && (data.items.length > 0 || data.planId)) setPending(data);
   }, []);
 
   if (!pending || isDismissed) return null;
 
+  const hasItems = pending.items.length > 0;
+  const hasPlan = Boolean(pending.planId);
+
   const handleImport = async () => {
     setIsImporting(true);
     try {
-      const result = await importItems({
-        items: pending.items,
-        allergies: pending.allergies,
-      });
+      const [itemsResult, recipesResult] = await Promise.all([
+        hasItems
+          ? importItems({ items: pending.items, allergies: pending.allergies })
+          : Promise.resolve({ inserted: 0 }),
+        hasPlan
+          ? importRecipes({ planId: pending.planId as Id<"publicPlans"> })
+          : Promise.resolve({ saved: 0 }),
+      ]);
+
       clearPendingPantry();
+
+      const parts: string[] = [];
+      if (itemsResult.inserted > 0) {
+        parts.push(`${itemsResult.inserted} pantry item${itemsResult.inserted === 1 ? "" : "s"}`);
+      }
+      if (recipesResult.saved > 0) {
+        parts.push(`${recipesResult.saved} dinner${recipesResult.saved === 1 ? "" : "s"} to your cookbook`);
+      }
       toast(
-        `Added ${result.inserted} item${result.inserted === 1 ? "" : "s"} from your generator session.`,
+        parts.length > 0
+          ? `Added ${parts.join(" + ")} from your generator session.`
+          : "Nothing to import.",
         "success"
       );
       setIsDismissed(true);
@@ -45,7 +65,7 @@ export function PendingPantryBanner() {
       toast(
         err instanceof ConvexError
           ? (err.data as string)
-          : "Couldn't import items. Please add them manually.",
+          : "Couldn't import everything. You can add the rest manually.",
         "error"
       );
       setIsImporting(false);
@@ -57,6 +77,26 @@ export function PendingPantryBanner() {
     setIsDismissed(true);
   };
 
+  const headline = (() => {
+    if (hasItems && hasPlan) {
+      return `Import ${pending.items.length} pantry item${pending.items.length === 1 ? "" : "s"} + your 3 generated dinners?`;
+    }
+    if (hasItems) {
+      return `Import ${pending.items.length} item${pending.items.length === 1 ? "" : "s"} from your generator session?`;
+    }
+    return "Save your generated dinners to your cookbook?";
+  })();
+
+  const subline = (() => {
+    if (hasItems) {
+      return (
+        pending.items.slice(0, 8).join(", ") +
+        (pending.items.length > 8 ? ` + ${pending.items.length - 8} more` : "")
+      );
+    }
+    return "3 recipes from your /dinner-tonight session.";
+  })();
+
   return (
     <Card className="border-primary/30 bg-gradient-to-br from-primary/5 to-accent/5">
       <CardContent className="space-y-3 p-4">
@@ -65,13 +105,8 @@ export function PendingPantryBanner() {
             <Sparkles className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">
-              Import {pending.items.length} item{pending.items.length === 1 ? "" : "s"} from your generator session?
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-              {pending.items.slice(0, 8).join(", ")}
-              {pending.items.length > 8 ? ` + ${pending.items.length - 8} more` : ""}
-            </p>
+            <p className="text-sm font-semibold">{headline}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{subline}</p>
           </div>
           <button
             type="button"
@@ -96,7 +131,7 @@ export function PendingPantryBanner() {
                 Importing...
               </>
             ) : (
-              <>Import to my pantry</>
+              <>{hasItems ? "Import to my pantry" : "Save recipes"}</>
             )}
           </Button>
           <Button
