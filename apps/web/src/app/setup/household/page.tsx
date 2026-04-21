@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthToken } from "@convex-dev/auth/react";
 import { useMutation, useConvexAuth, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import { Home, Users, ArrowRight, ArrowLeft, Copy, Check, UtensilsCrossed, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

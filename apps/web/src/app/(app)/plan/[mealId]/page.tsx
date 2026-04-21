@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useParams } from "next/navigation";
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import {
   ArrowDownToLine,
   ArrowLeft,

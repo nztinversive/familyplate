@@ -33,7 +33,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { api } from "../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
 type SelectedPlan = "monthly" | "annual" | null;

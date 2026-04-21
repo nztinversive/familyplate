@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { ArrowRight } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { track } from "@/lib/analytics";
 import { setPendingPantry } from "@/lib/pendingPantry";

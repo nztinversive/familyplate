@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { Copy, LogOut, Mail, Moon, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { AppShell } from "@/components/layout/AppShell";

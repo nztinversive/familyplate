@@ -3,8 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConvexHttpClient } from "convex/browser";
 import { ChefHat, Clock3, UtensilsCrossed } from "lucide-react";
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { Card, CardContent } from "@/components/ui/card";
 import { ConversionCTA } from "@/components/aeo/ConversionCTA";
 

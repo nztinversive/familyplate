@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../../convex/_generated/api";
-import type { Id } from "../../../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 
 export const runtime = "edge";
 export const alt = "Tonight's family dinner ideas — FamilyPlate";

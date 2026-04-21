@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAction } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Loader2, Sparkles } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";

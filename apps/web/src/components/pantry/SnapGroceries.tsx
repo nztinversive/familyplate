@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useAction } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import {
   Camera,
   Check,

@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthToken } from "@convex-dev/auth/react";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import { ArrowRight, ArrowLeft, Plus, X, UserPlus, UtensilsCrossed, Heart, Shield, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 
 const DIETARY_OPTIONS = [
   "Vegetarian", "Vegan", "Pescatarian", "Gluten-Free", "Dairy-Free",

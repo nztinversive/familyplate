@@ -11,7 +11,7 @@ import {
   Sparkles,
   UtensilsCrossed,
 } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { ChefHat, Plus, Trash2 } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import type { Id } from "../../../../convex/_generated/dataModel";
+import { api } from "@familyplate/convex/_generated/api";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { Check, CheckCircle2, ListChecks, Package, PartyPopper, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";

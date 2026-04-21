@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useConvex } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 
 // Minimal types for the WebMCP API (per draft spec)
 type ToolDefinition = {

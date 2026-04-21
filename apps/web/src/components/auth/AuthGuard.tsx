@@ -3,7 +3,7 @@
 import { useConvexAuth, useQuery } from "convex/react";
 import { useRouter, usePathname } from "next/navigation";
 import { ReactNode, useEffect } from "react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@familyplate/convex/_generated/api";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
