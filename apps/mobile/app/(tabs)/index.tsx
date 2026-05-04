@@ -4,13 +4,13 @@ import {
   Alert,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
@@ -51,7 +51,7 @@ export default function PantryScreen() {
 
   const pantryItems = useQuery(
     api.queries.pantry.getMyPantryItems,
-    activeTab === "all" ? {} : { storageLocation: activeTab }
+    activeTab === "all" ? {} : { storageLocation: activeTab },
   );
 
   const updateItem = useMutation(api.mutations.pantry.updateItem);
@@ -60,7 +60,7 @@ export default function PantryScreen() {
   const filteredItems = useMemo(() => {
     return (pantryItems ?? [])
       .filter((item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
       .sort((a, b) => {
         if (a.expirationDate && b.expirationDate)
@@ -102,7 +102,10 @@ export default function PantryScreen() {
     try {
       await updateItem({ itemId: item._id, quantity: next });
     } catch (err) {
-      Alert.alert("Couldn't update quantity", err instanceof Error ? err.message : "");
+      Alert.alert(
+        "Couldn't update quantity",
+        err instanceof Error ? err.message : "",
+      );
     }
   };
 
@@ -117,11 +120,14 @@ export default function PantryScreen() {
           style: "destructive",
           onPress: () => {
             void deleteItem({ itemId: item._id }).catch((err) => {
-              Alert.alert("Couldn't delete", err instanceof Error ? err.message : "");
+              Alert.alert(
+                "Couldn't delete",
+                err instanceof Error ? err.message : "",
+              );
             });
           },
         },
-      ]
+      ],
     );
   };
 
@@ -138,7 +144,10 @@ export default function PantryScreen() {
   const isLoading = pantryItems === undefined;
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView
+      className="flex-1 bg-white"
+      style={{ flex: 1, backgroundColor: "white" }}
+    >
       <View className="flex-row items-center justify-between border-b border-gray-100 px-4 pb-3 pt-2">
         <View>
           <Text className="text-3xl font-bold">Pantry</Text>
