@@ -1,58 +1,65 @@
-# Welcome to your Expo app 👋
+# FamilyPlate Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo Router iOS app for FamilyPlate. The app uses the shared Convex backend and expects a Convex deployment URL in `EXPO_PUBLIC_CONVEX_URL`.
 
-## Get started
+## Local Development
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Configure the Convex deployment
-
-   ```bash
-   cp apps/mobile/.env.example apps/mobile/.env.local
-   ```
-
-   For EAS builds, set `EXPO_PUBLIC_CONVEX_URL` in the EAS environment for the selected build profile.
-
-3. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies from the repository root:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Create the mobile env file:
 
-## Learn more
+```bash
+cp apps/mobile/.env.example apps/mobile/.env.local
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Start Expo from the mobile app directory:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+```bash
+cd apps/mobile
+npx expo start
+```
 
-## Join the community
+## iOS Delivery
 
-Join our community of developers creating universal apps.
+The iOS bundle identifier is `co.familyplate.app`.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+EAS files live in `apps/mobile` because Expo expects EAS commands to run from the app directory in a monorepo.
+
+Before the first cloud build:
+
+```bash
+cd apps/mobile
+npx eas-cli@latest login
+npx eas-cli@latest init
+```
+
+Create the Convex URL environment variable for both build environments:
+
+```bash
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_CONVEX_URL --value https://effervescent-gecko-133.convex.cloud --visibility plaintext
+npx eas-cli@latest env:create --environment production --name EXPO_PUBLIC_CONVEX_URL --value https://effervescent-gecko-133.convex.cloud --visibility plaintext
+```
+
+`EXPO_PUBLIC_CONVEX_URL` is embedded in the client app, so it is treated as public app configuration rather than a secret.
+
+Useful build commands:
+
+```bash
+# iOS Simulator build, no App Store install path.
+npx eas-cli@latest build --platform ios --profile simulator
+
+# Internal device build for ad hoc testing.
+npx eas-cli@latest build --platform ios --profile preview
+
+# App Store/TestFlight build.
+npx eas-cli@latest build --platform ios --profile production
+
+# Submit the latest production build to App Store Connect.
+npx eas-cli@latest submit --platform ios --profile production
+```
+
+Apple Developer and App Store Connect authentication happens in the EAS CLI flow. The first physical-device or TestFlight build may ask you to sign in and let EAS manage credentials.
