@@ -152,7 +152,7 @@ export default async function PlanPage({
 
       <div className="mb-6 text-center">
         <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Tonight's dinner ideas
+          Tonight&apos;s dinner ideas
         </p>
         <h1 className="font-display text-3xl tracking-tight sm:text-4xl">
           3 dinners from your pantry
@@ -204,7 +204,7 @@ export default async function PlanPage({
                 {s.missingItems.length > 0 && (
                   <div>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
-                      What you're missing
+                      What you&apos;re missing
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {s.missingItems.map((item) => (
@@ -264,7 +264,7 @@ export default async function PlanPage({
             <h3 className="font-display text-xl">Want a full week of dinners like this?</h3>
             <p className="text-sm text-muted-foreground">
               FamilyPlate plans 7 dinners around your pantry, learns what your family likes, and
-              builds the grocery list automatically. We'll save these pantry items so you don't have to enter them twice.
+              builds the grocery list automatically. We&apos;ll save these pantry items so you don&apos;t have to enter them twice.
             </p>
             <ConversionCTA
               pantryItems={[plan.pantryText]}

@@ -150,10 +150,10 @@ export default function DinnerTonightPage() {
           <UtensilsCrossed className="h-8 w-8 text-primary" />
         </div>
         <h1 className="mb-2 font-display text-3xl tracking-tight sm:text-4xl">
-          What's for dinner tonight?
+          What&apos;s for dinner tonight?
         </h1>
         <p className="mx-auto max-w-md text-sm text-muted-foreground">
-          Type a few things in your kitchen. Get 3 dinner ideas you can actually cook tonight — and exactly what you're missing.
+          Type a few things in your kitchen. Get 3 dinner ideas you can actually cook tonight — and exactly what you&apos;re missing.
         </p>
       </div>
 
@@ -162,7 +162,7 @@ export default function DinnerTonightPage() {
         <CardContent className="space-y-5 p-5">
           <div>
             <label className="mb-2 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              What's in your kitchen?
+              What&apos;s in your kitchen?
             </label>
             <Textarea
               placeholder="e.g. chicken thighs, rice, frozen broccoli, soy sauce, garlic..."
@@ -241,7 +241,7 @@ export default function DinnerTonightPage() {
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Finding tonight's dinner...
+                Finding tonight&apos;s dinner...
               </>
             ) : (
               <>
@@ -340,7 +340,7 @@ export default function DinnerTonightPage() {
                       {s.missingItems.length > 0 && (
                         <div>
                           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
-                            What you're missing
+                            What you&apos;re missing
                           </p>
                           <div className="flex flex-wrap gap-1.5">
                             {s.missingItems.map((item) => (
@@ -405,7 +405,7 @@ export default function DinnerTonightPage() {
             <CardContent className="space-y-3 p-5 text-center">
               <h3 className="font-display text-xl">Want this every week?</h3>
               <p className="text-sm text-muted-foreground">
-                FamilyPlate plans 7 dinners around your pantry, your family's allergies, and what you actually liked last week. We'll save what you typed so you don't have to enter it twice.
+                FamilyPlate plans 7 dinners around your pantry, your family&apos;s allergies, and what you actually liked last week. We&apos;ll save what you typed so you don&apos;t have to enter it twice.
               </p>
               <ConversionCTA
                 pantryItems={[pantryText]}

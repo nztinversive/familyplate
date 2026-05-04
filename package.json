@@ -14,7 +14,11 @@
     "build": "npm run build --workspace=@familyplate/web",
     "start": "npm run start --workspace=@familyplate/web",
     "lint": "npm run lint --workspace=@familyplate/web",
-    "convex:dev": "npm run dev --workspace=@familyplate/convex",
-    "convex:deploy": "npm run deploy --workspace=@familyplate/convex"
+    "convex:dev": "convex dev --typecheck=enable",
+    "convex:deploy": "convex deploy"
+  },
+  "devDependencies": {
+    "convex": "1.35.1",
+    "typescript": "5.9.3"
   }
 }

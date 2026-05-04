@@ -4,11 +4,15 @@
   "private": true,
   "description": "Convex backend (schema, functions, generated types) shared by web and mobile apps",
   "scripts": {
-    "dev": "convex dev",
-    "deploy": "convex deploy"
+    "dev": "cd ../.. && npm run convex:dev --",
+    "deploy": "cd ../.. && npm run convex:deploy --",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.91",
     "convex": "^1.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

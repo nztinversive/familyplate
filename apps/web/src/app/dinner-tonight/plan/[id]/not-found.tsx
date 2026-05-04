@@ -20,7 +20,7 @@ export default function PlanNotFound() {
           </div>
           <div>
             <h1 className="mb-2 font-display text-2xl tracking-tight sm:text-3xl">
-              That dinner plan isn't here
+              That dinner plan isn&apos;t here
             </h1>
             <p className="mx-auto max-w-md text-sm text-muted-foreground">
               The plan link may be old, mistyped, or expired. No problem — generate a fresh one in a few seconds.

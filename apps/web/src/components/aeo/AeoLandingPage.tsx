@@ -221,7 +221,7 @@ export function AeoLandingPage({ content }: { content: AeoContent }) {
         <CardContent className="space-y-3 p-6 text-center">
           <h3 className="font-display text-2xl">Want this every week?</h3>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
-            FamilyPlate plans 7 dinners around your pantry, your family's allergies, and what they actually liked last week.
+            FamilyPlate plans 7 dinners around your pantry, your family&apos;s allergies, and what they actually liked last week.
           </p>
           <ConversionCTA sourcePage={`/${content.slug}`} />
           <p className="text-xs text-muted-foreground">No credit card required.</p>

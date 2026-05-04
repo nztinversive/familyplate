@@ -75,7 +75,7 @@ export default async function OgImage({ params }: { params: { id: string } }) {
               fontWeight: 600,
             }}
           >
-            Tonight's dinner ideas
+            Tonight&apos;s dinner ideas
           </div>
           <div
             style={{
