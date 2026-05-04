@@ -6,13 +6,13 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
 import "react-native-reanimated";
 
-const convexUrl =
-  process.env.EXPO_PUBLIC_CONVEX_URL ??
-  (Constants.expoConfig?.extra?.EXPO_PUBLIC_CONVEX_URL as string | undefined) ??
-  "https://effervescent-gecko-133.convex.cloud";
+const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
+
+if (!convexUrl) {
+  throw new Error("Missing EXPO_PUBLIC_CONVEX_URL for the mobile app.");
+}
 
 const convex = new ConvexReactClient(convexUrl, {
   unsavedChangesWarning: false,

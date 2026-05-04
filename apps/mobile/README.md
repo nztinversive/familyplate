@@ -10,7 +10,15 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Configure the Convex deployment
+
+   ```bash
+   cp apps/mobile/.env.example apps/mobile/.env.local
+   ```
+
+   For EAS builds, set `EXPO_PUBLIC_CONVEX_URL` in the EAS environment for the selected build profile.
+
+3. Start the app
 
    ```bash
    npx expo start

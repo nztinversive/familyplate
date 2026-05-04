@@ -45,9 +45,6 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "EXPO_PUBLIC_CONVEX_URL": "https://effervescent-gecko-133.convex.cloud"
     }
   }
 }
