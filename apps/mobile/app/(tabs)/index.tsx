@@ -31,6 +31,10 @@ import {
   QuickAddBar,
   type QuickAddItem,
 } from "@/components/pantry/QuickAddBar";
+import {
+  SnapGroceries,
+  type SnapGroceryItem,
+} from "@/components/pantry/SnapGroceries";
 
 type PantryItem = Doc<"pantryItems">;
 type Tab = "all" | StorageLocation;
@@ -53,6 +57,7 @@ export default function PantryScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showForm, setShowForm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [showSnapGroceries, setShowSnapGroceries] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [prefillValues, setPrefillValues] =
     useState<BarcodeScannerResult | null>(null);
@@ -165,6 +170,35 @@ export default function PantryScreen() {
     }
   };
 
+  const handleSnapAdd = async (items: SnapGroceryItem[]) => {
+    if (!householdId) return;
+
+    setQuickAddNotice("");
+    setQuickAddError("");
+
+    try {
+      for (const item of items) {
+        await addItem({
+          householdId,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category,
+          storageLocation: "pantry",
+        });
+      }
+      setActiveTab("all");
+      setQuickAddNotice(
+        `Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`,
+      );
+    } catch (err) {
+      setQuickAddError(
+        err instanceof Error ? err.message : "Couldn't add photo items.",
+      );
+      throw err;
+    }
+  };
+
   const confirmDelete = (item: PantryItem) => {
     setQuickAddNotice("");
     setQuickAddError("");
@@ -224,6 +258,15 @@ export default function PantryScreen() {
             accessibilityLabel="Scan pantry item barcode"
           >
             <Ionicons name="scan" size={21} color="#248f58" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowSnapGroceries(true)}
+            disabled={!householdId}
+            className="h-11 w-11 items-center justify-center rounded-xl border border-border bg-card"
+            style={{ opacity: householdId ? 1 : 0.4 }}
+            accessibilityLabel="Snap groceries"
+          >
+            <Ionicons name="camera" size={21} color="#248f58" />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={openAdd}
@@ -403,6 +446,18 @@ export default function PantryScreen() {
         <BarcodeScanner
           onClose={() => setShowScanner(false)}
           onScan={handleScannerResult}
+        />
+      </Modal>
+
+      <Modal
+        visible={showSnapGroceries}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSnapGroceries(false)}
+      >
+        <SnapGroceries
+          onClose={() => setShowSnapGroceries(false)}
+          onAdd={handleSnapAdd}
         />
       </Modal>
     </SafeAreaView>
