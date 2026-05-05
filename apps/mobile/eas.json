@@ -20,5 +20,8 @@
     "production": {
       "ios": {}
     }
+  },
+  "cli": {
+    "appVersionSource": "remote"
   }
 }
