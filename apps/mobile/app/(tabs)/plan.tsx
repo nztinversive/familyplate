@@ -129,12 +129,19 @@ export default function PlanScreen() {
     api.mutations.planner.generatePlaceholderPlan,
   );
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
+  const swapMeal = useMutation(api.mutations.planner.swapMeal);
+  const swapMealDates = useMutation(api.mutations.planner.swapMealDates);
   const generateGroceryList = useMutation(
     api.mutations.grocery.generateFromPlan,
   );
+  const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
+  const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
 
   const [selectedMeal, setSelectedMeal] = useState<PlannedMeal | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
+  const [movingMealId, setMovingMealId] = useState<string | null>(null);
+  const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingGroceries, setIsGeneratingGroceries] = useState(false);
   const [notice, setNotice] = useState("");
@@ -149,6 +156,9 @@ export default function PlanScreen() {
   const activeCount = meals.length - skippedCount;
   const progressPct =
     activeCount > 0 ? Math.round((cookedCount / activeCount) * 100) : 0;
+  const savedRecipeIds = useMemo(() => {
+    return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
+  }, [savedRecipes]);
 
   const handleGeneratePlan = async () => {
     setIsGenerating(true);
@@ -231,6 +241,86 @@ export default function PlanScreen() {
       setError(getErrorMessage(err));
     } finally {
       setIsGeneratingGroceries(false);
+    }
+  };
+
+  const handleToggleSavedRecipe = async (recipeId: Id<"recipeSuggestions">) => {
+    setSavingRecipeId(recipeId);
+    setError("");
+    setNotice("");
+    try {
+      if (savedRecipeIds.has(recipeId)) {
+        await unsaveRecipe({ recipeId });
+        setNotice("Recipe removed from Cookbook.");
+      } else {
+        await saveRecipe({ recipeId });
+        setNotice("Recipe saved to Cookbook.");
+      }
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSavingRecipeId(null);
+    }
+  };
+
+  const handleSwapMeal = async (
+    meal: PlannedMeal,
+    recipeId: Id<"recipeSuggestions">,
+  ) => {
+    setBusyMealId(meal._id);
+    setError("");
+    setNotice("");
+    try {
+      await swapMeal({
+        mealId: meal._id as Id<"plannedMeals">,
+        recipeId,
+      });
+      setMovingMealId(null);
+      setSelectedMeal(null);
+      setNotice("Dinner swapped with an alternative.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusyMealId(null);
+    }
+  };
+
+  const handleStartMove = (meal: PlannedMeal) => {
+    setError("");
+    setNotice("");
+
+    if (meal.status === "cooked") {
+      setError("Cooked dinners are locked to preserve pantry history.");
+      return;
+    }
+
+    setMovingMealId((current) => (current === meal._id ? null : meal._id));
+    setSelectedMeal(null);
+    setNotice(
+      movingMealId === meal._id
+        ? "Move canceled."
+        : "Choose another dinner slot to swap dates.",
+    );
+  };
+
+  const handleMoveToTarget = async (targetMeal: PlannedMeal) => {
+    if (!movingMealId || movingMealId === targetMeal._id) return;
+
+    setBusyMealId(targetMeal._id);
+    setError("");
+    setNotice("");
+    try {
+      await swapMealDates({
+        mealId: movingMealId as Id<"plannedMeals">,
+        targetMealId: targetMeal._id as Id<"plannedMeals">,
+      });
+      setMovingMealId(null);
+      setSelectedMeal(null);
+      setNotice("Dinner moved to the selected day.");
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setBusyMealId(null);
     }
   };
 
@@ -350,8 +440,14 @@ export default function PlanScreen() {
               key={meal._id}
               meal={meal}
               busy={busyMealId === meal._id}
+              movingMealId={movingMealId}
+              saved={savedRecipeIds.has(meal.recipe._id)}
+              saving={savingRecipeId === meal.recipe._id}
               onOpen={() => setSelectedMeal(meal)}
               onSetStatus={handleSetStatus}
+              onStartMove={handleStartMove}
+              onMoveToTarget={handleMoveToTarget}
+              onToggleSavedRecipe={handleToggleSavedRecipe}
             />
           ))}
         </View>
@@ -360,8 +456,17 @@ export default function PlanScreen() {
       <MealDetailModal
         meal={selectedMeal}
         busy={busyMealId === selectedMeal?._id}
+        saved={
+          selectedMeal ? savedRecipeIds.has(selectedMeal.recipe._id) : false
+        }
+        saving={
+          selectedMeal ? savingRecipeId === selectedMeal.recipe._id : false
+        }
         onClose={() => setSelectedMeal(null)}
         onSetStatus={handleSetStatus}
+        onStartMove={handleStartMove}
+        onSwapMeal={handleSwapMeal}
+        onToggleSavedRecipe={handleToggleSavedRecipe}
       />
     </ScreenShell>
   );
@@ -370,24 +475,63 @@ export default function PlanScreen() {
 function MealCard({
   meal,
   busy,
+  movingMealId,
+  saved,
+  saving,
   onOpen,
   onSetStatus,
+  onStartMove,
+  onMoveToTarget,
+  onToggleSavedRecipe,
 }: {
   meal: PlannedMeal;
   busy: boolean;
+  movingMealId: string | null;
+  saved: boolean;
+  saving: boolean;
   onOpen: () => void;
   onSetStatus: (meal: PlannedMeal, status: MealStatus) => Promise<void>;
+  onStartMove: (meal: PlannedMeal) => void;
+  onMoveToTarget: (meal: PlannedMeal) => Promise<void>;
+  onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
 }) {
   const date = formatMealDate(meal.date);
   const status = STATUS_STYLES[meal.status];
   const effort = getEffortColor(meal.recipe.effortLevel);
   const pantry = getPantryMatch(meal.recipe);
+  const isMoveSource = movingMealId === meal._id;
+  const isMoveTarget = !!movingMealId && movingMealId !== meal._id;
+  const canMoveTarget = isMoveTarget && meal.status !== "cooked";
 
   return (
     <Pressable
-      onPress={onOpen}
+      onPress={() => {
+        if (canMoveTarget) {
+          void onMoveToTarget(meal);
+          return;
+        }
+
+        if (isMoveSource) {
+          onStartMove(meal);
+          return;
+        }
+
+        onOpen();
+      }}
       className="rounded-2xl border border-border bg-card p-4"
+      style={{
+        borderColor: isMoveSource || canMoveTarget ? "#248f58" : "#e7e0d6",
+      }}
     >
+      {isMoveSource ? (
+        <View className="mb-3 flex-row items-center gap-2 rounded-xl bg-primary/10 p-3">
+          <Ionicons name="move-outline" size={16} color="#248f58" />
+          <Text className="flex-1 text-sm font-semibold text-primary">
+            Pick another dinner slot to swap dates.
+          </Text>
+        </View>
+      ) : null}
+
       <View className="mb-3 flex-row items-start gap-3">
         <View className="w-14 items-center rounded-xl bg-muted px-2 py-2">
           <Text className="text-xs font-semibold uppercase text-muted-foreground">
@@ -499,6 +643,59 @@ function MealCard({
           </TouchableOpacity>
         )}
       </View>
+
+      <View className="mt-2 flex-row gap-2">
+        {isMoveTarget ? (
+          <TouchableOpacity
+            onPress={(event) => {
+              event.stopPropagation();
+              if (canMoveTarget) void onMoveToTarget(meal);
+            }}
+            disabled={busy || !canMoveTarget}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+            style={{ opacity: busy || !canMoveTarget ? 0.55 : 1 }}
+          >
+            <Ionicons name="swap-horizontal" size={16} color="white" />
+            <Text className="font-semibold text-white">
+              {canMoveTarget ? "Move Here" : "Locked"}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={(event) => {
+              event.stopPropagation();
+              onStartMove(meal);
+            }}
+            disabled={busy || meal.status === "cooked"}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
+            style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
+          >
+            <Ionicons name="move-outline" size={16} color="#248f58" />
+            <Text className="font-semibold text-primary">
+              {isMoveSource ? "Cancel Move" : "Move"}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          onPress={(event) => {
+            event.stopPropagation();
+            void onToggleSavedRecipe(meal.recipe._id);
+          }}
+          disabled={saving}
+          className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
+          style={{ opacity: saving ? 0.55 : 1 }}
+        >
+          <Ionicons
+            name={saved ? "heart" : "heart-outline"}
+            size={16}
+            color="#248f58"
+          />
+          <Text className="font-semibold text-primary">
+            {saving ? "Saving..." : saved ? "Saved" : "Save"}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </Pressable>
   );
 }
@@ -523,13 +720,26 @@ function InfoPill({
 function MealDetailModal({
   meal,
   busy,
+  saved,
+  saving,
   onClose,
   onSetStatus,
+  onStartMove,
+  onSwapMeal,
+  onToggleSavedRecipe,
 }: {
   meal: PlannedMeal | null;
   busy: boolean;
+  saved: boolean;
+  saving: boolean;
   onClose: () => void;
   onSetStatus: (meal: PlannedMeal, status: MealStatus) => Promise<void>;
+  onStartMove: (meal: PlannedMeal) => void;
+  onSwapMeal: (
+    meal: PlannedMeal,
+    recipeId: Id<"recipeSuggestions">,
+  ) => Promise<void>;
+  onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
 }) {
   if (!meal) return null;
 
@@ -645,7 +855,7 @@ function MealDetailModal({
             {meal.alternatives.length > 0 ? (
               <>
                 <Text className="mb-2 text-base font-bold text-foreground">
-                  Alternatives
+                  Swap Dinner
                 </Text>
                 <View className="mb-5 gap-2">
                   {meal.alternatives.map((alternative) => (
@@ -656,15 +866,59 @@ function MealDetailModal({
                       <Text className="font-semibold text-foreground">
                         {alternative.title}
                       </Text>
-                      <Text className="mt-1 text-sm text-muted-foreground">
+                      <Text className="mt-1 text-sm leading-5 text-muted-foreground">
                         {alternative.estimatedTime} min ·{" "}
                         {alternative.effortLevel}
                       </Text>
+                      <TouchableOpacity
+                        onPress={() => void onSwapMeal(meal, alternative._id)}
+                        disabled={busy || meal.status === "cooked"}
+                        className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-background py-2.5"
+                        style={{
+                          opacity: busy || meal.status === "cooked" ? 0.55 : 1,
+                        }}
+                      >
+                        <Ionicons
+                          name="swap-horizontal"
+                          size={16}
+                          color="#248f58"
+                        />
+                        <Text className="font-semibold text-primary">
+                          Swap to this
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   ))}
                 </View>
               </>
             ) : null}
+
+            <View className="mb-2 flex-row gap-2">
+              <TouchableOpacity
+                onPress={() => onStartMove(meal)}
+                disabled={busy || meal.status === "cooked"}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+                style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
+              >
+                <Ionicons name="move-outline" size={17} color="#248f58" />
+                <Text className="font-semibold text-primary">Move</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void onToggleSavedRecipe(recipe._id)}
+                disabled={saving}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+                style={{ opacity: saving ? 0.55 : 1 }}
+              >
+                <Ionicons
+                  name={saved ? "heart" : "heart-outline"}
+                  size={17}
+                  color="#248f58"
+                />
+                <Text className="font-semibold text-primary">
+                  {saving ? "Saving..." : saved ? "Saved" : "Save"}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <View className="flex-row gap-2">
               {meal.status !== "cooked" ? (
