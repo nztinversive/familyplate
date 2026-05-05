@@ -31,7 +31,10 @@ type Props = {
   onClose: () => void;
 };
 
-const STORAGE_LABELS: Record<StorageLocation, { icon: keyof typeof Ionicons.glyphMap; label: string }> = {
+const STORAGE_LABELS: Record<
+  StorageLocation,
+  { icon: keyof typeof Ionicons.glyphMap; label: string }
+> = {
   pantry: { icon: "cube", label: "Pantry" },
   fridge: { icon: "thermometer", label: "Fridge" },
   freezer: { icon: "snow", label: "Freezer" },
@@ -62,7 +65,8 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState<string>("items");
   const [category, setCategory] = useState<PantryCategory>("Other");
-  const [storageLocation, setStorageLocation] = useState<StorageLocation>("pantry");
+  const [storageLocation, setStorageLocation] =
+    useState<StorageLocation>("pantry");
   const [expirationDate, setExpirationDate] = useState("");
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -139,7 +143,9 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
           unit: unit.trim() || "items",
           category,
           storageLocation,
-          ...(expirationTs !== undefined ? { expirationDate: expirationTs } : {}),
+          ...(expirationTs !== undefined
+            ? { expirationDate: expirationTs }
+            : {}),
         });
       }
       onClose();
@@ -152,14 +158,14 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      className="flex-1 bg-background"
     >
       {/* Header */}
-      <View className="flex-row items-center justify-between border-b border-gray-200 px-4 py-3">
+      <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
         <TouchableOpacity onPress={onClose} disabled={isSubmitting}>
-          <Text className="text-base text-gray-600">Cancel</Text>
+          <Text className="text-base text-muted-foreground">Cancel</Text>
         </TouchableOpacity>
-        <Text className="text-base font-semibold">
+        <Text className="text-base font-semibold text-foreground">
           {item ? "Edit Item" : "Add Item"}
         </Text>
         <TouchableOpacity
@@ -188,12 +194,13 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
 
         {/* Name */}
         <View className="mb-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Name
           </Text>
           <TextInput
-            className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-base"
+            className="rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
             placeholder="e.g. Chicken breast"
+            placeholderTextColor="#9a9489"
             value={name}
             onChangeText={setName}
             onBlur={handleNameBlur}
@@ -205,11 +212,11 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
         {/* Quantity + Unit */}
         <View className="mb-4 flex-row gap-3">
           <View className="flex-1">
-            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Quantity
             </Text>
             <TextInput
-              className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-base"
+              className="rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
               keyboardType="decimal-pad"
               value={quantity}
               onChangeText={setQuantity}
@@ -217,21 +224,21 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
             />
           </View>
           <View className="flex-1">
-            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Unit
             </Text>
             <Pressable
               onPress={() => setShowUnitPicker((v) => !v)}
-              className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 flex-row items-center justify-between"
+              className="flex-row items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
             >
-              <Text className="text-base">{unit}</Text>
-              <Ionicons name="chevron-down" size={16} color="#6b7280" />
+              <Text className="text-base text-foreground">{unit}</Text>
+              <Ionicons name="chevron-down" size={16} color="#6f756f" />
             </Pressable>
           </View>
         </View>
 
         {showUnitPicker ? (
-          <View className="mb-4 rounded-xl border border-gray-200 bg-white">
+          <View className="mb-4 rounded-xl border border-border bg-card">
             <ScrollView style={{ maxHeight: 220 }}>
               {PANTRY_UNITS.map((u) => (
                 <Pressable
@@ -240,13 +247,15 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
                     setUnit(u);
                     setShowUnitPicker(false);
                   }}
-                  className={`px-4 py-3 border-b border-gray-100 ${
-                    unit === u ? "bg-gray-50" : ""
+                  className={`border-b border-border px-4 py-3 ${
+                    unit === u ? "bg-muted" : ""
                   }`}
                 >
                   <Text
                     className={`text-base ${
-                      unit === u ? "font-semibold text-primary" : ""
+                      unit === u
+                        ? "font-semibold text-primary"
+                        : "text-foreground"
                     }`}
                   >
                     {u}
@@ -259,12 +268,13 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
 
         {/* Expiration */}
         <View className="mb-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Expiration (optional)
           </Text>
           <TextInput
-            className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-base"
+            className="rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
             placeholder="YYYY-MM-DD"
+            placeholderTextColor="#9a9489"
             value={expirationDate}
             onChangeText={setExpirationDate}
             keyboardType="numbers-and-punctuation"
@@ -276,7 +286,7 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
 
         {/* Category */}
         <View className="mb-4">
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Category
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -289,12 +299,12 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
                   className={`rounded-full border px-3 py-1.5 ${
                     selected
                       ? "border-primary bg-primary"
-                      : "border-gray-300 bg-white"
+                      : "border-border bg-card"
                   }`}
                 >
                   <Text
                     className={`text-xs font-medium ${
-                      selected ? "text-white" : "text-gray-700"
+                      selected ? "text-white" : "text-foreground"
                     }`}
                   >
                     {option}
@@ -307,7 +317,7 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
 
         {/* Storage Location */}
         <View>
-          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-gray-500">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Storage Location
           </Text>
           <View className="flex-row gap-2">
@@ -321,7 +331,7 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
                   className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-3 ${
                     selected
                       ? "border-primary bg-primary"
-                      : "border-gray-300 bg-white"
+                      : "border-border bg-card"
                   }`}
                 >
                   <Ionicons

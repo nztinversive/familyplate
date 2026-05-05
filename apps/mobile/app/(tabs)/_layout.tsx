@@ -3,7 +3,7 @@ import { Tabs, Redirect } from "expo-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { View, ActivityIndicator } from "react-native";
 import { api } from "@familyplate/convex/_generated/api";
-import { IconSymbol } from "@/components/ui/icon-symbol";
+import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
@@ -35,12 +35,12 @@ export default function TabLayout() {
   if (isLoading || (isAuthenticated && currentUser === undefined)) {
     return (
       <View
-        className="flex-1 items-center justify-center bg-white"
+        className="flex-1 items-center justify-center bg-background"
         style={{
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "white",
+          backgroundColor: Colors.light.background,
         }}
       >
         <ActivityIndicator />
@@ -55,12 +55,12 @@ export default function TabLayout() {
   if (currentUser?.needsOnboarding) {
     return (
       <View
-        className="flex-1 items-center justify-center bg-white"
+        className="flex-1 items-center justify-center bg-background"
         style={{
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "white",
+          backgroundColor: Colors.light.background,
         }}
       >
         <ActivityIndicator />
@@ -72,6 +72,17 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+        tabBarInactiveTintColor: Colors[colorScheme ?? "light"].tabIconDefault,
+        tabBarStyle: {
+          backgroundColor: "#fffffff2",
+          borderTopColor: "#e7e0d6",
+          height: 86,
+          paddingTop: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+        },
         headerShown: false,
       }}
     >
@@ -80,7 +91,7 @@ export default function TabLayout() {
         options={{
           title: "Pantry",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="house.fill" color={color} />
+            <Ionicons name="home" size={24} color={color} />
           ),
         }}
       />
@@ -89,7 +100,7 @@ export default function TabLayout() {
         options={{
           title: "Tonight",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="paperplane.fill" color={color} />
+            <Ionicons name="sparkles" size={24} color={color} />
           ),
         }}
       />
@@ -98,7 +109,7 @@ export default function TabLayout() {
         options={{
           title: "Plan",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="house.fill" color={color} />
+            <Ionicons name="calendar" size={24} color={color} />
           ),
         }}
       />
@@ -107,7 +118,16 @@ export default function TabLayout() {
         options={{
           title: "Cookbook",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="paperplane.fill" color={color} />
+            <Ionicons name="book" size={24} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="grocery"
+        options={{
+          title: "Grocery",
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="cart" size={24} color={color} />
           ),
         }}
       />
@@ -116,7 +136,7 @@ export default function TabLayout() {
         options={{
           title: "Settings",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="house.fill" color={color} />
+            <Ionicons name="settings" size={24} color={color} />
           ),
         }}
       />

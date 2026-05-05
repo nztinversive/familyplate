@@ -11,14 +11,18 @@ type Props = {
 export function ScreenShell({ title, subtitle, children }: Props) {
   return (
     <SafeAreaView
-      className="flex-1 bg-white"
-      style={{ flex: 1, backgroundColor: "white" }}
+      className="flex-1 bg-background"
+      style={{ flex: 1, backgroundColor: "#fbfaf7" }}
     >
-      <ScrollView>
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
         <View className="px-4 py-6">
-          <Text className="text-3xl font-bold mb-2">{title}</Text>
+          <Text className="mb-2 text-3xl font-bold text-foreground">
+            {title}
+          </Text>
           {subtitle ? (
-            <Text className="text-base text-gray-500 mb-6">{subtitle}</Text>
+            <Text className="mb-6 text-base text-muted-foreground">
+              {subtitle}
+            </Text>
           ) : null}
           {children}
         </View>

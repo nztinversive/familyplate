@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { Redirect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 type Mode = "signIn" | "signUp";
 
@@ -54,8 +55,8 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-white"
-      style={{ flex: 1, backgroundColor: "white" }}
+      className="flex-1 bg-background"
+      style={{ flex: 1, backgroundColor: "#fbfaf7" }}
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -66,84 +67,132 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
         >
-          <View className="px-6 py-10">
-            <View className="mb-8">
-              <Text className="text-4xl font-bold mb-2">FamilyPlate</Text>
-              <Text className="text-base text-gray-500">
+          <View className="px-5 py-10">
+            <View className="mb-6 items-center">
+              <View className="mb-4 h-14 w-14 items-center justify-center rounded-2xl bg-primary">
+                <Ionicons name="restaurant" size={26} color="white" />
+              </View>
+              <Text className="mb-2 text-center text-4xl font-bold text-foreground">
+                FamilyPlate
+              </Text>
+              <Text className="text-center text-base text-muted-foreground">
                 {mode === "signIn"
                   ? "Sign in to your account."
                   : "Create your account — free, no credit card."}
               </Text>
             </View>
 
-            <View className="gap-4 mb-4">
-              <View>
-                <Text className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-2">
-                  Email
-                </Text>
-                <TextInput
-                  className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-base"
-                  placeholder="you@example.com"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  value={email}
-                  onChangeText={setEmail}
-                  editable={!isSubmitting}
-                />
-              </View>
-
-              <View>
-                <Text className="text-xs font-semibold uppercase tracking-widest text-gray-600 mb-2">
-                  Password
-                </Text>
-                <TextInput
-                  className="rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-base"
-                  placeholder="••••••••"
-                  secureTextEntry
-                  textContentType={
-                    mode === "signIn" ? "password" : "newPassword"
-                  }
-                  value={password}
-                  onChangeText={setPassword}
-                  editable={!isSubmitting}
-                />
-              </View>
-            </View>
-
-            {error ? (
-              <Text className="text-sm text-red-600 mb-4">{error}</Text>
-            ) : null}
-
-            <TouchableOpacity
-              onPress={() => void handleSubmit()}
-              disabled={isSubmitting}
-              className="rounded-xl bg-primary py-3.5 items-center mb-3"
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text className="text-white font-semibold text-base">
-                  {mode === "signIn" ? "Sign in" : "Create account"}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setMode(mode === "signIn" ? "signUp" : "signIn");
-                setError("");
+            <View
+              className="rounded-2xl border border-border bg-card p-4"
+              style={{
+                shadowColor: "#171d1a",
+                shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.06,
+                shadowRadius: 24,
               }}
-              disabled={isSubmitting}
-              className="items-center py-2"
             >
-              <Text className="text-sm text-gray-600">
-                {mode === "signIn"
-                  ? "Don't have an account? Sign up"
-                  : "Have an account? Sign in"}
-              </Text>
-            </TouchableOpacity>
+              <View className="mb-4">
+                <View className="mb-2 flex-row rounded-xl bg-muted p-1">
+                  {(["signIn", "signUp"] as const).map((option) => {
+                    const active = mode === option;
+                    return (
+                      <TouchableOpacity
+                        key={option}
+                        onPress={() => {
+                          setMode(option);
+                          setError("");
+                        }}
+                        disabled={isSubmitting}
+                        className={`flex-1 rounded-lg py-2 ${
+                          active ? "bg-card" : ""
+                        }`}
+                      >
+                        <Text
+                          className={`text-center text-sm font-semibold ${
+                            active ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        >
+                          {option === "signIn" ? "Sign in" : "Sign up"}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View className="mb-4 gap-4">
+                <View>
+                  <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Email
+                  </Text>
+                  <TextInput
+                    className="rounded-xl border border-border bg-muted px-4 py-3 text-base text-foreground"
+                    placeholder="you@example.com"
+                    placeholderTextColor="#9a9489"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    value={email}
+                    onChangeText={setEmail}
+                    editable={!isSubmitting}
+                  />
+                </View>
+
+                <View>
+                  <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    Password
+                  </Text>
+                  <TextInput
+                    className="rounded-xl border border-border bg-muted px-4 py-3 text-base text-foreground"
+                    placeholder="••••••••"
+                    placeholderTextColor="#9a9489"
+                    secureTextEntry
+                    textContentType={
+                      mode === "signIn" ? "password" : "newPassword"
+                    }
+                    value={password}
+                    onChangeText={setPassword}
+                    editable={!isSubmitting}
+                  />
+                </View>
+              </View>
+
+              {error ? (
+                <View className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
+                  <Text className="text-sm text-red-700">{error}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                onPress={() => void handleSubmit()}
+                disabled={isSubmitting}
+                className="mb-3 items-center rounded-xl bg-primary py-3.5"
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text className="text-white font-semibold text-base">
+                    {mode === "signIn" ? "Sign in" : "Create account"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  setMode(mode === "signIn" ? "signUp" : "signIn");
+                  setError("");
+                }}
+                disabled={isSubmitting}
+                className="items-center py-2"
+              >
+                <Text className="text-sm text-muted-foreground">
+                  {mode === "signIn"
+                    ? "Don't have an account? Sign up"
+                    : "Have an account? Sign in"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

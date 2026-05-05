@@ -5,14 +5,21 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        background: "#fbfaf7",
+        foreground: "#171d1a",
+        card: "#ffffff",
+        border: "#e7e0d6",
+        muted: "#f3efe8",
+        "muted-foreground": "#6f756f",
         primary: {
-          DEFAULT: "#1a9d5c",
+          DEFAULT: "#248f58",
           foreground: "#ffffff",
         },
         accent: {
-          DEFAULT: "#f5a524",
+          DEFAULT: "#c66a1c",
           foreground: "#ffffff",
         },
+        destructive: "#dc2626",
       },
       fontFamily: {
         display: ["DMSerifDisplay_400Regular"],

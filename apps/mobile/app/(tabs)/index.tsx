@@ -145,13 +145,13 @@ export default function PantryScreen() {
 
   return (
     <SafeAreaView
-      className="flex-1 bg-white"
-      style={{ flex: 1, backgroundColor: "white" }}
+      className="flex-1 bg-background"
+      style={{ flex: 1, backgroundColor: "#fbfaf7" }}
     >
-      <View className="flex-row items-center justify-between border-b border-gray-100 px-4 pb-3 pt-2">
+      <View className="flex-row items-center justify-between border-b border-border bg-card/95 px-4 pb-3 pt-2">
         <View>
-          <Text className="text-3xl font-bold">Pantry</Text>
-          <Text className="text-sm text-gray-500">
+          <Text className="text-3xl font-bold text-foreground">My Pantry</Text>
+          <Text className="text-sm text-muted-foreground">
             {isLoading
               ? " "
               : `${totalCount} item${totalCount === 1 ? "" : "s"}`}
@@ -160,19 +160,26 @@ export default function PantryScreen() {
         <TouchableOpacity
           onPress={openAdd}
           disabled={!householdId}
-          className="h-10 w-10 items-center justify-center rounded-full bg-primary"
-          style={{ opacity: householdId ? 1 : 0.4 }}
+          className="h-11 w-11 items-center justify-center rounded-xl bg-primary"
+          style={{
+            opacity: householdId ? 1 : 0.4,
+            shadowColor: "#248f58",
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.22,
+            shadowRadius: 14,
+          }}
         >
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
       </View>
 
       <View className="px-4 pt-3">
-        <View className="flex-row items-center rounded-xl bg-gray-100 px-3">
-          <Ionicons name="search" size={18} color="#6b7280" />
+        <View className="flex-row items-center rounded-xl bg-muted px-3">
+          <Ionicons name="search" size={18} color="#6f756f" />
           <TextInput
-            className="ml-2 flex-1 py-2.5 text-base"
+            className="ml-2 flex-1 py-2.5 text-base text-foreground"
             placeholder="Search pantry…"
+            placeholderTextColor="#9a9489"
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -180,14 +187,14 @@ export default function PantryScreen() {
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={18} color="#9ca3af" />
+              <Ionicons name="close-circle" size={18} color="#9a9489" />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
 
       <View className="px-4 pt-3">
-        <View className="flex-row rounded-xl bg-gray-100 p-1">
+        <View className="flex-row rounded-xl bg-muted p-1">
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -195,13 +202,13 @@ export default function PantryScreen() {
                 key={tab.key}
                 onPress={() => setActiveTab(tab.key)}
                 className={`flex-1 items-center rounded-lg py-2 ${
-                  active ? "bg-white" : ""
+                  active ? "bg-card" : ""
                 }`}
                 style={
                   active
                     ? {
                         shadowColor: "#000",
-                        shadowOpacity: 0.06,
+                        shadowOpacity: 0.07,
                         shadowOffset: { width: 0, height: 1 },
                         shadowRadius: 2,
                       }
@@ -210,7 +217,9 @@ export default function PantryScreen() {
               >
                 <Text
                   className={`text-sm ${
-                    active ? "font-semibold text-gray-900" : "text-gray-600"
+                    active
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground"
                   }`}
                 >
                   {tab.label}
@@ -246,11 +255,11 @@ export default function PantryScreen() {
                   className="mb-2 flex-row items-center justify-between"
                 >
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-xs font-semibold uppercase tracking-widest text-gray-500">
+                    <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                       {category}
                     </Text>
-                    <View className="rounded-full bg-gray-100 px-2 py-0.5">
-                      <Text className="text-[10px] font-medium text-gray-600">
+                    <View className="rounded-full bg-muted px-2 py-0.5">
+                      <Text className="text-[10px] font-medium text-muted-foreground">
                         {items.length}
                       </Text>
                     </View>
@@ -313,7 +322,15 @@ function ItemCard({
   const iconName = STORAGE_ICON[item.storageLocation];
 
   return (
-    <View className="mb-2 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+    <View
+      className="mb-2 overflow-hidden rounded-2xl border border-border bg-card"
+      style={{
+        shadowColor: "#171d1a",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.04,
+        shadowRadius: 14,
+      }}
+    >
       <View className="flex-row items-center gap-3 p-3">
         <View
           className="h-10 w-10 items-center justify-center rounded-xl"
@@ -322,10 +339,13 @@ function ItemCard({
           <Ionicons name={iconName} size={18} color={tint.fg} />
         </View>
         <View className="min-w-0 flex-1">
-          <Text className="text-base font-semibold" numberOfLines={1}>
+          <Text
+            className="text-base font-semibold text-foreground"
+            numberOfLines={1}
+          >
             {item.name}
           </Text>
-          <Text className="text-xs text-gray-500" numberOfLines={1}>
+          <Text className="text-xs text-muted-foreground" numberOfLines={1}>
             {item.quantity} {item.unit} · {item.category}
           </Text>
         </View>
@@ -334,11 +354,11 @@ function ItemCard({
           className="h-8 w-8 items-center justify-center"
           accessibilityLabel={`Edit ${item.name}`}
         >
-          <Ionicons name="pencil" size={16} color="#4b5563" />
+          <Ionicons name="pencil" size={16} color="#6f756f" />
         </TouchableOpacity>
       </View>
 
-      <View className="flex-row items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+      <View className="flex-row items-center justify-between border-t border-border bg-muted/40 px-3 py-2">
         <View className="flex-row items-center gap-1">
           <Ionicons name="time-outline" size={12} color={expirationColor} />
           <Text style={{ color: expirationColor }} className="text-[11px]">
@@ -346,7 +366,7 @@ function ItemCard({
           </Text>
         </View>
         <View className="flex-row items-center gap-1">
-          <View className="flex-row items-center rounded-full border border-gray-200 bg-white">
+          <View className="flex-row items-center rounded-full border border-border bg-card">
             <TouchableOpacity
               onPress={() => onAdjust(-1)}
               disabled={item.quantity <= 1}
@@ -356,7 +376,7 @@ function ItemCard({
             >
               <Ionicons name="remove" size={14} color="#374151" />
             </TouchableOpacity>
-            <Text className="min-w-6 text-center text-xs font-semibold tabular-nums">
+            <Text className="min-w-6 text-center text-xs font-semibold text-foreground tabular-nums">
               {item.quantity}
             </Text>
             <TouchableOpacity
@@ -394,8 +414,8 @@ function EmptyState({
   if (searching) {
     return (
       <View className="items-center py-16">
-        <Ionicons name="search" size={32} color="#9ca3af" />
-        <Text className="mt-3 text-base text-gray-500">No matches</Text>
+        <Ionicons name="search" size={32} color="#9a9489" />
+        <Text className="mt-3 text-base text-muted-foreground">No matches</Text>
       </View>
     );
   }
@@ -403,12 +423,12 @@ function EmptyState({
   return (
     <View className="items-center px-6 py-16">
       <View className="mb-4 h-20 w-20 items-center justify-center rounded-3xl bg-amber-50">
-        <Ionicons name="cube" size={36} color="#b45309" />
+        <Ionicons name="cube" size={36} color="#c66a1c" />
       </View>
-      <Text className="mb-1 text-xl font-semibold">
+      <Text className="mb-1 text-xl font-semibold text-foreground">
         {location ? `No items in ${location}` : "Your pantry is empty"}
       </Text>
-      <Text className="mb-6 max-w-xs text-center text-sm text-gray-500">
+      <Text className="mb-6 max-w-xs text-center text-sm text-muted-foreground">
         {location
           ? `Add items to track what's in your ${location}.`
           : "Add what you have at home — the AI will use these ingredients first when planning meals."}

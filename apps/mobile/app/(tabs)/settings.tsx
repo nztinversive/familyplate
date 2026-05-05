@@ -10,15 +10,17 @@ export default function SettingsScreen() {
 
   return (
     <ScreenShell title="Settings" subtitle={profile?.email ?? "Signed in"}>
-      <View className="rounded-2xl border border-gray-200 bg-gray-50 p-6 items-center mb-4">
-        <Text className="text-sm text-gray-500">Full settings — coming in Piece 7.</Text>
+      <View className="mb-4 items-center rounded-2xl border border-border bg-card p-6">
+        <Text className="text-sm text-muted-foreground">
+          Full settings — coming in Piece 7.
+        </Text>
       </View>
 
       <TouchableOpacity
         onPress={() => void signOut()}
-        className="rounded-xl bg-gray-900 py-3 items-center"
+        className="items-center rounded-xl bg-foreground py-3"
       >
-        <Text className="text-white font-semibold">Sign out</Text>
+        <Text className="font-semibold text-white">Sign out</Text>
       </TouchableOpacity>
     </ScreenShell>
   );
