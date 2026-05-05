@@ -22,12 +22,14 @@ import {
   type StorageLocation,
   inferCategory,
 } from "@/lib/pantry";
+import type { BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
 
 type PantryItem = Doc<"pantryItems">;
 
 type Props = {
   householdId: Id<"households">;
   item: PantryItem | null;
+  prefillValues?: BarcodeScannerResult;
   onClose: () => void;
 };
 
@@ -57,7 +59,12 @@ function parseDateInput(value: string): number | undefined {
   return Number.isFinite(ts) ? ts : undefined;
 }
 
-export function PantryItemForm({ householdId, item, onClose }: Props) {
+export function PantryItemForm({
+  householdId,
+  item,
+  prefillValues,
+  onClose,
+}: Props) {
   const addItem = useMutation(api.mutations.pantry.addItem);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
 
@@ -68,6 +75,7 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
   const [storageLocation, setStorageLocation] =
     useState<StorageLocation>("pantry");
   const [expirationDate, setExpirationDate] = useState("");
+  const [barcode, setBarcode] = useState("");
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -80,16 +88,24 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
       setCategory(item.category as PantryCategory);
       setStorageLocation(item.storageLocation);
       setExpirationDate(formatDateInput(item.expirationDate));
+      setBarcode(item.barcode ?? "");
+      setError("");
       return;
     }
-    setName("");
-    setQuantity("1");
-    setUnit("items");
-    setCategory("Other");
+    setName(prefillValues?.name ?? "");
+    setQuantity(prefillValues?.quantity ?? "1");
+    setUnit(prefillValues?.unit ?? "items");
+    setCategory(
+      prefillValues?.category &&
+        PANTRY_CATEGORIES.includes(prefillValues.category)
+        ? prefillValues.category
+        : "Other",
+    );
     setStorageLocation("pantry");
     setExpirationDate("");
+    setBarcode(prefillValues?.barcode ?? "");
     setError("");
-  }, [item]);
+  }, [item, prefillValues]);
 
   const handleNameBlur = () => {
     if (!item && name.trim() && category === "Other") {
@@ -121,6 +137,8 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
     setError("");
 
     try {
+      const trimmedBarcode = barcode.trim();
+
       if (item) {
         await updateItem({
           itemId: item._id,
@@ -134,6 +152,11 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
             : item.expirationDate
               ? { clearExpirationDate: true }
               : {}),
+          ...(trimmedBarcode
+            ? { barcode: trimmedBarcode }
+            : item.barcode
+              ? { clearBarcode: true }
+              : {}),
         });
       } else {
         await addItem({
@@ -146,6 +169,7 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
           ...(expirationTs !== undefined
             ? { expirationDate: expirationTs }
             : {}),
+          ...(trimmedBarcode ? { barcode: trimmedBarcode } : {}),
         });
       }
       onClose();
@@ -186,6 +210,14 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
       >
+        {prefillValues?.message && !item ? (
+          <View className="mb-4 rounded-xl border border-border bg-muted p-3">
+            <Text className="text-sm text-muted-foreground">
+              {prefillValues.message}
+            </Text>
+          </View>
+        ) : null}
+
         {error ? (
           <View className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
             <Text className="text-sm text-red-700">{error}</Text>
@@ -278,6 +310,24 @@ export function PantryItemForm({ householdId, item, onClose }: Props) {
             value={expirationDate}
             onChangeText={setExpirationDate}
             keyboardType="numbers-and-punctuation"
+            autoCorrect={false}
+            autoCapitalize="none"
+            editable={!isSubmitting}
+          />
+        </View>
+
+        {/* Barcode */}
+        <View className="mb-4">
+          <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Barcode (optional)
+          </Text>
+          <TextInput
+            className="rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
+            placeholder="UPC or EAN"
+            placeholderTextColor="#9a9489"
+            value={barcode}
+            onChangeText={setBarcode}
+            keyboardType="number-pad"
             autoCorrect={false}
             autoCapitalize="none"
             editable={!isSubmitting}

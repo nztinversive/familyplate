@@ -24,6 +24,10 @@ import {
 import { PantryItemForm } from "@/components/pantry/PantryItemForm";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
 import {
+  BarcodeScanner,
+  type BarcodeScannerResult,
+} from "@/components/pantry/BarcodeScanner";
+import {
   QuickAddBar,
   type QuickAddItem,
 } from "@/components/pantry/QuickAddBar";
@@ -48,7 +52,10 @@ export default function PantryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showForm, setShowForm] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
+  const [prefillValues, setPrefillValues] =
+    useState<BarcodeScannerResult | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [quickAddNotice, setQuickAddNotice] = useState("");
   const [quickAddError, setQuickAddError] = useState("");
@@ -93,17 +100,27 @@ export default function PantryScreen() {
 
   const openAdd = () => {
     setEditingItem(null);
+    setPrefillValues(null);
     setShowForm(true);
   };
 
   const openEdit = (item: PantryItem) => {
     setEditingItem(item);
+    setPrefillValues(null);
     setShowForm(true);
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditingItem(null);
+    setPrefillValues(null);
+  };
+
+  const handleScannerResult = (result: BarcodeScannerResult) => {
+    setEditingItem(null);
+    setPrefillValues(result);
+    setShowScanner(false);
+    setShowForm(true);
   };
 
   const adjustQuantity = async (item: PantryItem, delta: number) => {
@@ -198,20 +215,31 @@ export default function PantryScreen() {
               : `${totalCount} item${totalCount === 1 ? "" : "s"}`}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={openAdd}
-          disabled={!householdId}
-          className="h-11 w-11 items-center justify-center rounded-xl bg-primary"
-          style={{
-            opacity: householdId ? 1 : 0.4,
-            shadowColor: "#248f58",
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.22,
-            shadowRadius: 14,
-          }}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setShowScanner(true)}
+            disabled={!householdId}
+            className="h-11 w-11 items-center justify-center rounded-xl border border-border bg-card"
+            style={{ opacity: householdId ? 1 : 0.4 }}
+            accessibilityLabel="Scan pantry item barcode"
+          >
+            <Ionicons name="scan" size={21} color="#248f58" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={openAdd}
+            disabled={!householdId}
+            className="h-11 w-11 items-center justify-center rounded-xl bg-primary"
+            style={{
+              opacity: householdId ? 1 : 0.4,
+              shadowColor: "#248f58",
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.22,
+              shadowRadius: 14,
+            }}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View className="px-4 pt-3">
@@ -360,9 +388,22 @@ export default function PantryScreen() {
           <PantryItemForm
             householdId={householdId}
             item={editingItem}
+            prefillValues={prefillValues ?? undefined}
             onClose={closeForm}
           />
         ) : null}
+      </Modal>
+
+      <Modal
+        visible={showScanner}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowScanner(false)}
+      >
+        <BarcodeScanner
+          onClose={() => setShowScanner(false)}
+          onScan={handleScannerResult}
+        />
       </Modal>
     </SafeAreaView>
   );
