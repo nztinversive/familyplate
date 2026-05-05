@@ -22,6 +22,11 @@ import {
   type StorageLocation,
 } from "@/lib/pantry";
 import { PantryItemForm } from "@/components/pantry/PantryItemForm";
+import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
+import {
+  QuickAddBar,
+  type QuickAddItem,
+} from "@/components/pantry/QuickAddBar";
 
 type PantryItem = Doc<"pantryItems">;
 type Tab = "all" | StorageLocation;
@@ -45,20 +50,25 @@ export default function PantryScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [quickAddNotice, setQuickAddNotice] = useState("");
+  const [quickAddError, setQuickAddError] = useState("");
 
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const householdId = currentUser?.householdId ?? null;
 
+  const allPantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
   const pantryItems = useQuery(
     api.queries.pantry.getMyPantryItems,
-    activeTab === "all" ? {} : { storageLocation: activeTab },
+    activeTab === "all" ? "skip" : { storageLocation: activeTab },
   );
+  const visibleItemsForTab = activeTab === "all" ? allPantryItems : pantryItems;
 
+  const addItem = useMutation(api.mutations.pantry.addItem);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
   const deleteItem = useMutation(api.mutations.pantry.deleteItem);
 
   const filteredItems = useMemo(() => {
-    return (pantryItems ?? [])
+    return (visibleItemsForTab ?? [])
       .filter((item) =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
@@ -69,7 +79,7 @@ export default function PantryScreen() {
         if (b.expirationDate) return 1;
         return a.name.localeCompare(b.name);
       });
-  }, [pantryItems, searchQuery]);
+  }, [visibleItemsForTab, searchQuery]);
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, PantryItem[]>();
@@ -109,7 +119,38 @@ export default function PantryScreen() {
     }
   };
 
+  const handleQuickAdd = async (items: QuickAddItem[]) => {
+    if (!householdId) return;
+
+    setQuickAddNotice("");
+    setQuickAddError("");
+
+    try {
+      for (const item of items) {
+        await addItem({
+          householdId,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category,
+          storageLocation: "pantry",
+        });
+      }
+      setActiveTab("all");
+      setQuickAddNotice(
+        `Added ${items.length} item${items.length === 1 ? "" : "s"} to Pantry.`,
+      );
+    } catch (err) {
+      setQuickAddError(
+        err instanceof Error ? err.message : "Couldn't add pantry items.",
+      );
+      throw err;
+    }
+  };
+
   const confirmDelete = (item: PantryItem) => {
+    setQuickAddNotice("");
+    setQuickAddError("");
     Alert.alert(
       "Delete pantry item?",
       `${item.name} will be permanently removed.`,
@@ -140,8 +181,8 @@ export default function PantryScreen() {
     });
   };
 
-  const totalCount = pantryItems?.length ?? 0;
-  const isLoading = pantryItems === undefined;
+  const totalCount = visibleItemsForTab?.length ?? 0;
+  const isLoading = visibleItemsForTab === undefined;
 
   return (
     <SafeAreaView
@@ -194,6 +235,20 @@ export default function PantryScreen() {
       </View>
 
       <View className="px-4 pt-3">
+        <QuickAddBar disabled={!householdId} onAdd={handleQuickAdd} />
+        {quickAddNotice ? (
+          <View className="mt-2 rounded-xl border border-green-200 bg-green-50 p-3">
+            <Text className="text-sm text-green-700">{quickAddNotice}</Text>
+          </View>
+        ) : null}
+        {quickAddError ? (
+          <View className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3">
+            <Text className="text-sm text-red-700">{quickAddError}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View className="px-4 pt-3">
         <View className="flex-row rounded-xl bg-muted p-1">
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
@@ -239,51 +294,59 @@ export default function PantryScreen() {
             <ActivityIndicator />
           </View>
         ) : filteredItems.length === 0 ? (
-          <EmptyState
-            location={activeTab === "all" ? undefined : activeTab}
-            searching={searchQuery.length > 0}
-            onAdd={openAdd}
-            disabled={!householdId}
-          />
+          <>
+            <ExpirationAlerts items={allPantryItems ?? []} />
+            <EmptyState
+              location={activeTab === "all" ? undefined : activeTab}
+              searching={searchQuery.length > 0}
+              onAdd={openAdd}
+              disabled={!householdId}
+            />
+          </>
         ) : (
-          groupedItems.map(([category, items]) => {
-            const isCollapsed = collapsed.has(category);
-            return (
-              <View key={category} className="mb-5">
-                <Pressable
-                  onPress={() => toggleCategory(category)}
-                  className="mb-2 flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center gap-2">
-                    <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      {category}
-                    </Text>
-                    <View className="rounded-full bg-muted px-2 py-0.5">
-                      <Text className="text-[10px] font-medium text-muted-foreground">
-                        {items.length}
+          <>
+            <View className="mb-4">
+              <ExpirationAlerts items={allPantryItems ?? []} />
+            </View>
+            {groupedItems.map(([category, items]) => {
+              const isCollapsed = collapsed.has(category);
+              return (
+                <View key={category} className="mb-5">
+                  <Pressable
+                    onPress={() => toggleCategory(category)}
+                    className="mb-2 flex-row items-center justify-between"
+                  >
+                    <View className="flex-row items-center gap-2">
+                      <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        {category}
                       </Text>
+                      <View className="rounded-full bg-muted px-2 py-0.5">
+                        <Text className="text-[10px] font-medium text-muted-foreground">
+                          {items.length}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <Ionicons
-                    name={isCollapsed ? "chevron-forward" : "chevron-down"}
-                    size={14}
-                    color="#9ca3af"
-                  />
-                </Pressable>
-
-                {!isCollapsed &&
-                  items.map((item) => (
-                    <ItemCard
-                      key={item._id}
-                      item={item}
-                      onEdit={() => openEdit(item)}
-                      onDelete={() => confirmDelete(item)}
-                      onAdjust={(delta) => void adjustQuantity(item, delta)}
+                    <Ionicons
+                      name={isCollapsed ? "chevron-forward" : "chevron-down"}
+                      size={14}
+                      color="#9ca3af"
                     />
-                  ))}
-              </View>
-            );
-          })
+                  </Pressable>
+
+                  {!isCollapsed &&
+                    items.map((item) => (
+                      <ItemCard
+                        key={item._id}
+                        item={item}
+                        onEdit={() => openEdit(item)}
+                        onDelete={() => confirmDelete(item)}
+                        onAdjust={(delta) => void adjustQuantity(item, delta)}
+                      />
+                    ))}
+                </View>
+              );
+            })}
+          </>
         )}
       </ScrollView>
 
