@@ -10,14 +10,26 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
+import * as WebBrowser from "expo-web-browser";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
 
 type Profile = Doc<"userProfiles">;
 type CurrentUser = {
+  authId?: string;
   email: string;
   userName: string;
+};
+
+type Subscription = {
+  tier: "free" | "family";
+  isFamily: boolean;
+  canGenerate: boolean;
+  plansUsed: number;
+  plansLimit: number;
+  status?: string;
+  endsAt?: string;
 };
 
 function parseCommaSeparatedList(value: string) {
@@ -45,11 +57,23 @@ function getErrorMessage(err: unknown) {
   return "Unable to save settings. Please try again.";
 }
 
+function getUniqueValues(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  );
+}
+
+function formatStatus(status?: string) {
+  if (!status) return "active";
+  return status.replace(/_/g, " ");
+}
+
 export default function SettingsScreen() {
   const { signOut } = useAuthActions();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
+  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
     currentUser?.householdId
@@ -85,6 +109,14 @@ export default function SettingsScreen() {
   const hasPreferenceChanges =
     parsedAllergies.join("|") !== (profile?.allergies ?? []).join("|") ||
     parsedDislikes.join("|") !== (profile?.dislikes ?? []).join("|");
+  const householdAllergies = useMemo(
+    () => getUniqueValues((members ?? []).flatMap((member) => member.allergies)),
+    [members],
+  );
+  const householdDislikes = useMemo(
+    () => getUniqueValues((members ?? []).flatMap((member) => member.dislikes)),
+    [members],
+  );
   const loading =
     currentUser === undefined ||
     profile === undefined ||
@@ -148,6 +180,16 @@ export default function SettingsScreen() {
           <ProfileCard currentUser={currentUser} profile={profile} />
 
           <HouseholdCard household={household} members={members ?? []} />
+
+          <SubscriptionCard
+            currentUser={currentUser}
+            subscription={subscription}
+          />
+
+          <HouseholdSafetyCard
+            allergies={householdAllergies}
+            dislikes={householdDislikes}
+          />
 
           <View className="mb-4 rounded-2xl border border-border bg-card p-4">
             <View className="mb-4 flex-row items-center gap-3">
@@ -391,6 +433,169 @@ function HouseholdCard({
           </View>
         ))}
       </View>
+    </View>
+  );
+}
+
+function SubscriptionCard({
+  currentUser,
+  subscription,
+}: {
+  currentUser: CurrentUser | null;
+  subscription: Subscription | undefined;
+}) {
+  const isFamily = subscription?.tier === "family";
+  const tierLabel =
+    subscription === undefined ? "Checking" : isFamily ? "Family" : "Free";
+  const statusLabel =
+    subscription === undefined
+      ? "checking subscription"
+      : formatStatus(subscription.status);
+  const planLimitLabel =
+    subscription === undefined
+      ? "Checking plan usage"
+      : isFamily
+        ? "Unlimited meal plans"
+        : `${subscription.plansUsed}/${subscription.plansLimit} free plans used`;
+
+  const buildCheckoutUrl = (variantId: string) => {
+    const params = new URLSearchParams();
+    if (currentUser?.email) {
+      params.set("checkout[email]", currentUser.email);
+    }
+    if (currentUser?.authId) {
+      params.set("checkout[custom][auth_id]", currentUser.authId);
+    }
+
+    const query = params.toString();
+    return `https://familyplate.lemonsqueezy.com/buy/${variantId}${
+      query ? `?${query}` : ""
+    }`;
+  };
+
+  const openSubscriptionUrl = async (url: string) => {
+    await WebBrowser.openBrowserAsync(url);
+  };
+
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-4 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="shield-checkmark" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Subscription
+          </Text>
+          <Text className="mt-1 text-sm capitalize text-muted-foreground">
+            {tierLabel} plan · {statusLabel}
+          </Text>
+        </View>
+        <View
+          className={`rounded-full px-3 py-1 ${
+            isFamily ? "bg-primary/10" : "bg-muted"
+          }`}
+        >
+          <Text
+            className={`text-xs font-bold ${
+              isFamily ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            {tierLabel}
+          </Text>
+        </View>
+      </View>
+
+      <View className="mb-4 rounded-xl bg-muted p-3">
+        <View className="flex-row items-center gap-2">
+          <Ionicons
+            name={subscription?.canGenerate === false ? "alert-circle" : "calendar"}
+            size={17}
+            color={subscription?.canGenerate === false ? "#c2410c" : "#248f58"}
+          />
+          <Text className="flex-1 text-sm font-semibold text-foreground">
+            {planLimitLabel}
+          </Text>
+        </View>
+        {!isFamily && subscription !== undefined ? (
+          <Text className="mt-2 text-xs leading-4 text-muted-foreground">
+            Family unlocks unlimited meal plans for everyone in your household.
+          </Text>
+        ) : null}
+      </View>
+
+      {isFamily ? (
+        <TouchableOpacity
+          onPress={() =>
+            void openSubscriptionUrl("https://familyplate.lemonsqueezy.com/billing")
+          }
+          className="flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+        >
+          <Ionicons name="card-outline" size={18} color="#248f58" />
+          <Text className="font-semibold text-primary">Manage Billing</Text>
+        </TouchableOpacity>
+      ) : (
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => void openSubscriptionUrl(buildCheckoutUrl("1485021"))}
+            disabled={subscription === undefined}
+            className="flex-1 items-center rounded-xl bg-primary py-3"
+            style={{ opacity: subscription === undefined ? 0.55 : 1 }}
+          >
+            <Text className="font-semibold text-white">$5.99/mo</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void openSubscriptionUrl(buildCheckoutUrl("1485023"))}
+            disabled={subscription === undefined}
+            className="flex-1 items-center rounded-xl border border-primary bg-card py-3"
+            style={{ opacity: subscription === undefined ? 0.55 : 1 }}
+          >
+            <Text className="font-semibold text-primary">Annual</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function HouseholdSafetyCard({
+  allergies,
+  dislikes,
+}: {
+  allergies: string[];
+  dislikes: string[];
+}) {
+  const hasSafetyNotes = allergies.length > 0 || dislikes.length > 0;
+
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-4 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-red-50">
+          <Ionicons name="medical-outline" size={22} color="#c2410c" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Household Safety
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            These are combined across household members and used by planning.
+          </Text>
+        </View>
+      </View>
+
+      {hasSafetyNotes ? (
+        <>
+          <PreferenceList label="All allergies" items={allergies} />
+          <PreferenceList label="All dislikes" items={dislikes} />
+        </>
+      ) : (
+        <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
+          <Ionicons name="checkmark-circle" size={18} color="#248f58" />
+          <Text className="flex-1 text-sm leading-5 text-muted-foreground">
+            No household allergies or dislikes are saved yet.
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
