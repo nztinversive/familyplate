@@ -13,8 +13,10 @@ import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { inferCategory } from "@/lib/pantry";
 
 type Recipe = Doc<"recipeSuggestions">;
+type RecipeIngredient = Recipe["ingredients"][number];
 
 function formatSavedDate(timestamp: number) {
   return new Date(timestamp).toLocaleDateString("en-US", {
@@ -38,10 +40,16 @@ function getSourceLabel(source: Recipe["source"]) {
 export default function CookbookScreen() {
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+  const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
   const removeRecipe = (recipe: Recipe) => {
+    setNotice("");
+    setError("");
     Alert.alert(
       "Remove from Cookbook?",
       `${recipe.title} will stay available in generated history, but it will no longer be saved here.`,
@@ -62,6 +70,39 @@ export default function CookbookScreen() {
         },
       ],
     );
+  };
+
+  const addMissingToGrocery = async (recipe: Recipe) => {
+    const missing = recipe.ingredients.filter(
+      (ingredient) => !isIngredientAvailable(ingredient),
+    );
+    if (missing.length === 0) return;
+
+    setAddingMissingId(recipe._id);
+    setNotice("");
+    setError("");
+
+    try {
+      for (const ingredient of missing) {
+        await addGroceryItem({
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          category: inferCategory(ingredient.name),
+        });
+      }
+      setNotice(
+        `Added ${missing.length} missing item${missing.length === 1 ? "" : "s"} to Grocery List.`,
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't add missing ingredients to Grocery List.",
+      );
+    } finally {
+      setAddingMissingId(null);
+    }
   };
 
   return (
@@ -95,6 +136,16 @@ export default function CookbookScreen() {
           </View>
 
           <View className="gap-3">
+            {notice ? (
+              <View className="rounded-xl border border-green-200 bg-green-50 p-3">
+                <Text className="text-sm text-green-700">{notice}</Text>
+              </View>
+            ) : null}
+            {error ? (
+              <View className="rounded-xl border border-red-200 bg-red-50 p-3">
+                <Text className="text-sm text-red-700">{error}</Text>
+              </View>
+            ) : null}
             {savedRecipes.map((savedRecipe) => (
               <RecipeCard
                 key={savedRecipe._id}
@@ -102,12 +153,16 @@ export default function CookbookScreen() {
                 savedAt={savedRecipe.savedAt}
                 expanded={expandedId === savedRecipe.recipe._id}
                 removing={removingId === savedRecipe.recipe._id}
+                addingMissing={addingMissingId === savedRecipe.recipe._id}
                 onToggleExpanded={() =>
                   setExpandedId(
                     expandedId === savedRecipe.recipe._id
                       ? null
                       : savedRecipe.recipe._id,
                   )
+                }
+                onAddMissing={() =>
+                  void addMissingToGrocery(savedRecipe.recipe)
                 }
                 onRemove={() => removeRecipe(savedRecipe.recipe)}
               />
@@ -140,14 +195,18 @@ function RecipeCard({
   savedAt,
   expanded,
   removing,
+  addingMissing,
   onToggleExpanded,
+  onAddMissing,
   onRemove,
 }: {
   recipe: Recipe;
   savedAt: number;
   expanded: boolean;
   removing: boolean;
+  addingMissing: boolean;
   onToggleExpanded: () => void;
+  onAddMissing: () => void;
   onRemove: () => void;
 }) {
   const pantryCount = recipe.ingredients.filter((ingredient) =>
@@ -157,6 +216,9 @@ function RecipeCard({
   const matchPct =
     totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
   const effortColor = getEffortColor(recipe.effortLevel);
+  const missingIngredients = recipe.ingredients.filter(
+    (ingredient) => !isIngredientAvailable(ingredient),
+  );
 
   return (
     <View
@@ -266,6 +328,13 @@ function RecipeCard({
             </View>
           </View>
 
+          <MissingIngredientsAction
+            adding={addingMissing}
+            disabled={removing}
+            missingIngredients={missingIngredients}
+            onAddMissing={onAddMissing}
+          />
+
           <View className="mb-4">
             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Instructions
@@ -307,6 +376,49 @@ function RecipeCard({
         </View>
       ) : null}
     </View>
+  );
+}
+
+function MissingIngredientsAction({
+  adding,
+  disabled,
+  missingIngredients,
+  onAddMissing,
+}: {
+  adding: boolean;
+  disabled: boolean;
+  missingIngredients: RecipeIngredient[];
+  onAddMissing: () => void;
+}) {
+  if (missingIngredients.length === 0) {
+    return (
+      <View className="mb-4 flex-row items-center gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
+        <Ionicons name="checkmark-circle" size={18} color="#15803d" />
+        <Text className="flex-1 text-sm font-medium text-green-700">
+          Everything for this recipe is already in your pantry.
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={onAddMissing}
+      disabled={adding || disabled}
+      className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+      style={{ opacity: adding || disabled ? 0.55 : 1 }}
+    >
+      {adding ? (
+        <ActivityIndicator color="#248f58" />
+      ) : (
+        <Ionicons name="cart-outline" size={17} color="#248f58" />
+      )}
+      <Text className="font-semibold text-primary">
+        {adding
+          ? "Adding..."
+          : `Add ${missingIngredients.length} missing to Grocery`}
+      </Text>
+    </TouchableOpacity>
   );
 }
 

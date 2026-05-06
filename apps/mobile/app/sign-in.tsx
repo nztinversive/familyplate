@@ -17,6 +17,29 @@ import { Ionicons } from "@expo/vector-icons";
 
 type Mode = "signIn" | "signUp";
 
+function getAuthErrorMessage(err: unknown, mode: Mode) {
+  const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  if (mode === "signUp") {
+    if (lower.includes("invalid password")) {
+      return "Password must be at least 8 characters.";
+    }
+    if (lower.includes("already") || lower.includes("server error")) {
+      return "An account with this email may already exist. Try signing in instead.";
+    }
+    return `Could not create account: ${message}`;
+  }
+
+  if (lower.includes("invalid") || lower.includes("credentials")) {
+    return "We couldn't sign you in with that email and password.";
+  }
+  if (lower.includes("server error")) {
+    return "Could not sign in right now. Please try again.";
+  }
+  return "Couldn't sign in. Check your email and password.";
+}
+
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
@@ -31,24 +54,25 @@ export default function SignInScreen() {
   }
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password.trim()) {
       setError("Email and password required.");
+      return;
+    }
+    if (mode === "signUp" && password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
     setIsSubmitting(true);
     setError("");
     try {
       await signIn("password", {
-        email: email.trim(),
+        email: trimmedEmail,
         password,
         flow: mode,
       });
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't sign in. Check your email and password.",
-      );
+      setError(getAuthErrorMessage(err, mode));
       setIsSubmitting(false);
     }
   };
@@ -155,6 +179,11 @@ export default function SignInScreen() {
                     onChangeText={setPassword}
                     editable={!isSubmitting}
                   />
+                  {mode === "signUp" ? (
+                    <Text className="mt-2 text-xs text-muted-foreground">
+                      Use at least 8 characters.
+                    </Text>
+                  ) : null}
                 </View>
               </View>
 
