@@ -525,6 +525,7 @@ function MealCard({
         onOpen();
       }}
       className="rounded-2xl border border-border bg-card p-4"
+      accessible={false}
       style={{
         borderColor: isMoveSource || canMoveTarget ? "#248f58" : "#e7e0d6",
       }}
@@ -604,6 +605,8 @@ function MealCard({
             disabled={busy}
             className="flex-1 items-center rounded-xl bg-primary py-2.5"
             style={{ opacity: busy ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Mark dinner cooked"
           >
             <Text className="font-semibold text-white">
               {busy ? "Saving..." : "Cooked"}
@@ -618,6 +621,8 @@ function MealCard({
             disabled={busy}
             className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
             style={{ opacity: busy ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Plan dinner again"
           >
             <Text className="font-semibold text-primary">Plan Again</Text>
           </TouchableOpacity>
@@ -632,6 +637,8 @@ function MealCard({
             disabled={busy}
             className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
             style={{ opacity: busy ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Skip dinner"
           >
             <Text className="font-semibold text-foreground">Skip</Text>
           </TouchableOpacity>
@@ -644,6 +651,8 @@ function MealCard({
             disabled={busy}
             className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
             style={{ opacity: busy ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Plan dinner"
           >
             <Text className="font-semibold text-foreground">Plan</Text>
           </TouchableOpacity>
@@ -660,6 +669,8 @@ function MealCard({
             disabled={busy || !canMoveTarget}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
             style={{ opacity: busy || !canMoveTarget ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel={canMoveTarget ? "Move dinner here" : "Dinner slot locked"}
           >
             <Ionicons name="swap-horizontal" size={16} color="white" />
             <Text className="font-semibold text-white">
@@ -675,6 +686,8 @@ function MealCard({
             disabled={busy || meal.status === "cooked"}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
             style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel={isMoveSource ? "Cancel dinner move" : "Move dinner"}
           >
             <Ionicons name="move-outline" size={16} color="#248f58" />
             <Text className="font-semibold text-primary">
@@ -691,6 +704,10 @@ function MealCard({
           disabled={saving}
           className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
           style={{ opacity: saving ? 0.55 : 1 }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            saved ? "Remove from cookbook" : "Save to cookbook"
+          }
         >
           <Ionicons
             name={saved ? "heart" : "heart-outline"}

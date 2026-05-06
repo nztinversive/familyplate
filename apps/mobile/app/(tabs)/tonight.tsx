@@ -334,7 +334,11 @@ function SuggestionCard({
         shadowRadius: 14,
       }}
     >
-      <Pressable onPress={onToggleExpanded} className="p-4">
+      <Pressable
+        onPress={onToggleExpanded}
+        accessible={false}
+        className="p-4"
+      >
         <View className="flex-row items-start gap-3">
           <View className="min-w-0 flex-1">
             <Text className="text-lg font-semibold leading-6 text-foreground">
@@ -388,8 +392,14 @@ function SuggestionCard({
               onPress={onToggleSave}
               disabled={saving}
               className="ml-auto flex-row items-center gap-1 rounded-lg px-2 py-1"
+              accessibilityRole="button"
               accessibilityLabel={
                 saved ? "Remove from cookbook" : "Save to cookbook"
+              }
+              accessibilityHint={
+                saved
+                  ? "Removes this recipe from your cookbook."
+                  : "Saves this recipe to your cookbook."
               }
             >
               <Ionicons

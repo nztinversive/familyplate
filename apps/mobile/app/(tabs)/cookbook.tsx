@@ -231,7 +231,11 @@ function RecipeCard({
         shadowRadius: 14,
       }}
     >
-      <Pressable onPress={onToggleExpanded} className="p-4">
+      <Pressable
+        onPress={onToggleExpanded}
+        accessible={false}
+        className="p-4"
+      >
         <View className="flex-row items-start gap-3">
           <View className="min-w-0 flex-1">
             <Text className="text-lg font-semibold leading-6 text-foreground">
@@ -362,6 +366,9 @@ function RecipeCard({
             onPress={onRemove}
             disabled={removing}
             className="flex-row items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3"
+            accessibilityRole="button"
+            accessibilityLabel="Remove from Cookbook"
+            accessibilityHint="Removes this saved recipe from your cookbook."
           >
             {removing ? (
               <ActivityIndicator color="#dc2626" />
@@ -410,6 +417,9 @@ function MissingIngredientsAction({
       disabled={adding || disabled}
       className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
       style={{ opacity: adding || disabled ? 0.55 : 1 }}
+      accessibilityRole="button"
+      accessibilityLabel={`Add ${missingIngredients.length} missing ingredients to Grocery`}
+      accessibilityHint="Adds the missing recipe ingredients to your grocery list."
     >
       {adding ? (
         <ActivityIndicator color="#248f58" />
