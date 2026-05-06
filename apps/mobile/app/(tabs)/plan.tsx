@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
+import * as WebBrowser from "expo-web-browser";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
@@ -23,6 +24,9 @@ type PlannedMeal = Doc<"plannedMeals"> & {
   alternatives: Recipe[];
 };
 type MealStatus = PlannedMeal["status"];
+
+const MONTHLY_VARIANT_ID = "1485021";
+const ANNUAL_VARIANT_ID = "1485023";
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -123,6 +127,7 @@ function getPantryMatch(recipe: Recipe) {
 export default function PlanScreen() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const generateAiPlan = useAction(
     api.actions.generateMealPlan.generateMealPlan,
   );
@@ -160,8 +165,61 @@ export default function PlanScreen() {
   const savedRecipeIds = useMemo(() => {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
+  const isFamilyPlan = subscription?.tier === "family";
+  const isAtPlanLimit = subscription?.canGenerate === false;
+  const planUsageLabel =
+    subscription === undefined
+      ? "Checking plan usage..."
+      : isFamilyPlan
+        ? "Unlimited weekly plans"
+        : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
+  const planUsagePercent =
+    subscription && !isFamilyPlan
+      ? Math.min(
+          100,
+          Math.round((subscription.plansUsed / subscription.plansLimit) * 100),
+        )
+      : 0;
+  const generateDisabled =
+    isGenerating ||
+    subscription === undefined ||
+    isAtPlanLimit ||
+    !currentUser?.householdId;
+  const generateDisabledReason = !currentUser?.householdId
+    ? "Finish setting up your household before generating a plan."
+    : subscription === undefined
+      ? "Checking your plan limit..."
+      : isAtPlanLimit
+        ? "Free plan limit reached. Upgrade to generate more weekly plans."
+        : "";
+
+  const buildCheckoutUrl = (variantId: string) => {
+    const params = new URLSearchParams();
+    if (currentUser?.email) {
+      params.set("checkout[email]", currentUser.email);
+    }
+    if (currentUser?.authId) {
+      params.set("checkout[custom][auth_id]", currentUser.authId);
+    }
+
+    const query = params.toString();
+    return `https://familyplate.lemonsqueezy.com/buy/${variantId}${
+      query ? `?${query}` : ""
+    }`;
+  };
+
+  const openSubscriptionUrl = async (variantId: string) => {
+    await WebBrowser.openBrowserAsync(buildCheckoutUrl(variantId));
+  };
 
   const handleGeneratePlan = async () => {
+    if (subscription && !subscription.canGenerate) {
+      setError(
+        `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`,
+      );
+      return;
+    }
+
     setIsGenerating(true);
     setError("");
     setNotice("");
@@ -364,11 +422,14 @@ export default function PlanScreen() {
         <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => void handleGeneratePlan()}
-            disabled={isGenerating || !currentUser?.householdId}
+            disabled={generateDisabled}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
             style={{
-              opacity: isGenerating || !currentUser?.householdId ? 0.55 : 1,
+              opacity: generateDisabled ? 0.55 : 1,
             }}
+            accessibilityRole="button"
+            accessibilityLabel={meals.length ? "Refresh weekly plan" : "Generate weekly plan"}
+            accessibilityHint={generateDisabledReason || undefined}
           >
             {isGenerating ? (
               <ActivityIndicator color="white" />
@@ -399,7 +460,49 @@ export default function PlanScreen() {
             <Text className="font-semibold text-primary">Groceries</Text>
           </TouchableOpacity>
         </View>
+
+        <View className="mt-4 rounded-xl bg-muted p-3">
+          <View className="mb-2 flex-row items-center gap-2">
+            <Ionicons
+              name={isAtPlanLimit ? "alert-circle" : "calendar"}
+              size={17}
+              color={isAtPlanLimit ? "#c2410c" : "#248f58"}
+            />
+            <Text className="flex-1 text-sm font-semibold text-foreground">
+              {planUsageLabel}
+            </Text>
+          </View>
+          {!isFamilyPlan && subscription !== undefined ? (
+            <>
+              <View className="h-2 overflow-hidden rounded-full bg-border">
+                <View
+                  className={`h-full rounded-full ${
+                    isAtPlanLimit ? "bg-destructive" : "bg-primary"
+                  }`}
+                  style={{ width: `${planUsagePercent}%` }}
+                />
+              </View>
+              <Text className="mt-2 text-xs leading-4 text-muted-foreground">
+                {isAtPlanLimit
+                  ? "You've reached the free monthly limit. Family unlocks unlimited weekly plans for your household."
+                  : "Free households can generate two weekly plans each month."}
+              </Text>
+            </>
+          ) : null}
+          {generateDisabledReason && !isAtPlanLimit ? (
+            <Text className="mt-2 text-xs leading-4 text-muted-foreground">
+              {generateDisabledReason}
+            </Text>
+          ) : null}
+        </View>
       </View>
+
+      {isAtPlanLimit ? (
+        <UpgradePrompt
+          onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_VARIANT_ID)}
+          onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_VARIANT_ID)}
+        />
+      ) : null}
 
       {notice ? (
         <View className="mb-4 flex-row items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3">
@@ -475,6 +578,52 @@ export default function PlanScreen() {
         onToggleSavedRecipe={handleToggleSavedRecipe}
       />
     </ScreenShell>
+  );
+}
+
+function UpgradePrompt({
+  onOpenMonthly,
+  onOpenAnnual,
+}: {
+  onOpenMonthly: () => void;
+  onOpenAnnual: () => void;
+}) {
+  return (
+    <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
+      <View className="mb-3 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-white">
+          <Ionicons name="sparkles" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Upgrade for unlimited planning
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Family keeps weekly plan generation open for everyone in your
+            household, plus billing stays tied to this account.
+          </Text>
+        </View>
+      </View>
+
+      <View className="flex-row gap-2">
+        <TouchableOpacity
+          onPress={onOpenMonthly}
+          className="flex-1 items-center rounded-xl bg-primary py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Upgrade monthly"
+        >
+          <Text className="font-semibold text-white">$5.99/mo</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onOpenAnnual}
+          className="flex-1 items-center rounded-xl border border-primary bg-card py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Upgrade annually"
+        >
+          <Text className="font-semibold text-primary">Annual</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 

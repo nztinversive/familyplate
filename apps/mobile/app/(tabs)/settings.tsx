@@ -456,7 +456,7 @@ function SubscriptionCard({
       ? "Checking plan usage"
       : isFamily
         ? "Unlimited meal plans"
-        : `${subscription.plansUsed}/${subscription.plansLimit} free plans used`;
+        : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
 
   const buildCheckoutUrl = (variantId: string) => {
     const params = new URLSearchParams();
@@ -519,7 +519,9 @@ function SubscriptionCard({
         </View>
         {!isFamily && subscription !== undefined ? (
           <Text className="mt-2 text-xs leading-4 text-muted-foreground">
-            Family unlocks unlimited meal plans for everyone in your household.
+            {subscription.canGenerate
+              ? "Free households can generate two weekly plans each month."
+              : "Family unlocks unlimited weekly plans for everyone in your household."}
           </Text>
         ) : null}
       </View>
