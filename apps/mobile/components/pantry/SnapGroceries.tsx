@@ -44,6 +44,17 @@ function getCameraErrorMessage(error: unknown) {
   return "Camera is unavailable on this device.";
 }
 
+function getRecognitionErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (/network|fetch|request|timeout|temporar/i.test(message)) {
+    return "Recognition could not connect. Check your connection and try again.";
+  }
+  if (/photo|image|base64|captur/i.test(message)) {
+    return "That photo did not come through clearly. Retake it and keep the groceries in frame.";
+  }
+  return message || "Couldn't identify groceries. Try again with better lighting.";
+}
+
 function getConfidenceTone(confidence: RecognizedItem["confidence"]) {
   switch (confidence) {
     case "high":
@@ -98,19 +109,19 @@ export function SnapGroceries({
 
       setPhotoUri(photo.uri);
       const result = await recognizeAction({ imageBase64: photo.base64 });
-      setItems(
-        result.items.map((item) => ({
+      const recognizedItems = result.items.map((item) => ({
           ...item,
           category: normalizeCategory(item.category),
-        })),
-      );
+        }));
+      setItems(recognizedItems);
+      if (recognizedItems.length === 0) {
+        setError(
+          "No groceries were detected. Retake the photo or add an item manually below.",
+        );
+      }
       setPhase("review");
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't identify groceries. Try again with better lighting.",
-      );
+      setError(getRecognitionErrorMessage(err));
       setPhase("camera");
     }
   };
@@ -166,6 +177,21 @@ export function SnapGroceries({
     setEditingIndex(null);
   };
 
+  const addManualItem = () => {
+    setItems((current) => [
+      ...current,
+      {
+        name: "",
+        quantity: 1,
+        unit: "items",
+        category: "Other",
+        confidence: "low",
+      },
+    ]);
+    setEditingIndex(items.length);
+    setError("");
+  };
+
   const hasPermission = permission?.granted;
   const permissionReady = permission !== null;
 
@@ -217,6 +243,7 @@ export function SnapGroceries({
           photoUri={photoUri}
           onAddAll={() => void handleAddAll()}
           onEdit={setEditingIndex}
+          onManualItem={addManualItem}
           onRemove={removeItem}
           onRetake={handleRetake}
           onUpdate={updateItem}
@@ -327,6 +354,7 @@ function ReviewPhase({
   photoUri,
   onAddAll,
   onEdit,
+  onManualItem,
   onRemove,
   onRetake,
   onUpdate,
@@ -338,6 +366,7 @@ function ReviewPhase({
   photoUri: string;
   onAddAll: () => void;
   onEdit: (index: number | null) => void;
+  onManualItem: () => void;
   onRemove: (index: number) => void;
   onRetake: () => void;
   onUpdate: (index: number, updates: Partial<RecognizedItem>) => void;
@@ -375,9 +404,22 @@ function ReviewPhase({
           {items.length === 0 ? (
             <View className="items-center rounded-2xl border border-border bg-card p-6">
               <Ionicons name="image-outline" size={30} color="#9a9489" />
-              <Text className="mt-2 text-center text-sm text-muted-foreground">
-                Try a brighter photo or move closer to the groceries.
+              <Text className="mt-3 text-center text-base font-semibold text-foreground">
+                Nothing recognized yet
               </Text>
+              <Text className="mt-1 text-center text-sm text-muted-foreground">
+                Try a brighter photo, move closer, or start a manual item from
+                this review.
+              </Text>
+              <TouchableOpacity
+                onPress={onManualItem}
+                className="mt-4 flex-row items-center gap-2 rounded-xl bg-primary px-4 py-2.5"
+                accessibilityRole="button"
+                accessibilityLabel="Add item manually"
+              >
+                <Ionicons name="create-outline" size={17} color="white" />
+                <Text className="font-semibold text-white">Add Manually</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             items.map((item, index) => (
@@ -405,18 +447,30 @@ function ReviewPhase({
           <Text className="font-semibold text-primary">Retake</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={onAddAll}
-          disabled={isAdding || items.length === 0}
+          onPress={items.length === 0 ? onManualItem : onAddAll}
+          disabled={isAdding}
           className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-          style={{ opacity: isAdding || items.length === 0 ? 0.55 : 1 }}
+          style={{ opacity: isAdding ? 0.55 : 1 }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            items.length === 0 ? "Add item manually" : "Add recognized items"
+          }
         >
           {isAdding ? (
             <ActivityIndicator color="white" />
           ) : (
-            <Ionicons name="add" size={18} color="white" />
+            <Ionicons
+              name={items.length === 0 ? "create-outline" : "add"}
+              size={18}
+              color="white"
+            />
           )}
           <Text className="font-semibold text-white">
-            {isAdding ? "Adding..." : `Add ${items.length}`}
+            {isAdding
+              ? "Adding..."
+              : items.length === 0
+                ? "Add Manually"
+                : `Add ${items.length}`}
           </Text>
         </TouchableOpacity>
       </View>

@@ -220,7 +220,41 @@ export default function GroceryScreen() {
 
       {error ? (
         <View className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3">
-          <Text className="text-sm text-red-700">{error}</Text>
+          <View className="flex-row items-start gap-2">
+            <Ionicons name="alert-circle" size={18} color="#dc2626" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-red-800">
+                Grocery list could not update
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-red-700">
+                {error}
+              </Text>
+            </View>
+          </View>
+          <View className="mt-3 flex-row gap-2">
+            {hasPlan ? (
+              <TouchableOpacity
+                onPress={() => void handleGenerateFromPlan()}
+                disabled={isGenerating}
+                className="flex-1 items-center rounded-lg border border-red-200 bg-white py-2.5"
+                style={{ opacity: isGenerating ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel="Try generating grocery list again"
+              >
+                <Text className="font-semibold text-red-700">
+                  {isGenerating ? "Generating..." : "Try Again"}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity
+              onPress={() => setShowAddForm(true)}
+              className="flex-1 items-center rounded-lg bg-red-100 py-2.5"
+              accessibilityRole="button"
+              accessibilityLabel="Add grocery item manually"
+            >
+              <Text className="font-semibold text-red-700">Add Manually</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
 

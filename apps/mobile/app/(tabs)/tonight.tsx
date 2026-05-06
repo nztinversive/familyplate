@@ -142,6 +142,13 @@ export default function TonightScreen() {
     setCustomCraving("");
   };
 
+  const handleResetCraving = () => {
+    setSelectedCraving("");
+    setCustomCraving("");
+    setActiveCraving("");
+    setError("");
+  };
+
   const handleToggleSave = async (recipeId: string) => {
     setSavingRecipeId(recipeId);
     try {
@@ -266,13 +273,39 @@ export default function TonightScreen() {
 
       {error && !isGenerating ? (
         <View className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4">
-          <Text className="mb-3 text-sm leading-5 text-red-700">{error}</Text>
-          <TouchableOpacity
-            onPress={() => void handleGenerate()}
-            className="items-center rounded-lg border border-red-200 bg-white py-2.5"
-          >
-            <Text className="font-semibold text-red-700">Try again</Text>
-          </TouchableOpacity>
+          <View className="mb-3 flex-row items-start gap-2">
+            <Ionicons name="alert-circle" size={18} color="#dc2626" />
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-red-800">
+                Dinner ideas hit a snag
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-red-700">
+                {error}
+              </Text>
+            </View>
+          </View>
+          <Text className="mb-3 text-xs leading-4 text-red-700">
+            Try again, clear the craving, or add a few pantry staples if your
+            pantry is empty.
+          </Text>
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => void handleGenerate()}
+              className="flex-1 items-center rounded-lg border border-red-200 bg-white py-2.5"
+              accessibilityRole="button"
+              accessibilityLabel="Try dinner suggestions again"
+            >
+              <Text className="font-semibold text-red-700">Try Again</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleResetCraving}
+              className="flex-1 items-center rounded-lg bg-red-100 py-2.5"
+              accessibilityRole="button"
+              accessibilityLabel="Clear dinner craving"
+            >
+              <Text className="font-semibold text-red-700">Clear</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : null}
 

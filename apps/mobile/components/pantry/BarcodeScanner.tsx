@@ -200,6 +200,21 @@ export function BarcodeScanner({
     await handleBarcode(trimmed);
   };
 
+  const handleManualAdd = () => {
+    const trimmed = manualBarcode.trim();
+    onScan({
+      barcode: trimmed,
+      name: "",
+      category: "Other",
+      quantity: "1",
+      unit: "items",
+      found: false,
+      message: trimmed
+        ? `Barcode ${trimmed} is ready. Fill in the item details manually.`
+        : "Fill in the item details manually. You can add a barcode later.",
+    });
+  };
+
   const handleScanned = (result: BarcodeScanningResult) => {
     void handleBarcode(result.data);
   };
@@ -313,6 +328,19 @@ export function BarcodeScanner({
           {lookupError ? (
             <Text className="mt-2 text-sm text-red-700">{lookupError}</Text>
           ) : null}
+          <TouchableOpacity
+            onPress={handleManualAdd}
+            disabled={isLookingUp}
+            className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+            style={{ opacity: isLookingUp ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Add pantry item manually"
+          >
+            <Ionicons name="create-outline" size={17} color="#248f58" />
+            <Text className="font-semibold text-primary">
+              Add Manually Instead
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View className="mt-4 rounded-2xl border border-border bg-muted/60 p-3">

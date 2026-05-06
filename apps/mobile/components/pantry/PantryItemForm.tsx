@@ -211,8 +211,34 @@ export function PantryItemForm({
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
       >
         {prefillValues?.message && !item ? (
-          <View className="mb-4 rounded-xl border border-border bg-muted p-3">
-            <Text className="text-sm text-muted-foreground">
+          <View
+            className={`mb-4 rounded-xl border p-3 ${
+              prefillValues.found
+                ? "border-primary/20 bg-primary/10"
+                : "border-amber-200 bg-amber-50"
+            }`}
+          >
+            <View className="mb-1 flex-row items-center gap-2">
+              <Ionicons
+                name={prefillValues.found ? "checkmark-circle" : "create-outline"}
+                size={16}
+                color={prefillValues.found ? "#248f58" : "#b45309"}
+              />
+              <Text
+                className={`text-sm font-semibold ${
+                  prefillValues.found ? "text-primary" : "text-amber-800"
+                }`}
+              >
+                {prefillValues.found ? "Product found" : "Finish manually"}
+              </Text>
+            </View>
+            <Text
+              className={`text-sm ${
+                prefillValues.found
+                  ? "text-muted-foreground"
+                  : "text-amber-800"
+              }`}
+            >
               {prefillValues.message}
             </Text>
           </View>
