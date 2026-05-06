@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
+import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
@@ -222,6 +223,11 @@ export default function PlanScreen() {
       });
       if (selectedMeal?._id === meal._id) {
         setSelectedMeal({ ...meal, status });
+      }
+      if (status === "cooked" && meal.status !== "cooked") {
+        setNotice(
+          "Dinner marked cooked. Pantry updated, and feedback is ready in dinner details.",
+        );
       }
     } catch (err) {
       setError(getErrorMessage(err));
@@ -958,6 +964,35 @@ function MealDetailModal({
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {meal.status === "cooked" ? (
+              <View className="mt-5">
+                <RecipeFeedback
+                  recipeId={recipe._id as Id<"recipeSuggestions">}
+                />
+              </View>
+            ) : (
+              <View className="mt-5 rounded-2xl border border-border bg-muted/40 p-4">
+                <View className="flex-row items-start gap-3">
+                  <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                    <Ionicons
+                      name="restaurant-outline"
+                      size={18}
+                      color="#248f58"
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-foreground">
+                      Cook, then rate it
+                    </Text>
+                    <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                      Mark this dinner cooked to update pantry and record what
+                      your family thought.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </View>
       </View>
