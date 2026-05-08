@@ -1,0 +1,66 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="142" y1="91" x2="860" y2="906" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E9E7C8"/>
+      <stop offset="0.34" stop-color="#75B88B"/>
+      <stop offset="0.68" stop-color="#13956E"/>
+      <stop offset="1" stop-color="#09644D"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="245" y1="174" x2="785" y2="828" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="0.52" stop-color="#EFFFF0" stop-opacity="0.17"/>
+      <stop offset="1" stop-color="#1B654C" stop-opacity="0.14"/>
+    </linearGradient>
+    <linearGradient id="plateLight" x1="268" y1="270" x2="654" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#95F1DD"/>
+      <stop offset="1" stop-color="#40D2B0"/>
+    </linearGradient>
+    <linearGradient id="plateDark" x1="258" y1="257" x2="680" y2="727" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#047B69"/>
+      <stop offset="1" stop-color="#005A4B"/>
+    </linearGradient>
+    <linearGradient id="fork" x1="704" y1="213" x2="784" y2="806" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08A88F"/>
+      <stop offset="1" stop-color="#006A54"/>
+    </linearGradient>
+    <filter id="cardShadow" x="63" y="65" width="898" height="900" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="24"/>
+      <feGaussianBlur stdDeviation="28"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.02 0 0 0 0 0.12 0 0 0 0 0.09 0 0 0 0.2 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+    <filter id="markShadow" x="143" y="150" width="731" height="744" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="18"/>
+      <feGaussianBlur stdDeviation="18"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.01 0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 0.28 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="218" fill="url(#bg)"/>
+  <g filter="url(#cardShadow)">
+    <rect x="100" y="110" width="824" height="804" rx="182" fill="url(#glass)"/>
+  </g>
+
+  <g filter="url(#markShadow)">
+    <circle cx="438" cy="512" r="281" fill="url(#plateDark)"/>
+    <circle cx="438" cy="512" r="241" fill="url(#plateLight)"/>
+    <circle cx="438" cy="512" r="164" fill="url(#plateDark)"/>
+    <circle cx="438" cy="512" r="119" fill="#35C3A6"/>
+    <path d="M624 292C653 314 679 341 700 372V652C679 683 653 710 624 732V292Z" fill="url(#plateDark)"/>
+
+    <g fill="url(#fork)">
+      <path d="M735 440C689 423 657 379 657 328V218C657 203 669 191 684 191C699 191 711 203 711 218V333C711 347 722 358 736 358C750 358 761 347 761 333V218C761 203 773 191 788 191C803 191 815 203 815 218V328C815 379 783 423 737 440H735Z"/>
+      <rect x="692" y="191" width="34" height="170" rx="17"/>
+      <rect x="745" y="191" width="34" height="170" rx="17"/>
+      <rect x="798" y="191" width="34" height="170" rx="17"/>
+      <path d="M698 428H776L805 747C809 792 774 831 729 831C684 831 649 792 653 747L682 428H698Z"/>
+    </g>
+  </g>
+</svg>
