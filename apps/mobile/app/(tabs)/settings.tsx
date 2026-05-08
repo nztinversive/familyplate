@@ -32,6 +32,11 @@ type Subscription = {
   endsAt?: string;
 };
 
+const MONTHLY_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
+const ANNUAL_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
+
 function parseCommaSeparatedList(value: string) {
   return Array.from(
     new Set(
@@ -458,7 +463,7 @@ function SubscriptionCard({
         ? "Unlimited meal plans"
         : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
 
-  const buildCheckoutUrl = (variantId: string) => {
+  const buildCheckoutUrl = (checkoutUrl: string) => {
     const params = new URLSearchParams();
     if (currentUser?.email) {
       params.set("checkout[email]", currentUser.email);
@@ -468,9 +473,7 @@ function SubscriptionCard({
     }
 
     const query = params.toString();
-    return `https://familyplate.lemonsqueezy.com/buy/${variantId}${
-      query ? `?${query}` : ""
-    }`;
+    return query ? `${checkoutUrl}?${query}` : checkoutUrl;
   };
 
   const openSubscriptionUrl = async (url: string) => {
@@ -539,7 +542,9 @@ function SubscriptionCard({
       ) : (
         <View className="flex-row gap-2">
           <TouchableOpacity
-            onPress={() => void openSubscriptionUrl(buildCheckoutUrl("1485021"))}
+            onPress={() =>
+              void openSubscriptionUrl(buildCheckoutUrl(MONTHLY_CHECKOUT_URL))
+            }
             disabled={subscription === undefined}
             className="flex-1 items-center rounded-xl bg-primary py-3"
             style={{ opacity: subscription === undefined ? 0.55 : 1 }}
@@ -547,7 +552,9 @@ function SubscriptionCard({
             <Text className="font-semibold text-white">$5.99/mo</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => void openSubscriptionUrl(buildCheckoutUrl("1485023"))}
+            onPress={() =>
+              void openSubscriptionUrl(buildCheckoutUrl(ANNUAL_CHECKOUT_URL))
+            }
             disabled={subscription === undefined}
             className="flex-1 items-center rounded-xl border border-primary bg-card py-3"
             style={{ opacity: subscription === undefined ? 0.55 : 1 }}

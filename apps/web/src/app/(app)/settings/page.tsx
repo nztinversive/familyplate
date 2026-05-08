@@ -41,6 +41,11 @@ function parseCommaSeparatedList(value: string) {
     .filter(Boolean);
 }
 
+const MONTHLY_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
+const ANNUAL_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
+
 export default function SettingsPage() {
   const { signOut } = useAuthActions();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -102,10 +107,8 @@ export default function SettingsPage() {
       : subscription.status
         ? subscription.status.replace(/_/g, " ")
         : "active";
-  const buildCheckoutHref = (variantId: string) => {
-    const checkoutUrl = new URL(
-      `https://familyplate.lemonsqueezy.com/buy/${variantId}`
-    );
+  const buildCheckoutHref = (href: string) => {
+    const checkoutUrl = new URL(href);
 
     if (currentUser?.email) {
       checkoutUrl.searchParams.set("checkout[email]", currentUser.email);
@@ -120,8 +123,8 @@ export default function SettingsPage() {
   const subscriptionActionHref =
     subscription?.tier === "family"
       ? "https://familyplate.lemonsqueezy.com/billing"
-      : buildCheckoutHref("1485021");
-  const subscriptionAnnualHref = buildCheckoutHref("1485023");
+      : buildCheckoutHref(MONTHLY_CHECKOUT_URL);
+  const subscriptionAnnualHref = buildCheckoutHref(ANNUAL_CHECKOUT_URL);
   const subscriptionActionLabel = subscription?.tier === "family" ? "Manage" : "Upgrade";
 
   const resetMemberForm = () => {

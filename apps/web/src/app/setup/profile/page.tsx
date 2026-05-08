@@ -38,6 +38,11 @@ const STEP_META = [
   { num: 3, label: "Family", icon: Users },
 ];
 
+const MONTHLY_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
+const ANNUAL_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
+
 export default function ProfileSetupPage() {
   const router = useRouter();
   const authToken = useAuthToken();
@@ -165,8 +170,9 @@ export default function ProfileSetupPage() {
       const selectedPlan = localStorage.getItem("fp_selected_plan");
       if (selectedPlan === "monthly" || selectedPlan === "annual") {
         localStorage.removeItem("fp_selected_plan");
-        const variantId = selectedPlan === "annual" ? "1485023" : "1485021";
-        const checkoutUrl = new URL(`https://familyplate.lemonsqueezy.com/buy/${variantId}`);
+        const checkoutUrl = new URL(
+          selectedPlan === "annual" ? ANNUAL_CHECKOUT_URL : MONTHLY_CHECKOUT_URL,
+        );
         if (currentUser?.email) {
           checkoutUrl.searchParams.set("checkout[email]", currentUser.email);
         }

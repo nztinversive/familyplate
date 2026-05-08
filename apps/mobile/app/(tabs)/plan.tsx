@@ -25,8 +25,10 @@ type PlannedMeal = Doc<"plannedMeals"> & {
 };
 type MealStatus = PlannedMeal["status"];
 
-const MONTHLY_VARIANT_ID = "1485021";
-const ANNUAL_VARIANT_ID = "1485023";
+const MONTHLY_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
+const ANNUAL_CHECKOUT_URL =
+  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -193,7 +195,7 @@ export default function PlanScreen() {
         ? "Free plan limit reached. Upgrade to generate more weekly plans."
         : "";
 
-  const buildCheckoutUrl = (variantId: string) => {
+  const buildCheckoutUrl = (checkoutUrl: string) => {
     const params = new URLSearchParams();
     if (currentUser?.email) {
       params.set("checkout[email]", currentUser.email);
@@ -203,13 +205,11 @@ export default function PlanScreen() {
     }
 
     const query = params.toString();
-    return `https://familyplate.lemonsqueezy.com/buy/${variantId}${
-      query ? `?${query}` : ""
-    }`;
+    return query ? `${checkoutUrl}?${query}` : checkoutUrl;
   };
 
-  const openSubscriptionUrl = async (variantId: string) => {
-    await WebBrowser.openBrowserAsync(buildCheckoutUrl(variantId));
+  const openSubscriptionUrl = async (checkoutUrl: string) => {
+    await WebBrowser.openBrowserAsync(buildCheckoutUrl(checkoutUrl));
   };
 
   const handleGeneratePlan = async () => {
@@ -499,8 +499,8 @@ export default function PlanScreen() {
 
       {isAtPlanLimit ? (
         <UpgradePrompt
-          onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_VARIANT_ID)}
-          onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_VARIANT_ID)}
+          onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_CHECKOUT_URL)}
+          onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_CHECKOUT_URL)}
         />
       ) : null}
 
