@@ -4,6 +4,7 @@ import {
   Alert,
   Text,
   TextInput,
+  Platform,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,6 +15,7 @@ import * as WebBrowser from "expo-web-browser";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
+import { AI_CONSENT_DISCLOSURE, clearAiConsent } from "@/lib/aiConsent";
 
 type Profile = Doc<"userProfiles">;
 type CurrentUser = {
@@ -36,6 +38,10 @@ const MONTHLY_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
 const ANNUAL_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
+const PRIVACY_URL = "https://familyplate.co/privacy";
+const TERMS_URL = "https://familyplate.co/terms";
+const SUPPORT_URL = "https://familyplate.co/support";
+const IS_IOS = Platform.OS === "ios";
 
 function parseCommaSeparatedList(value: string) {
   return Array.from(
@@ -86,10 +92,12 @@ export default function SettingsScreen() {
       : "skip",
   );
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
+  const deleteAccount = useMutation(api.mutations.profiles.deleteMyAccount);
 
   const [allergiesInput, setAllergiesInput] = useState("");
   const [dislikesInput, setDislikesInput] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const syncedProfileId = useRef<string | null>(null);
@@ -166,6 +174,50 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const handleResetAiConsent = () => {
+    Alert.alert(
+      "Reset AI permission?",
+      "The next AI meal plan, dinner idea, or grocery scan will ask for permission again before sharing data with third-party AI providers.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Reset",
+          onPress: () => {
+            void clearAiConsent().then(() => {
+              Alert.alert("AI permission reset", "FamilyPlate will ask again before using AI features.");
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account?",
+      "This permanently deletes your FamilyPlate account and personal profile data. If you are the only signed-in member of a household, its pantry, recipes, grocery lists, and meal plans will also be deleted.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            setIsDeletingAccount(true);
+            try {
+              await deleteAccount({});
+              await clearAiConsent();
+              await signOut();
+            } catch (err) {
+              Alert.alert("Could not delete account", getErrorMessage(err));
+            } finally {
+              setIsDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScreenShell
       title="Settings"
@@ -194,6 +246,12 @@ export default function SettingsScreen() {
           <HouseholdSafetyCard
             allergies={householdAllergies}
             dislikes={householdDislikes}
+          />
+
+          <PrivacyAccountCard
+            onResetAiConsent={handleResetAiConsent}
+            onDeleteAccount={handleDeleteAccount}
+            isDeletingAccount={isDeletingAccount}
           />
 
           <View className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -300,6 +358,119 @@ export default function SettingsScreen() {
         </>
       )}
     </ScreenShell>
+  );
+}
+
+function PrivacyAccountCard({
+  onResetAiConsent,
+  onDeleteAccount,
+  isDeletingAccount,
+}: {
+  onResetAiConsent: () => void;
+  onDeleteAccount: () => void;
+  isDeletingAccount: boolean;
+}) {
+  const openUrl = async (url: string) => {
+    await WebBrowser.openBrowserAsync(url);
+  };
+
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-4 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="lock-closed-outline" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Privacy & Account
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Review data use, support, and account controls.
+          </Text>
+        </View>
+      </View>
+
+      <View className="mb-3 rounded-xl bg-muted p-3">
+        <View className="mb-2 flex-row items-start gap-2">
+          <Ionicons name="sparkles-outline" size={18} color="#248f58" />
+          <Text className="flex-1 text-sm font-semibold text-foreground">
+            AI data sharing
+          </Text>
+        </View>
+        <Text className="text-xs leading-5 text-muted-foreground">
+          {AI_CONSENT_DISCLOSURE}
+        </Text>
+      </View>
+
+      <View className="gap-2">
+        <SettingsAction
+          icon="document-text-outline"
+          label="Privacy Policy"
+          onPress={() => void openUrl(PRIVACY_URL)}
+        />
+        <SettingsAction
+          icon="reader-outline"
+          label="Terms of Service"
+          onPress={() => void openUrl(TERMS_URL)}
+        />
+        <SettingsAction
+          icon="help-circle-outline"
+          label="Support"
+          onPress={() => void openUrl(SUPPORT_URL)}
+        />
+        <SettingsAction
+          icon="refresh-outline"
+          label="Reset AI Permission"
+          onPress={onResetAiConsent}
+        />
+        <SettingsAction
+          icon="trash-outline"
+          label={isDeletingAccount ? "Deleting Account..." : "Delete Account"}
+          danger
+          disabled={isDeletingAccount}
+          onPress={onDeleteAccount}
+        />
+      </View>
+    </View>
+  );
+}
+
+function SettingsAction({
+  icon,
+  label,
+  danger = false,
+  disabled = false,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  danger?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const color = danger ? "#c2410c" : "#248f58";
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      className="flex-row items-center gap-3 rounded-xl border border-border bg-card p-3"
+      style={{ opacity: disabled ? 0.55 : 1 }}
+    >
+      <Ionicons name={icon} size={18} color={color} />
+      <Text
+        className={`flex-1 font-semibold ${
+          danger ? "text-destructive" : "text-foreground"
+        }`}
+      >
+        {label}
+      </Text>
+      {disabled ? (
+        <ActivityIndicator color={color} />
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color="#9a9489" />
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -524,12 +695,27 @@ function SubscriptionCard({
           <Text className="mt-2 text-xs leading-4 text-muted-foreground">
             {subscription.canGenerate
               ? "Free households can generate two weekly plans each month."
-              : "Family unlocks unlimited weekly plans for everyone in your household."}
+              : IS_IOS
+                ? "Family subscriptions are coming to iOS soon."
+                : "Family unlocks unlimited weekly plans for everyone in your household."}
           </Text>
         ) : null}
       </View>
 
-      {isFamily ? (
+      {IS_IOS ? (
+        <View className="rounded-xl border border-border bg-card p-3">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="phone-portrait-outline" size={18} color="#248f58" />
+            <Text className="flex-1 font-semibold text-foreground">
+              iOS billing
+            </Text>
+          </View>
+          <Text className="mt-2 text-xs leading-5 text-muted-foreground">
+            Family subscriptions are coming to iOS. This version keeps external
+            checkout links out of the app for App Store review.
+          </Text>
+        </View>
+      ) : isFamily ? (
         <TouchableOpacity
           onPress={() =>
             void openSubscriptionUrl("https://familyplate.lemonsqueezy.com/billing")

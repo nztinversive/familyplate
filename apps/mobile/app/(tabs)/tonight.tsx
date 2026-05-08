@@ -12,6 +12,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
+import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type Suggestion = {
@@ -107,6 +108,12 @@ export default function TonightScreen() {
       (overrideCraving ?? selectedCraving) ||
       customCraving
     ).trim();
+
+    const consented = await ensureAiConsent();
+    if (!consented) {
+      setError("AI dinner suggestions need your permission before they can use your pantry and preference details.");
+      return;
+    }
 
     setIsGenerating(true);
     setError("");

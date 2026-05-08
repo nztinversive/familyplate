@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -16,6 +17,7 @@ import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
+import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type Recipe = Doc<"recipeSuggestions">;
@@ -29,6 +31,7 @@ const MONTHLY_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
 const ANNUAL_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
+const IS_IOS = Platform.OS === "ios";
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -192,7 +195,9 @@ export default function PlanScreen() {
     : subscription === undefined
       ? "Checking your plan limit..."
       : isAtPlanLimit
-        ? "Free plan limit reached. Upgrade to generate more weekly plans."
+        ? IS_IOS
+          ? "Free plan limit reached. Family subscriptions are coming to iOS soon."
+          : "Free plan limit reached. Upgrade to generate more weekly plans."
         : "";
 
   const buildCheckoutUrl = (checkoutUrl: string) => {
@@ -215,8 +220,16 @@ export default function PlanScreen() {
   const handleGeneratePlan = async () => {
     if (subscription && !subscription.canGenerate) {
       setError(
-        `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`,
+        IS_IOS
+          ? `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Family subscriptions are coming to iOS soon.`
+          : `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`,
       );
+      return;
+    }
+
+    const consented = await ensureAiConsent();
+    if (!consented) {
+      setError("AI meal planning needs your permission before it can use your household details.");
       return;
     }
 
@@ -484,7 +497,9 @@ export default function PlanScreen() {
               </View>
               <Text className="mt-2 text-xs leading-4 text-muted-foreground">
                 {isAtPlanLimit
-                  ? "You've reached the free monthly limit. Family unlocks unlimited weekly plans for your household."
+                  ? IS_IOS
+                    ? "You've reached the free monthly limit. Family subscriptions are coming to iOS soon."
+                    : "You've reached the free monthly limit. Family unlocks unlimited weekly plans for your household."
                   : "Free households can generate two weekly plans each month."}
               </Text>
             </>
@@ -498,10 +513,14 @@ export default function PlanScreen() {
       </View>
 
       {isAtPlanLimit ? (
-        <UpgradePrompt
-          onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_CHECKOUT_URL)}
-          onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_CHECKOUT_URL)}
-        />
+        IS_IOS ? (
+          <IosSubscriptionNotice />
+        ) : (
+          <UpgradePrompt
+            onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_CHECKOUT_URL)}
+            onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_CHECKOUT_URL)}
+          />
+        )
       ) : null}
 
       {notice ? (
@@ -578,6 +597,27 @@ export default function PlanScreen() {
         onToggleSavedRecipe={handleToggleSavedRecipe}
       />
     </ScreenShell>
+  );
+}
+
+function IosSubscriptionNotice() {
+  return (
+    <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
+      <View className="flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-white">
+          <Ionicons name="sparkles" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Family subscriptions
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Unlimited planning is coming to iOS. You can keep using the free
+            plan while we finish App Store billing.
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 

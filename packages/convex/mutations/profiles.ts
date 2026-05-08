@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
 
 function requireNonEmptyString(value: string, fieldName: string) {
@@ -132,6 +133,187 @@ export const updateProfile = mutation({
 
     await ctx.db.patch(profileId, cleanUpdates);
     return profileId;
+  },
+});
+
+export const deleteMyAccount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("Not authenticated");
+    }
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+
+    if (profile) {
+      const householdProfiles = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+        .collect();
+      const otherAuthenticatedProfiles = householdProfiles.filter(
+        (member) => member._id !== profile._id && member.authId
+      );
+
+      if (otherAuthenticatedProfiles.length === 0) {
+        const savedRecipes = await ctx.db
+          .query("savedRecipes")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const savedRecipe of savedRecipes) {
+          await ctx.db.delete(savedRecipe._id);
+        }
+
+        const recipes = await ctx.db
+          .query("recipeSuggestions")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const recipe of recipes) {
+          const feedback = await ctx.db
+            .query("mealFeedback")
+            .withIndex("by_recipeId", (q) => q.eq("recipeId", recipe._id))
+            .collect();
+          for (const entry of feedback) {
+            await ctx.db.delete(entry._id);
+          }
+        }
+
+        const mealPlans = await ctx.db
+          .query("weeklyMealPlans")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const mealPlan of mealPlans) {
+          const plannedMeals = await ctx.db
+            .query("plannedMeals")
+            .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", mealPlan._id))
+            .collect();
+          for (const meal of plannedMeals) {
+            await ctx.db.delete(meal._id);
+          }
+          await ctx.db.delete(mealPlan._id);
+        }
+
+        const groceryLists = await ctx.db
+          .query("groceryLists")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const groceryList of groceryLists) {
+          await ctx.db.delete(groceryList._id);
+        }
+
+        const pantryItems = await ctx.db
+          .query("pantryItems")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const item of pantryItems) {
+          await ctx.db.delete(item._id);
+        }
+
+        for (const recipe of recipes) {
+          await ctx.db.delete(recipe._id);
+        }
+
+        for (const member of householdProfiles) {
+          await ctx.db.delete(member._id);
+        }
+
+        await ctx.db.delete(profile.householdId);
+      } else {
+        const savedRecipes = await ctx.db
+          .query("savedRecipes")
+          .withIndex("by_savedBy", (q) => q.eq("savedBy", profile._id))
+          .collect();
+        for (const savedRecipe of savedRecipes) {
+          await ctx.db.delete(savedRecipe._id);
+        }
+
+        const feedback = await ctx.db
+          .query("mealFeedback")
+          .withIndex("by_oderId", (q) => q.eq("oderId", profile._id))
+          .collect();
+        for (const entry of feedback) {
+          await ctx.db.delete(entry._id);
+        }
+
+        const household = await ctx.db.get(profile.householdId);
+        if (household?.createdBy === authId) {
+          await ctx.db.patch(profile.householdId, {
+            createdBy: otherAuthenticatedProfiles[0].authId,
+          });
+        }
+
+        const pantryItems = await ctx.db
+          .query("pantryItems")
+          .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+          .collect();
+        for (const item of pantryItems) {
+          if (item.addedBy === profile._id) {
+            await ctx.db.delete(item._id);
+          }
+        }
+
+        await ctx.db.delete(profile._id);
+      }
+    }
+
+    const typedUserId = userId as Id<"users">;
+    const user = await ctx.db.get(typedUserId);
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (q) => q.eq("userId", typedUserId))
+      .collect();
+
+    for (const account of accounts) {
+      const verificationCodes = await ctx.db
+        .query("authVerificationCodes")
+        .withIndex("accountId", (q) => q.eq("accountId", account._id))
+        .collect();
+      for (const code of verificationCodes) {
+        await ctx.db.delete(code._id);
+      }
+      await ctx.db.delete(account._id);
+    }
+
+    const sessions = await ctx.db
+      .query("authSessions")
+      .withIndex("userId", (q) => q.eq("userId", typedUserId))
+      .collect();
+    const verifiers = await ctx.db.query("authVerifiers").collect();
+    for (const session of sessions) {
+      const refreshTokens = await ctx.db
+        .query("authRefreshTokens")
+        .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+        .collect();
+      for (const token of refreshTokens) {
+        await ctx.db.delete(token._id);
+      }
+      for (const verifier of verifiers) {
+        if (verifier.sessionId === session._id) {
+          await ctx.db.delete(verifier._id);
+        }
+      }
+      await ctx.db.delete(session._id);
+    }
+
+    if (user?.email) {
+      const rateLimit = await ctx.db
+        .query("authRateLimits")
+        .withIndex("identifier", (q) => q.eq("identifier", user.email ?? ""))
+        .first();
+      if (rateLimit) {
+        await ctx.db.delete(rateLimit._id);
+      }
+    }
+
+    if (user) {
+      await ctx.db.delete(typedUserId);
+    }
+
+    return { deleted: true };
   },
 });
 

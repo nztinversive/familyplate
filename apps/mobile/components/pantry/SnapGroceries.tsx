@@ -13,6 +13,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
+import { ensureAiConsent } from "@/lib/aiConsent";
 import { PANTRY_CATEGORIES, type PantryCategory } from "@/lib/pantry";
 
 type RecognizedItem = {
@@ -92,6 +93,12 @@ export function SnapGroceries({
   const handleCapture = async () => {
     const camera = cameraRef.current;
     if (!camera || !cameraReady) return;
+
+    const consented = await ensureAiConsent();
+    if (!consented) {
+      setError("AI grocery recognition needs your permission before it can process grocery photos.");
+      return;
+    }
 
     setPhase("analyzing");
     setError("");
