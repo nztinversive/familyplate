@@ -1,0 +1,62 @@
+# App Store Submission Checklist
+
+## Public Listing
+
+- Name: FamilyPlate Meal Planner
+- Subtitle: AI dinners from your pantry
+- Category: Food & Drink
+- Marketing URL: https://familyplate.co
+- Privacy Policy URL: https://familyplate.co/privacy
+- Support URL: https://familyplate.co/support
+- Release: manual after approval
+
+## App Review Notes
+
+Use a reviewer-only account that stays active through review.
+
+- Demo required: Yes
+- Demo username: create a dedicated test email account
+- Demo password: use the password for that dedicated test account
+- Notes:
+
+FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking, grocery list management, Cookbook, Tonight suggestions, Weekly Plan, camera grocery scanning, and barcode scanning.
+
+AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
+
+There are no external purchase links shown in the iOS app. Paid subscription billing is disabled for iOS until StoreKit in-app purchases are configured. Account deletion is available in Settings under Privacy & Account.
+
+## Privacy Labels
+
+Recommended App Store Connect answers for the current v1:
+
+- Data Used to Track You: No
+- Third-party advertising: No
+- Data linked to the user: Yes, for account and app functionality
+- Contact Info: Email Address, used for app functionality and account management
+- Identifiers: User ID, used for app functionality and account management
+- User Content: Photos or Videos, Other User Content, used for app functionality
+- Health and Fitness: dietary preferences, allergies, and food restrictions, used for app functionality
+- Purchases: subscription or entitlement status if shown from the FamilyPlate account, used for app functionality
+- Usage Data: Product Interaction if App Store Connect asks about feature activity or app analytics
+
+## Age Rating
+
+Recommended age rating answers:
+
+- Medical or Treatment Information: None
+- Health or Wellness Topics: Yes
+- User Generated Content: No
+- Unrestricted Web Access: No
+- Messaging and Chat: No
+- Gambling, contests, violence, mature content, profanity, sexual content: None
+- Advertising: No
+
+## Reviewer Test Path
+
+1. Sign in with the demo account.
+2. Open Pantry and add a pantry item manually.
+3. Use Snap Groceries to test camera/photo recognition and barcode scanning.
+4. Open Tonight and generate dinner suggestions.
+5. Save or open a recipe from Cookbook.
+6. Add missing recipe ingredients to Grocery List.
+7. Open Settings, view Privacy/Terms/Support, and confirm Delete Account is visible.
