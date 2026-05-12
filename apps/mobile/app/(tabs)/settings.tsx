@@ -4,7 +4,6 @@ import {
   Alert,
   Text,
   TextInput,
-  Platform,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -34,14 +33,9 @@ type Subscription = {
   endsAt?: string;
 };
 
-const MONTHLY_CHECKOUT_URL =
-  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
-const ANNUAL_CHECKOUT_URL =
-  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
 const PRIVACY_URL = "https://familyplate.co/privacy";
 const TERMS_URL = "https://familyplate.co/terms";
 const SUPPORT_URL = "https://familyplate.co/support";
-const IS_IOS = Platform.OS === "ios";
 
 function parseCommaSeparatedList(value: string) {
   return Array.from(
@@ -72,11 +66,6 @@ function getUniqueValues(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean)),
   );
-}
-
-function formatStatus(status?: string) {
-  if (!status) return "active";
-  return status.replace(/_/g, " ");
 }
 
 export default function SettingsScreen() {
@@ -238,10 +227,7 @@ export default function SettingsScreen() {
 
           <HouseholdCard household={household} members={members ?? []} />
 
-          <SubscriptionCard
-            currentUser={currentUser}
-            subscription={subscription}
-          />
+          <PlanUsageCard subscription={subscription} />
 
           <HouseholdSafetyCard
             allergies={householdAllergies}
@@ -613,43 +599,20 @@ function HouseholdCard({
   );
 }
 
-function SubscriptionCard({
-  currentUser,
+function PlanUsageCard({
   subscription,
 }: {
-  currentUser: CurrentUser | null;
   subscription: Subscription | undefined;
 }) {
   const isFamily = subscription?.tier === "family";
   const tierLabel =
-    subscription === undefined ? "Checking" : isFamily ? "Family" : "Free";
-  const statusLabel =
-    subscription === undefined
-      ? "checking subscription"
-      : formatStatus(subscription.status);
+    subscription === undefined ? "Checking" : isFamily ? "Unlimited" : "Free";
   const planLimitLabel =
     subscription === undefined
       ? "Checking plan usage"
       : isFamily
         ? "Unlimited meal plans"
         : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
-
-  const buildCheckoutUrl = (checkoutUrl: string) => {
-    const params = new URLSearchParams();
-    if (currentUser?.email) {
-      params.set("checkout[email]", currentUser.email);
-    }
-    if (currentUser?.authId) {
-      params.set("checkout[custom][auth_id]", currentUser.authId);
-    }
-
-    const query = params.toString();
-    return query ? `${checkoutUrl}?${query}` : checkoutUrl;
-  };
-
-  const openSubscriptionUrl = async (url: string) => {
-    await WebBrowser.openBrowserAsync(url);
-  };
 
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -659,10 +622,10 @@ function SubscriptionCard({
         </View>
         <View className="flex-1">
           <Text className="text-lg font-bold text-foreground">
-            Subscription
+            Plan Usage
           </Text>
-          <Text className="mt-1 text-sm capitalize text-muted-foreground">
-            {tierLabel} plan · {statusLabel}
+          <Text className="mt-1 text-sm text-muted-foreground">
+            Weekly meal planning access
           </Text>
         </View>
         <View
@@ -695,60 +658,10 @@ function SubscriptionCard({
           <Text className="mt-2 text-xs leading-4 text-muted-foreground">
             {subscription.canGenerate
               ? "Free households can generate two weekly plans each month."
-              : IS_IOS
-                ? "Family subscriptions are coming to iOS soon."
-                : "Family unlocks unlimited weekly plans for everyone in your household."}
+              : "The free monthly planning limit has been reached. Pantry, cookbook, and grocery list tools are still available."}
           </Text>
         ) : null}
       </View>
-
-      {IS_IOS ? (
-        <View className="rounded-xl border border-border bg-card p-3">
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="phone-portrait-outline" size={18} color="#248f58" />
-            <Text className="flex-1 font-semibold text-foreground">
-              iOS billing
-            </Text>
-          </View>
-          <Text className="mt-2 text-xs leading-5 text-muted-foreground">
-            Family subscriptions are coming to iOS. This version keeps external
-            checkout links out of the app for App Store review.
-          </Text>
-        </View>
-      ) : isFamily ? (
-        <TouchableOpacity
-          onPress={() =>
-            void openSubscriptionUrl("https://familyplate.lemonsqueezy.com/billing")
-          }
-          className="flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
-        >
-          <Ionicons name="card-outline" size={18} color="#248f58" />
-          <Text className="font-semibold text-primary">Manage Billing</Text>
-        </TouchableOpacity>
-      ) : (
-        <View className="flex-row gap-2">
-          <TouchableOpacity
-            onPress={() =>
-              void openSubscriptionUrl(buildCheckoutUrl(MONTHLY_CHECKOUT_URL))
-            }
-            disabled={subscription === undefined}
-            className="flex-1 items-center rounded-xl bg-primary py-3"
-            style={{ opacity: subscription === undefined ? 0.55 : 1 }}
-          >
-            <Text className="font-semibold text-white">$5.99/mo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() =>
-              void openSubscriptionUrl(buildCheckoutUrl(ANNUAL_CHECKOUT_URL))
-            }
-            disabled={subscription === undefined}
-            className="flex-1 items-center rounded-xl border border-primary bg-card py-3"
-            style={{ opacity: subscription === undefined ? 0.55 : 1 }}
-          >
-            <Text className="font-semibold text-primary">Annual</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }

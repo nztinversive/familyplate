@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -12,7 +11,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
-import * as WebBrowser from "expo-web-browser";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
@@ -26,12 +24,6 @@ type PlannedMeal = Doc<"plannedMeals"> & {
   alternatives: Recipe[];
 };
 type MealStatus = PlannedMeal["status"];
-
-const MONTHLY_CHECKOUT_URL =
-  "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
-const ANNUAL_CHECKOUT_URL =
-  "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
-const IS_IOS = Platform.OS === "ios";
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -195,34 +187,13 @@ export default function PlanScreen() {
     : subscription === undefined
       ? "Checking your plan limit..."
       : isAtPlanLimit
-        ? IS_IOS
-          ? "Free plan limit reached. Family subscriptions are coming to iOS soon."
-          : "Free plan limit reached. Upgrade to generate more weekly plans."
+        ? "Free plan limit reached for this month."
         : "";
-
-  const buildCheckoutUrl = (checkoutUrl: string) => {
-    const params = new URLSearchParams();
-    if (currentUser?.email) {
-      params.set("checkout[email]", currentUser.email);
-    }
-    if (currentUser?.authId) {
-      params.set("checkout[custom][auth_id]", currentUser.authId);
-    }
-
-    const query = params.toString();
-    return query ? `${checkoutUrl}?${query}` : checkoutUrl;
-  };
-
-  const openSubscriptionUrl = async (checkoutUrl: string) => {
-    await WebBrowser.openBrowserAsync(buildCheckoutUrl(checkoutUrl));
-  };
 
   const handleGeneratePlan = async () => {
     if (subscription && !subscription.canGenerate) {
       setError(
-        IS_IOS
-          ? `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Family subscriptions are coming to iOS soon.`
-          : `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`,
+        `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Pantry, cookbook, and grocery list tools are still available.`,
       );
       return;
     }
@@ -497,9 +468,7 @@ export default function PlanScreen() {
               </View>
               <Text className="mt-2 text-xs leading-4 text-muted-foreground">
                 {isAtPlanLimit
-                  ? IS_IOS
-                    ? "You've reached the free monthly limit. Family subscriptions are coming to iOS soon."
-                    : "You've reached the free monthly limit. Family unlocks unlimited weekly plans for your household."
+                  ? "You've reached the free monthly limit. Pantry, cookbook, and grocery list tools are still available."
                   : "Free households can generate two weekly plans each month."}
               </Text>
             </>
@@ -513,14 +482,7 @@ export default function PlanScreen() {
       </View>
 
       {isAtPlanLimit ? (
-        IS_IOS ? (
-          <IosSubscriptionNotice />
-        ) : (
-          <UpgradePrompt
-            onOpenMonthly={() => void openSubscriptionUrl(MONTHLY_CHECKOUT_URL)}
-            onOpenAnnual={() => void openSubscriptionUrl(ANNUAL_CHECKOUT_URL)}
-          />
-        )
+        <PlanLimitNotice />
       ) : null}
 
       {notice ? (
@@ -600,7 +562,7 @@ export default function PlanScreen() {
   );
 }
 
-function IosSubscriptionNotice() {
+function PlanLimitNotice() {
   return (
     <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
       <View className="flex-row items-start gap-3">
@@ -609,59 +571,13 @@ function IosSubscriptionNotice() {
         </View>
         <View className="flex-1">
           <Text className="text-lg font-bold text-foreground">
-            Family subscriptions
+            Monthly planning limit reached
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            Unlimited planning is coming to iOS. You can keep using the free
-            plan while we finish App Store billing.
+            You can keep using pantry tracking, saved recipes, and grocery
+            lists until weekly planning resets.
           </Text>
         </View>
-      </View>
-    </View>
-  );
-}
-
-function UpgradePrompt({
-  onOpenMonthly,
-  onOpenAnnual,
-}: {
-  onOpenMonthly: () => void;
-  onOpenAnnual: () => void;
-}) {
-  return (
-    <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
-      <View className="mb-3 flex-row items-start gap-3">
-        <View className="h-11 w-11 items-center justify-center rounded-xl bg-white">
-          <Ionicons name="sparkles" size={22} color="#248f58" />
-        </View>
-        <View className="flex-1">
-          <Text className="text-lg font-bold text-foreground">
-            Upgrade for unlimited planning
-          </Text>
-          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            Family keeps weekly plan generation open for everyone in your
-            household, plus billing stays tied to this account.
-          </Text>
-        </View>
-      </View>
-
-      <View className="flex-row gap-2">
-        <TouchableOpacity
-          onPress={onOpenMonthly}
-          className="flex-1 items-center rounded-xl bg-primary py-3"
-          accessibilityRole="button"
-          accessibilityLabel="Upgrade monthly"
-        >
-          <Text className="font-semibold text-white">$5.99/mo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onOpenAnnual}
-          className="flex-1 items-center rounded-xl border border-primary bg-card py-3"
-          accessibilityRole="button"
-          accessibilityLabel="Upgrade annually"
-        >
-          <Text className="font-semibold text-primary">Annual</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
