@@ -1,4 +1,5 @@
 import "../global.css";
+import "@/lib/sentry";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -7,6 +8,8 @@ import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import "react-native-reanimated";
+import { MonitoringProvider } from "@/components/providers/MonitoringProvider";
+import { Sentry } from "@/lib/sentry";
 
 const convexUrl = process.env.EXPO_PUBLIC_CONVEX_URL;
 
@@ -22,18 +25,22 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
-export default function RootLayout() {
+function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
     <ConvexAuthProvider client={convex} storage={AsyncStorage}>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <MonitoringProvider>
+        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </MonitoringProvider>
     </ConvexAuthProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
