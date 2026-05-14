@@ -10,9 +10,9 @@ const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posth
 let initialized = false;
 
 function initPostHog() {
-  if (typeof window === "undefined") return;
-  if (initialized) return;
-  if (!POSTHOG_KEY) return;
+  if (typeof window === "undefined") return false;
+  if (initialized) return true;
+  if (!POSTHOG_KEY) return false;
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
     capture_pageview: false,
@@ -20,6 +20,7 @@ function initPostHog() {
     person_profiles: "identified_only",
   });
   initialized = true;
+  return true;
 }
 
 export function PostHogProvider({ children }: { children: ReactNode }) {
@@ -42,7 +43,7 @@ function PageviewTracker() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!initialized || !POSTHOG_KEY) return;
+    if (!initPostHog()) return;
     if (!pathname) return;
     let url = window.origin + pathname;
     const search = searchParams?.toString();
