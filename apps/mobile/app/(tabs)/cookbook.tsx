@@ -13,6 +13,7 @@ import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
+import { LoadingCard } from "@/components/LoadingCard";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { inferCategory } from "@/lib/pantry";
 
@@ -112,9 +113,11 @@ export default function CookbookScreen() {
       subtitle="Recipes you've saved from generated plans."
     >
       {savedRecipes === undefined ? (
-        <View className="items-center py-16">
-          <ActivityIndicator />
-        </View>
+        <LoadingCard
+          icon="book-outline"
+          title="Opening your cookbook"
+          detail="Loading saved dinners, missing ingredients, and pantry matches."
+        />
       ) : savedRecipes.length === 0 ? (
         <EmptyCookbook />
       ) : (
@@ -185,7 +188,7 @@ function EmptyCookbook() {
         No saved recipes yet
       </Text>
       <Text className="text-center text-sm leading-5 text-muted-foreground">
-        Save dinner ideas from Tonight and they will appear here.
+        Save dinner ideas from Tonight or Weekly Plan and they will appear here.
       </Text>
     </View>
   );

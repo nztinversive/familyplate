@@ -233,10 +233,10 @@ export function SnapGroceries({
         <View className="flex-1 items-center justify-center px-8">
           <ActivityIndicator color="#248f58" size="large" />
           <Text className="mt-4 text-lg font-semibold text-foreground">
-            Identifying groceries...
+            Reading your grocery photo...
           </Text>
           <Text className="mt-2 text-center text-sm text-muted-foreground">
-            This can take a few seconds.
+            AI is matching visible items so you can review before saving.
           </Text>
         </View>
       ) : null}

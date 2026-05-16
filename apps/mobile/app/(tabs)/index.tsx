@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -35,6 +34,7 @@ import {
   SnapGroceries,
   type SnapGroceryItem,
 } from "@/components/pantry/SnapGroceries";
+import { LoadingCard } from "@/components/LoadingCard";
 
 type PantryItem = Doc<"pantryItems">;
 type Tab = "all" | StorageLocation;
@@ -361,9 +361,11 @@ export default function PantryScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       >
         {isLoading ? (
-          <View className="py-16 items-center">
-            <ActivityIndicator />
-          </View>
+          <LoadingCard
+            icon="cube-outline"
+            title="Checking your pantry"
+            detail="Loading the ingredients FamilyPlate can plan from."
+          />
         ) : filteredItems.length === 0 ? (
           <>
             <ExpirationAlerts items={allPantryItems ?? []} />

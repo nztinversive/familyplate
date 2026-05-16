@@ -15,6 +15,7 @@ import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
+import { LoadingCard } from "@/components/LoadingCard";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
@@ -422,7 +423,7 @@ export default function PlanScreen() {
             )}
             <Text className="font-semibold text-white">
               {isGenerating
-                ? "Planning..."
+                ? "Building plan..."
                 : meals.length
                   ? "Refresh"
                   : "Generate"}
@@ -504,12 +505,11 @@ export default function PlanScreen() {
       ) : null}
 
       {mealPlan === undefined ? (
-        <View className="items-center rounded-2xl border border-border bg-card p-6">
-          <ActivityIndicator color="#248f58" />
-          <Text className="mt-3 text-sm text-muted-foreground">
-            Loading weekly plan...
-          </Text>
-        </View>
+        <LoadingCard
+          icon="calendar-outline"
+          title="Loading weekly plan"
+          detail="Checking this week's dinners and pantry matches."
+        />
       ) : meals.length === 0 ? (
         <View className="items-center rounded-2xl border border-border bg-card p-6">
           <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">

@@ -250,7 +250,7 @@ export default function TonightScreen() {
         )}
         <Text className="text-base font-semibold text-white">
           {isGenerating
-            ? "Finding dinners..."
+            ? "Reading your pantry..."
             : selectedCraving || customCraving
               ? "Suggest Dinners"
               : suggestions.length > 0

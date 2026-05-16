@@ -15,6 +15,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
+import { LoadingCard } from "@/components/LoadingCard";
 import { PANTRY_CATEGORIES, PANTRY_UNITS } from "@/lib/pantry";
 import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
 
@@ -259,9 +260,11 @@ export default function GroceryScreen() {
       ) : null}
 
       {groceryList === undefined || currentUser === undefined ? (
-        <View className="items-center py-16">
-          <ActivityIndicator />
-        </View>
+        <LoadingCard
+          icon="cart-outline"
+          title="Loading your grocery list"
+          detail="Checking what is still needed for the household."
+        />
       ) : totalCount === 0 ? (
         <EmptyGroceryState
           hasPlan={hasPlan}
@@ -492,7 +495,7 @@ function EmptyGroceryState({
             className="items-center rounded-xl border border-border bg-card py-3"
           >
             <Text className="font-semibold text-primary">
-              {isGenerating ? "Generating..." : "Generate from Plan"}
+              {isGenerating ? "Checking weekly plan..." : "Generate from Plan"}
             </Text>
           </TouchableOpacity>
         ) : null}
