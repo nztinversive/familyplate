@@ -13,8 +13,11 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
 import { useAction } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
+import { usePostHog } from "posthog-react-native";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { PANTRY_CATEGORIES, type PantryCategory } from "@/lib/pantry";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type RecognizedItem = {
   name: string;
@@ -78,6 +81,7 @@ export function SnapGroceries({
   const recognizeAction = useAction(
     api.actions.recognizeGroceries.recognizeFromPhoto,
   );
+  const posthog = usePostHog();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
 
@@ -99,11 +103,17 @@ export function SnapGroceries({
       setError("AI grocery recognition needs your permission before it can process grocery photos.");
       return;
     }
+    track(posthog, "ai_consent_accepted", {
+      feature: "snap_groceries",
+    });
 
     setPhase("analyzing");
     setError("");
 
     try {
+      track(posthog, "camera_scan_started", {
+        source: "snap_groceries",
+      });
       const photo = await camera.takePictureAsync({
         base64: true,
         quality: 0.75,
@@ -121,6 +131,13 @@ export function SnapGroceries({
           category: normalizeCategory(item.category),
         }));
       setItems(recognizedItems);
+      track(posthog, "camera_scan_completed", {
+        source: "snap_groceries",
+        count: recognizedItems.length,
+        high_confidence_count: recognizedItems.filter(
+          (item) => item.confidence === "high",
+        ).length,
+      });
       if (recognizedItems.length === 0) {
         setError(
           "No groceries were detected. Retake the photo or add an item manually below.",
@@ -128,6 +145,13 @@ export function SnapGroceries({
       }
       setPhase("review");
     } catch (err) {
+      track(posthog, "camera_scan_failed", {
+        source: "snap_groceries",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "snap_groceries", platform: "ios" },
+      });
       setError(getRecognitionErrorMessage(err));
       setPhase("camera");
     }
@@ -161,8 +185,20 @@ export function SnapGroceries({
           category: item.category,
         })),
       );
+      track(posthog, "pantry_item_added", {
+        source: "snap_groceries_review",
+        count: validItems.length,
+      });
       onClose();
     } catch (err) {
+      track(posthog, "pantry_item_add_failed", {
+        source: "snap_groceries_review",
+        count: validItems.length,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "snap_groceries", action: "add_review_items", platform: "ios" },
+      });
       setError(err instanceof Error ? err.message : "Couldn't add groceries.");
     } finally {
       setIsAdding(false);

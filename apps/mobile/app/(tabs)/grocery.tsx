@@ -14,10 +14,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { PANTRY_CATEGORIES, PANTRY_UNITS } from "@/lib/pantry";
 import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type GroceryList = Doc<"groceryLists">;
 type GroceryItem = GroceryList["items"][number] & { originalIndex: number };
@@ -35,6 +38,7 @@ function getErrorMessage(err: unknown) {
 }
 
 export default function GroceryScreen() {
+  const posthog = usePostHog();
   const groceryList = useQuery(api.queries.grocery.getMyGroceryList, {});
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -91,8 +95,18 @@ export default function GroceryScreen() {
     setError("");
     try {
       await generateFromPlan({});
+      track(posthog, "grocery_list_generated", {
+        source: "grocery_tab",
+      });
       setActiveTab("all");
     } catch (err) {
+      track(posthog, "grocery_list_generation_failed", {
+        source: "grocery_tab",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "generate_from_plan", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setIsGenerating(false);
@@ -107,6 +121,10 @@ export default function GroceryScreen() {
       await toggleItem({
         groceryListId: groceryList._id,
         itemIndex: item.originalIndex,
+      });
+      track(posthog, "grocery_item_checked", {
+        checked: !item.checked,
+        source: "grocery_tab",
       });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -123,6 +141,9 @@ export default function GroceryScreen() {
       await removeItem({
         groceryListId: groceryList._id,
         itemIndex: item.originalIndex,
+      });
+      track(posthog, "grocery_item_removed", {
+        source: "grocery_tab",
       });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -148,7 +169,14 @@ export default function GroceryScreen() {
         groceryListId: groceryList._id,
         itemIndex: item.originalIndex,
       });
+      track(posthog, "pantry_item_added", {
+        source: "grocery_to_pantry",
+        category: item.category,
+      });
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "move_to_pantry", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setBusyIndex(null);
@@ -181,6 +209,10 @@ export default function GroceryScreen() {
   }) => {
     setError("");
     await addCustomItem(values);
+    track(posthog, "grocery_item_added", {
+      source: "manual_form",
+      category: values.category,
+    });
     setShowAddForm(false);
     setActiveTab("all");
   };

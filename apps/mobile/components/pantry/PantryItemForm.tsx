@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import {
   PANTRY_CATEGORIES,
   PANTRY_UNITS,
@@ -23,6 +24,8 @@ import {
   inferCategory,
 } from "@/lib/pantry";
 import type { BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type PantryItem = Doc<"pantryItems">;
 
@@ -67,6 +70,7 @@ export function PantryItemForm({
 }: Props) {
   const addItem = useMutation(api.mutations.pantry.addItem);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
+  const posthog = usePostHog();
 
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -158,6 +162,12 @@ export function PantryItemForm({
               ? { clearBarcode: true }
               : {}),
         });
+        track(posthog, "pantry_item_updated", {
+          category,
+          storage_location: storageLocation,
+          has_expiration: expirationTs !== undefined,
+          has_barcode: !!trimmedBarcode,
+        });
       } else {
         await addItem({
           householdId,
@@ -171,9 +181,27 @@ export function PantryItemForm({
             : {}),
           ...(trimmedBarcode ? { barcode: trimmedBarcode } : {}),
         });
+        track(posthog, "pantry_item_added", {
+          category,
+          storage_location: storageLocation,
+          has_expiration: expirationTs !== undefined,
+          has_barcode: !!trimmedBarcode,
+          source: prefillValues ? "barcode_prefill" : "manual_form",
+        });
       }
       onClose();
     } catch (err) {
+      track(posthog, item ? "pantry_item_update_failed" : "pantry_item_add_failed", {
+        source: prefillValues ? "barcode_prefill" : "manual_form",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: {
+          area: "pantry",
+          action: item ? "update_item" : "add_item",
+          platform: "ios",
+        },
+      });
       setError(err instanceof Error ? err.message : "Couldn't save item.");
       setIsSubmitting(false);
     }

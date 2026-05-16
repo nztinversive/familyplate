@@ -11,9 +11,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type Suggestion = {
   _id?: string;
@@ -55,6 +58,7 @@ function getErrorMessage(err: unknown) {
 }
 
 export default function TonightScreen() {
+  const posthog = usePostHog();
   const suggestFromPantry = useAction(
     api.actions.quickDinner.suggestFromPantry,
   );
@@ -114,6 +118,9 @@ export default function TonightScreen() {
       setError("AI dinner suggestions need your permission before they can use your pantry and preference details.");
       return;
     }
+    track(posthog, "ai_consent_accepted", {
+      feature: "tonight_suggestions",
+    });
 
     setIsGenerating(true);
     setError("");
@@ -123,16 +130,35 @@ export default function TonightScreen() {
     setHasGenerated(true);
 
     try {
+      track(posthog, "dinner_suggestions_started", {
+        has_craving: !!cravingValue,
+        source: overrideCraving ? "chip" : "button",
+      });
       const result = await suggestFromPantry({
         craving: cravingValue || undefined,
       });
 
       if (result.suggestions.length === 0) {
+        track(posthog, "dinner_suggestions_failed", {
+          reason: "empty_pantry_or_empty_result",
+          has_craving: !!cravingValue,
+        });
         setError("Add some pantry items first so I can suggest dinner.");
       } else {
+        track(posthog, "dinner_suggestions_completed", {
+          count: result.suggestions.length,
+          has_craving: !!cravingValue,
+        });
         setFreshSuggestions(result.suggestions);
       }
     } catch (err) {
+      track(posthog, "dinner_suggestions_failed", {
+        reason: err instanceof Error ? err.message : "unknown",
+        has_craving: !!cravingValue,
+      });
+      Sentry.captureException(err, {
+        tags: { area: "tonight", action: "suggest_from_pantry", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setIsGenerating(false);
@@ -162,10 +188,19 @@ export default function TonightScreen() {
       const typedId = recipeId as Id<"recipeSuggestions">;
       if (savedRecipeIds.has(typedId)) {
         await unsaveRecipe({ recipeId: typedId });
+        track(posthog, "recipe_unsaved", {
+          source: "tonight",
+        });
       } else {
         await saveRecipe({ recipeId: typedId });
+        track(posthog, "recipe_saved", {
+          source: "tonight",
+        });
       }
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setSavingRecipeId(null);

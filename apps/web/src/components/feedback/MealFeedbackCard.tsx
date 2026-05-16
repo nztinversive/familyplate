@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 const FEEDBACK_TAGS = [
   "too spicy",
@@ -67,7 +69,17 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
         tags,
         notes: notes.trim() || undefined,
       });
+      track("feedback_submitted", {
+        rating,
+        liked,
+        tag_count: tags.length,
+        has_notes: notes.trim().length > 0,
+        source: "meal_feedback",
+      });
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "feedback", action: "submit", platform: "web" },
+      });
       console.error("Failed to submit feedback:", err);
     } finally {
       setIsSubmitting(false);
@@ -79,12 +91,18 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
     setIsSubmitting(true);
     try {
       await deleteFeedback({ feedbackId: existing._id });
+      track("feedback_deleted", {
+        source: "meal_feedback",
+      });
       setRating(0);
       setLiked(null);
       setTags([]);
       setNotes("");
       setHasInitialized(false);
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "feedback", action: "delete", platform: "web" },
+      });
       console.error("Failed to delete feedback:", err);
     } finally {
       setIsSubmitting(false);

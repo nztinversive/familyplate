@@ -73,4 +73,68 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/api/webhooks/revenuecat",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const expectedAuthorization =
+      process.env.REVENUECAT_WEBHOOK_AUTH_HEADER ||
+      (process.env.REVENUECAT_WEBHOOK_SECRET
+        ? `Bearer ${process.env.REVENUECAT_WEBHOOK_SECRET}`
+        : undefined);
+    if (!expectedAuthorization) {
+      console.error("RevenueCat webhook authorization is not set");
+      return new Response("Server misconfigured", { status: 500 });
+    }
+
+    const authorization = request.headers.get("authorization");
+    if (authorization !== expectedAuthorization) {
+      return new Response("Invalid authorization", { status: 401 });
+    }
+
+    const payload = await request.json();
+    const event = payload.event;
+    const eventType = event?.type;
+    const appUserId = event?.app_user_id;
+
+    if (typeof eventType !== "string" || typeof appUserId !== "string") {
+      return new Response("Invalid payload", { status: 400 });
+    }
+
+    const entitlementIds = Array.isArray(event.entitlement_ids)
+      ? event.entitlement_ids.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+    const aliases = Array.isArray(event.aliases)
+      ? event.aliases.filter((id: unknown): id is string => typeof id === "string")
+      : [];
+
+    console.log(`RevenueCat webhook: ${eventType}`, {
+      appUserId,
+      productId: event.product_id,
+      entitlementIds,
+      store: event.store,
+    });
+
+    await ctx.runMutation(internal.subscriptions.handleRevenueCatWebhookEvent, {
+      eventType,
+      appUserId,
+      originalAppUserId:
+        typeof event.original_app_user_id === "string"
+          ? event.original_app_user_id
+          : undefined,
+      aliases,
+      productId: typeof event.product_id === "string" ? event.product_id : undefined,
+      entitlementIds,
+      store: typeof event.store === "string" ? event.store : undefined,
+      expirationAtMs:
+        typeof event.expiration_at_ms === "number"
+          ? event.expiration_at_ms
+          : undefined,
+      periodType: typeof event.period_type === "string" ? event.period_type : undefined,
+    });
+
+    return new Response("OK", { status: 200 });
+  }),
+});
+
 export default http;

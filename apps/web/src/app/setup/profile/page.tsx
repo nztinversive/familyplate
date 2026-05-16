@@ -12,6 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 const DIETARY_OPTIONS = [
   "Vegetarian", "Vegan", "Pescatarian", "Gluten-Free", "Dairy-Free",
@@ -179,11 +181,25 @@ export default function ProfileSetupPage() {
         if (currentUser?.authId) {
           checkoutUrl.searchParams.set("checkout[custom][auth_id]", currentUser.authId);
         }
+        track("checkout_clicked", {
+          plan: selectedPlan,
+          source: "profile_setup",
+        });
         window.location.href = checkoutUrl.toString();
       } else {
+        track("cta_clicked", {
+          location: "profile_setup",
+          label: "finish_setup",
+        });
         router.push("/pantry");
       }
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: {
+          area: "profile_setup",
+          platform: "web",
+        },
+      });
       console.error("Profile setup failed:", err);
       setError(err instanceof Error ? err.message : "Failed to save profile.");
     } finally {

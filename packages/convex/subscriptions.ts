@@ -5,7 +5,23 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 const MONTHLY_VARIANT_ID = "1485021";
 const ANNUAL_VARIANT_ID = "1485023";
 const TEST_VARIANT_ID = "1492777";
+const REVENUECAT_FAMILY_ENTITLEMENT_ID = "family";
 const FREE_PLAN_LIMIT = 2; // plans per month
+
+const REVENUECAT_ACTIVE_EVENTS = new Set([
+  "INITIAL_PURCHASE",
+  "RENEWAL",
+  "UNCANCELLATION",
+  "PRODUCT_CHANGE",
+  "NON_RENEWING_PURCHASE",
+]);
+
+const REVENUECAT_INACTIVE_EVENTS = new Set([
+  "CANCELLATION",
+  "EXPIRATION",
+  "BILLING_ISSUE",
+  "SUBSCRIPTION_PAUSED",
+]);
 
 export const handleWebhookEvent = internalMutation({
   args: {
@@ -84,6 +100,74 @@ export const handleWebhookEvent = internalMutation({
   },
 });
 
+export const handleRevenueCatWebhookEvent = internalMutation({
+  args: {
+    eventType: v.string(),
+    appUserId: v.string(),
+    originalAppUserId: v.optional(v.string()),
+    aliases: v.array(v.string()),
+    productId: v.optional(v.string()),
+    entitlementIds: v.array(v.string()),
+    store: v.optional(v.string()),
+    expirationAtMs: v.optional(v.number()),
+    periodType: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const candidateUserIds = Array.from(
+      new Set([
+        args.appUserId,
+        args.originalAppUserId,
+        ...args.aliases,
+      ].filter((id): id is string => typeof id === "string" && id.length > 0)),
+    );
+
+    let profile = null;
+    for (const candidateUserId of candidateUserIds) {
+      profile = await ctx.db
+        .query("userProfiles")
+        .withIndex("by_authId", (q) => q.eq("authId", candidateUserId))
+        .first();
+
+      if (!profile) {
+        profile = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_rcAppUserId", (q) => q.eq("rcAppUserId", candidateUserId))
+          .first();
+      }
+
+      if (profile) break;
+    }
+
+    if (!profile) {
+      console.warn(`No profile found for RevenueCat user ${args.appUserId}`);
+      return;
+    }
+
+    const unlocksFamily =
+      args.entitlementIds.includes(REVENUECAT_FAMILY_ENTITLEMENT_ID) ||
+      args.productId?.includes("family") === true;
+    const isActiveEvent = REVENUECAT_ACTIVE_EVENTS.has(args.eventType);
+    const isInactiveEvent = REVENUECAT_INACTIVE_EVENTS.has(args.eventType);
+    const expiresInFuture =
+      typeof args.expirationAtMs === "number" && args.expirationAtMs > Date.now();
+    const isFamily = unlocksFamily && (isActiveEvent || (isInactiveEvent && expiresInFuture));
+    const endsAt = args.expirationAtMs
+      ? new Date(args.expirationAtMs).toISOString()
+      : undefined;
+
+    await ctx.db.patch(profile._id, {
+      subscriptionTier: isFamily ? "family" : "free",
+      subscriptionStatus: isFamily ? "active" : args.eventType.toLowerCase(),
+      subscriptionEndsAt: endsAt,
+      rcAppUserId: args.appUserId,
+      rcOriginalAppUserId: args.originalAppUserId,
+      rcProductId: args.productId,
+      rcEntitlementId: args.entitlementIds[0],
+      rcStore: args.store,
+    });
+  },
+});
+
 export const getMySubscription = query({
   args: {},
   handler: async (ctx) => {
@@ -124,6 +208,7 @@ export const getMySubscription = query({
       status: profile.subscriptionStatus,
       endsAt: profile.subscriptionEndsAt,
       lsCustomerId: profile.lsCustomerId,
+      rcAppUserId: profile.rcAppUserId,
     };
   },
 });

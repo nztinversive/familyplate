@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 type Suggestion = {
   _id?: string;
@@ -100,9 +102,19 @@ export default function TonightPage() {
       const isSaved = savedRecipes?.some((s) => s.recipe._id === typedId);
       if (isSaved) {
         await unsaveRecipeMutation({ recipeId: typedId });
+        track("recipe_unsaved", {
+          source: "tonight",
+        });
       } else {
         await saveRecipeMutation({ recipeId: typedId });
+        track("recipe_saved", {
+          source: "tonight",
+        });
       }
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "recipe", action: "toggle_save", platform: "web" },
+      });
     } finally {
       setSavingRecipeId(null);
     }
@@ -117,15 +129,34 @@ export default function TonightPage() {
     setActiveCraving(cravingValue);
     setHasGenerated(true);
     try {
+      track("dinner_suggestions_started", {
+        has_craving: !!cravingValue,
+        source: overrideCraving ? "chip" : "button",
+      });
       const result = await suggestFromPantry({
         craving: cravingValue || undefined,
       });
       if (result.suggestions.length === 0) {
+        track("dinner_suggestions_failed", {
+          reason: "empty_pantry_or_empty_result",
+          has_craving: !!cravingValue,
+        });
         setError("Add some items to your pantry first so I can suggest recipes.");
       } else {
+        track("dinner_suggestions_completed", {
+          count: result.suggestions.length,
+          has_craving: !!cravingValue,
+        });
         setFreshSuggestions(result.suggestions);
       }
     } catch (err) {
+      track("dinner_suggestions_failed", {
+        reason: err instanceof Error ? err.message : "unknown",
+        has_craving: !!cravingValue,
+      });
+      Sentry.captureException(err, {
+        tags: { area: "tonight", action: "suggest_from_pantry", platform: "web" },
+      });
       setError(
         err instanceof ConvexError
           ? (err.data as string)

@@ -13,11 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type Recipe = Doc<"recipeSuggestions">;
 type PlannedMeal = Doc<"plannedMeals"> & {
@@ -123,6 +126,7 @@ function getPantryMatch(recipe: Recipe) {
 }
 
 export default function PlanScreen() {
+  const posthog = usePostHog();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
@@ -204,12 +208,19 @@ export default function PlanScreen() {
       setError("AI meal planning needs your permission before it can use your household details.");
       return;
     }
+    track(posthog, "ai_consent_accepted", {
+      feature: "weekly_plan",
+    });
 
     setIsGenerating(true);
     setError("");
     setNotice("");
 
     try {
+      track(posthog, "meal_plan_generation_started", {
+        source: meals.length ? "refresh" : "empty_state",
+        tier: subscription?.tier ?? "unknown",
+      });
       const householdId = currentUser?.householdId;
       if (!householdId) {
         throw new Error("Finish setting up your household before planning.");
@@ -220,14 +231,30 @@ export default function PlanScreen() {
           householdId: householdId as Id<"households">,
           weekStartDate: formatDate(getStartOfWeek(new Date())),
         });
+        track(posthog, "meal_plan_generated", {
+          source: "ai",
+          week_start_date: formatDate(getStartOfWeek(new Date())),
+          tier: subscription?.tier ?? "unknown",
+        });
         setNotice("Fresh weekly plan generated.");
       } catch {
         await generateCuratedPlan({});
+        track(posthog, "meal_plan_generated", {
+          source: "curated_fallback",
+          tier: subscription?.tier ?? "unknown",
+        });
         setNotice(
           "Used a curated weekly plan because AI planning was unavailable.",
         );
       }
     } catch (err) {
+      track(posthog, "meal_plan_generation_failed", {
+        tier: subscription?.tier ?? "unknown",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "generate_plan", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setIsGenerating(false);
@@ -272,6 +299,9 @@ export default function PlanScreen() {
           "Dinner marked cooked. Pantry updated, and feedback is ready in dinner details.",
         );
       }
+      track(posthog, "meal_status_updated", {
+        status,
+      });
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -285,8 +315,20 @@ export default function PlanScreen() {
     setNotice("");
     try {
       await generateGroceryList({});
+      track(posthog, "grocery_list_generated", {
+        source: "weekly_plan",
+        meal_count: meals.length,
+      });
       setNotice("Grocery list updated from your planned dinners.");
     } catch (err) {
+      track(posthog, "grocery_list_generation_failed", {
+        source: "weekly_plan",
+        meal_count: meals.length,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "generate_from_plan", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setIsGeneratingGroceries(false);
@@ -300,12 +342,21 @@ export default function PlanScreen() {
     try {
       if (savedRecipeIds.has(recipeId)) {
         await unsaveRecipe({ recipeId });
+        track(posthog, "recipe_unsaved", {
+          source: "weekly_plan",
+        });
         setNotice("Recipe removed from Cookbook.");
       } else {
         await saveRecipe({ recipeId });
+        track(posthog, "recipe_saved", {
+          source: "weekly_plan",
+        });
         setNotice("Recipe saved to Cookbook.");
       }
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+      });
       setError(getErrorMessage(err));
     } finally {
       setSavingRecipeId(null);

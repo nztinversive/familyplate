@@ -2,7 +2,7 @@
   "expo": {
     "name": "FamilyPlate",
     "slug": "familyplate",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "familyplate",
@@ -56,7 +56,9 @@
           "organization": "noah-yg",
           "project": "familyplate-ios"
         }
-      ]
+      ],
+      "expo-localization",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,

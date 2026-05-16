@@ -23,7 +23,15 @@ FamilyPlate is an AI meal planning app for households. Reviewers can test pantry
 
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
 
-There are no external purchase links shown in the iOS app. Paid subscription billing is disabled for iOS until StoreKit in-app purchases are configured. Account deletion is available in Settings under Privacy & Account.
+There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account.
+
+Recommended in-app purchase setup:
+
+- Entitlement ID: family
+- Offering ID: default
+- Monthly product ID: co.familyplate.app.family.monthly
+- Annual product ID: co.familyplate.app.family.annual
+- Convex webhook: https://effervescent-gecko-133.convex.site/api/webhooks/revenuecat
 
 ## Privacy Labels
 
@@ -59,4 +67,4 @@ Recommended age rating answers:
 4. Open Tonight and generate dinner suggestions.
 5. Save or open a recipe from Cookbook.
 6. Add missing recipe ingredients to Grocery List.
-7. Open Settings, view Privacy/Terms/Support, and confirm Delete Account is visible.
+7. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.

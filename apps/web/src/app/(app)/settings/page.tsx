@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 function renderList(values?: string[]) {
   if (!values || values.length === 0) {
@@ -172,6 +174,9 @@ export default function SettingsPage() {
       resetMemberForm();
       setShowAddMember(false);
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "add_member", platform: "web" },
+      });
       console.error("Failed to add member:", err);
       setAddMemberError("Failed to add family member. Please try again.");
     } finally {
@@ -188,6 +193,10 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
+    track("cta_clicked", {
+      location: "settings",
+      label: "sign_out",
+    });
     await signOut();
     window.location.href = "/";
   };
@@ -205,8 +214,17 @@ export default function SettingsPage() {
         allergies: parsedAllergies,
         dislikes: parsedDislikes,
       });
+      track("cta_clicked", {
+        location: "settings",
+        label: "save_safety_preferences",
+        allergy_count: parsedAllergies.length,
+        dislike_count: parsedDislikes.length,
+      });
       setPreferencesSaved(true);
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "save_preferences", platform: "web" },
+      });
       setPreferencesError(
         err instanceof Error ? err.message : "Unable to save preferences."
       );
@@ -520,6 +538,12 @@ export default function SettingsPage() {
                   href={subscriptionActionHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    track("checkout_clicked", {
+                      plan: "manage",
+                      source: "settings",
+                    })
+                  }
                   className="text-sm text-primary font-medium hover:underline"
                 >
                   Manage
@@ -532,6 +556,12 @@ export default function SettingsPage() {
                   href={subscriptionActionHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    track("checkout_clicked", {
+                      plan: "monthly",
+                      source: "settings",
+                    })
+                  }
                   className="flex-1 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground text-sm font-medium h-9 px-3 hover:bg-primary/90 transition-colors"
                 >
                   Monthly — $5.99/mo
@@ -540,6 +570,12 @@ export default function SettingsPage() {
                   href={subscriptionAnnualHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    track("checkout_clicked", {
+                      plan: "annual",
+                      source: "settings",
+                    })
+                  }
                   className="flex-1 inline-flex items-center justify-center rounded-xl border border-primary text-primary text-sm font-medium h-9 px-3 hover:bg-primary/5 transition-colors"
                 >
                   Annual — Save 32%

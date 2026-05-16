@@ -14,6 +14,9 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import { Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { usePostHog } from "posthog-react-native";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type Mode = "signIn" | "signUp";
 
@@ -43,6 +46,7 @@ function getAuthErrorMessage(err: unknown, mode: Mode) {
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
+  const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,12 +70,31 @@ export default function SignInScreen() {
     setIsSubmitting(true);
     setError("");
     try {
+      track(posthog, "auth_started", {
+        method: "password",
+        flow: mode,
+      });
       await signIn("password", {
         email: trimmedEmail,
         password,
         flow: mode,
       });
+      track(posthog, mode === "signUp" ? "user_signed_up" : "user_signed_in", {
+        method: "password",
+      });
     } catch (err) {
+      track(posthog, "auth_failed", {
+        method: "password",
+        flow: mode,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: {
+          area: "auth",
+          flow: mode,
+          platform: "ios",
+        },
+      });
       setError(getAuthErrorMessage(err, mode));
       setIsSubmitting(false);
     }

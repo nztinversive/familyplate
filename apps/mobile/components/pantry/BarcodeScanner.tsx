@@ -12,11 +12,14 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
+import { usePostHog } from "posthog-react-native";
 import {
   PANTRY_CATEGORIES,
   type PantryCategory,
   inferCategory,
 } from "@/lib/pantry";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 export type BarcodeScannerResult = {
   barcode: string;
@@ -155,6 +158,7 @@ export function BarcodeScanner({
   onClose: () => void;
   onScan: (result: BarcodeScannerResult) => void;
 }) {
+  const posthog = usePostHog();
   const [permission, requestPermission] = useCameraPermissions();
   const [handledBarcode, setHandledBarcode] = useState("");
   const [manualBarcode, setManualBarcode] = useState("");
@@ -172,9 +176,20 @@ export function BarcodeScanner({
 
     try {
       const result = await lookupProduct(trimmed);
+      track(posthog, "barcode_scan_completed", {
+        found: result.found,
+        source: manualBarcode.trim() === trimmed ? "manual_lookup" : "camera",
+      });
       setIsLookingUp(false);
       onScan(result);
-    } catch {
+    } catch (err) {
+      track(posthog, "barcode_scan_failed", {
+        source: manualBarcode.trim() === trimmed ? "manual_lookup" : "camera",
+        reason: err instanceof Error ? err.message : "lookup_failed",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "barcode", platform: "ios" },
+      });
       const result: BarcodeScannerResult = {
         barcode: trimmed,
         name: "",
@@ -197,11 +212,18 @@ export function BarcodeScanner({
       return;
     }
 
+    track(posthog, "barcode_scan_started", {
+      source: "manual_lookup",
+    });
     await handleBarcode(trimmed);
   };
 
   const handleManualAdd = () => {
     const trimmed = manualBarcode.trim();
+    track(posthog, "pantry_item_added", {
+      source: "barcode_manual_fallback",
+      has_barcode: !!trimmed,
+    });
     onScan({
       barcode: trimmed,
       name: "",
@@ -216,6 +238,9 @@ export function BarcodeScanner({
   };
 
   const handleScanned = (result: BarcodeScanningResult) => {
+    track(posthog, "barcode_scan_started", {
+      source: "camera",
+    });
     void handleBarcode(result.data);
   };
 

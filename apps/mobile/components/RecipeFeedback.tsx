@@ -10,6 +10,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 const FEEDBACK_TAGS = [
   "kid approved",
@@ -25,6 +28,7 @@ export function RecipeFeedback({
 }: {
   recipeId: Id<"recipeSuggestions">;
 }) {
+  const posthog = usePostHog();
   const existing = useQuery(api.queries.feedback.getMyFeedback, { recipeId });
   const submitFeedback = useMutation(api.mutations.feedback.submitFeedback);
   const deleteFeedback = useMutation(api.mutations.feedback.deleteFeedback);
@@ -69,6 +73,17 @@ export function RecipeFeedback({
         tags,
         notes: notes.trim() || undefined,
       });
+      track(posthog, "feedback_submitted", {
+        rating,
+        liked,
+        tag_count: tags.length,
+        has_notes: notes.trim().length > 0,
+        source: "recipe_feedback",
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "feedback", action: "submit", platform: "ios" },
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -80,11 +95,18 @@ export function RecipeFeedback({
     setIsSubmitting(true);
     try {
       await deleteFeedback({ feedbackId: existing._id });
+      track(posthog, "feedback_deleted", {
+        source: "recipe_feedback",
+      });
       setRating(0);
       setLiked(null);
       setTags([]);
       setNotes("");
       setHasInitialized(false);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "feedback", action: "delete", platform: "ios" },
+      });
     } finally {
       setIsSubmitting(false);
     }

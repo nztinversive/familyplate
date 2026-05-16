@@ -45,6 +45,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
 
@@ -270,6 +272,10 @@ export default function PlanPage() {
     setIsGenerating(true);
     setGenerateError(null);
     try {
+      track("meal_plan_generation_started", {
+        source: displayPlan ? "regenerate" : "empty_state",
+        tier: subscription?.tier ?? "unknown",
+      });
       if (currentUser?.householdId) {
         const today = new Date();
         const day = today.getDay();
@@ -282,10 +288,26 @@ export default function PlanPage() {
           weekStartDate,
           householdId: currentUser.householdId,
         });
+        track("meal_plan_generated", {
+          source: "ai",
+          week_start_date: weekStartDate,
+          tier: subscription?.tier ?? "unknown",
+        });
       } else {
         await generatePlanFallback({});
+        track("meal_plan_generated", {
+          source: "curated_fallback",
+          tier: subscription?.tier ?? "unknown",
+        });
       }
     } catch (err) {
+      track("meal_plan_generation_failed", {
+        tier: subscription?.tier ?? "unknown",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "generate_plan", platform: "web" },
+      });
       console.error("Plan generation failed:", err);
       setGenerateError(
         err instanceof ConvexError
@@ -304,6 +326,10 @@ export default function PlanPage() {
     setBusyMealId(mealId);
     try {
       await updateMealStatus({ mealId, status });
+      track("meal_status_updated", {
+        status,
+        source: "weekly_plan",
+      });
     } finally {
       setBusyMealId(null);
     }
@@ -316,6 +342,10 @@ export default function PlanPage() {
     setBusyMealId(mealId);
     try {
       await swapMeal({ mealId, recipeId });
+      track("cta_clicked", {
+        location: "weekly_plan",
+        label: "swap_meal",
+      });
       setSwappingMealId(null);
     } finally {
       setBusyMealId(null);
@@ -356,6 +386,9 @@ export default function PlanPage() {
     if (navigator.share) {
       try {
         await navigator.share({ title: `Meal Plan — ${weekRange}`, text });
+        track("plan_shared", {
+          method: "native_share",
+        });
         return;
       } catch {
         // User cancelled or share failed, fall through to clipboard
@@ -364,6 +397,9 @@ export default function PlanPage() {
 
     try {
       await navigator.clipboard.writeText(text);
+      track("plan_shared", {
+        method: "clipboard",
+      });
       toast("Plan copied to clipboard!", "success");
     } catch {
       toast("Unable to share", "error");
@@ -374,8 +410,17 @@ export default function PlanPage() {
     setSavingRecipeId(recipeId);
     try {
       const isSaved = savedRecipes?.some((s) => s.recipeId === recipeId);
-      if (isSaved) await unsaveRecipe({ recipeId });
-      else await saveRecipe({ recipeId });
+      if (isSaved) {
+        await unsaveRecipe({ recipeId });
+        track("recipe_unsaved", {
+          source: "weekly_plan",
+        });
+      } else {
+        await saveRecipe({ recipeId });
+        track("recipe_saved", {
+          source: "weekly_plan",
+        });
+      }
     } finally {
       setSavingRecipeId(null);
     }
@@ -394,8 +439,19 @@ export default function PlanPage() {
           category: "Other",
         });
       }
+      track("grocery_item_added", {
+        source: "plan_missing_ingredients",
+        count: missing.length,
+      });
+      track("missing_ingredients_added_to_grocery", {
+        source: "weekly_plan",
+        count: missing.length,
+      });
       toast(`Added ${missing.length} item${missing.length > 1 ? "s" : ""} to grocery list`, "success");
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "add_missing_to_grocery", platform: "web" },
+      });
       console.error("Failed to add to grocery list:", err);
       toast("Failed to add items to grocery list", "error");
     } finally {
@@ -555,8 +611,18 @@ export default function PlanPage() {
                   setIsGeneratingGrocery(true);
                   try {
                     await generateGroceryList({});
+                    track("grocery_list_generated", {
+                      source: "weekly_plan",
+                    });
                     toast("Grocery list generated!", "success");
                   } catch (err) {
+                    track("grocery_list_generation_failed", {
+                      source: "weekly_plan",
+                      reason: err instanceof Error ? err.message : "unknown",
+                    });
+                    Sentry.captureException(err, {
+                      tags: { area: "grocery", action: "generate_from_plan", platform: "web" },
+                    });
                     toast("Failed to generate grocery list", "error");
                   } finally {
                     setIsGeneratingGrocery(false);

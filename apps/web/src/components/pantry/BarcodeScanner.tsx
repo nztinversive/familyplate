@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { normalizePantryCategory } from "@/lib/pantryCategories";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 export type BarcodeScannerResult = {
   barcode: string;
@@ -54,6 +56,10 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
       if (typeof window === "undefined") return;
 
       if (!window.isSecureContext) {
+        track("barcode_scan_failed", {
+          source: "web_camera",
+          reason: "insecure_context",
+        });
         setError("Camera scanning needs a secure HTTPS connection on this device.");
         setIsStarting(false);
         return;
@@ -111,16 +117,30 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
             handledScanRef.current = true;
             setIsLookingUp(true);
             setError("");
+            track("barcode_scan_started", {
+              source: "web_camera",
+            });
 
             await stopScanner();
 
             try {
               const product = await lookupProduct(decodedText);
               if (!isMounted) return;
+              track("barcode_scan_completed", {
+                source: "web_camera",
+                found: product.found,
+              });
               onScanRef.current(product);
               onCloseRef.current();
-            } catch {
+            } catch (err) {
               if (!isMounted) return;
+              track("barcode_scan_failed", {
+                source: "web_camera",
+                reason: err instanceof Error ? err.message : "lookup_failed",
+              });
+              Sentry.captureException(err, {
+                tags: { area: "barcode", action: "lookup_product", platform: "web" },
+              });
               onScanRef.current({
                 barcode: decodedText,
                 name: "",
@@ -145,6 +165,13 @@ export function BarcodeScanner({ onClose, onScan }: BarcodeScannerProps) {
       } catch (scannerError) {
         if (!isMounted) return;
 
+        track("barcode_scan_failed", {
+          source: "web_camera",
+          reason: scannerError instanceof Error ? scannerError.message : "scanner_start_failed",
+        });
+        Sentry.captureException(scannerError, {
+          tags: { area: "barcode", action: "start_scanner", platform: "web" },
+        });
         setError(getCameraErrorMessage(scannerError));
         setIsStarting(false);
       }

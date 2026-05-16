@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { api } from "@familyplate/convex/_generated/api";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 type AuthMode = "magic-link" | "password-signin" | "password-signup";
 type SelectedPlan = "monthly" | "annual" | null;
@@ -268,12 +270,25 @@ export default function LandingPage() {
   };
 
   const scrollToAuth = () => {
+    track("cta_clicked", {
+      location: "landing",
+      label: "scroll_to_auth",
+    });
     authRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   const startSignupFlow = (plan?: SelectedPlan) => {
     if (plan && typeof window !== "undefined") {
       localStorage.setItem(SELECTED_PLAN_KEY, plan);
+      track("checkout_clicked", {
+        plan,
+        source: "landing_pricing",
+      });
+    } else {
+      track("cta_clicked", {
+        location: "landing_pricing",
+        label: "free_signup",
+      });
     }
     switchPasswordMode("password-signup");
     scrollToAuth();
@@ -285,13 +300,32 @@ export default function LandingPage() {
     setIsSubmitting(true);
     setError("");
     try {
+      track("auth_started", {
+        method: "magic_link",
+        flow: "sign_in",
+      });
       const requestedReturnTo = readRequestedReturnToFromWindow();
       if (requestedReturnTo) {
         persistPostAuthRedirect(requestedReturnTo);
       }
       await signIn("resend", { email });
+      track("magic_link_sent", {
+        source: "landing_auth",
+      });
       setMagicLinkSent(true);
     } catch (err) {
+      track("auth_failed", {
+        method: "magic_link",
+        flow: "sign_in",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: {
+          area: "auth",
+          flow: "magic_link",
+          platform: "web",
+        },
+      });
       console.error("Magic link failed:", err);
       setError("Unable to send magic link. Please try again or use password sign-in.");
     } finally {
@@ -305,6 +339,10 @@ export default function LandingPage() {
     setIsSubmitting(true);
     clearPasswordFeedback();
     try {
+      track("auth_started", {
+        method: "password",
+        flow: authMode === "password-signup" ? "sign_up" : "sign_in",
+      });
       // Persist the intended redirect so the useEffect picks it up once
       // isAuthenticated flips to true and currentUser loads.
       const requestedReturnTo = readRequestedReturnToFromWindow();
@@ -335,11 +373,27 @@ export default function LandingPage() {
           // Swallow — signup succeeded, useEffect will redirect once auth settles
         }
       }
+      track(authMode === "password-signup" ? "user_signed_up" : "user_signed_in", {
+        method: "password",
+        source: "landing_auth",
+      });
 
       // Don't redirect here — let the useEffect handle it once
       // isAuthenticated is true and currentUser is loaded.
       setIsRedirecting(true);
     } catch (err) {
+      track("auth_failed", {
+        method: "password",
+        flow: authMode === "password-signup" ? "sign_up" : "sign_in",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: {
+          area: "auth",
+          flow: authMode === "password-signup" ? "sign_up" : "sign_in",
+          platform: "web",
+        },
+      });
       console.error("Auth failed:", err);
       const message = err instanceof Error ? err.message : String(err);
       const lower = message.toLowerCase();
@@ -380,8 +434,23 @@ export default function LandingPage() {
         email,
         flow: "reset",
       });
+      track("password_reset_requested", {
+        source: "landing_auth",
+      });
       setResetLinkSent(true);
     } catch (err) {
+      track("auth_failed", {
+        method: "password_reset",
+        flow: "reset",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: {
+          area: "auth",
+          flow: "password_reset",
+          platform: "web",
+        },
+      });
       console.error("Password reset failed:", err);
       setError("Unable to send reset link. Please try again.");
     } finally {
@@ -603,7 +672,7 @@ export default function LandingPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full rounded-xl" onClick={() => { localStorage.removeItem(SELECTED_PLAN_KEY); scrollToAuth(); }}>
+                  <Button variant="outline" className="w-full rounded-xl" onClick={() => { localStorage.removeItem(SELECTED_PLAN_KEY); track("cta_clicked", { location: "pricing", label: "free_plan" }); scrollToAuth(); }}>
                     Get Started Free
                   </Button>
                   <ul className="space-y-2.5 pt-2">

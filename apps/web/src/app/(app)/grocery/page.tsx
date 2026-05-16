@@ -22,6 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 const CATEGORIES = [
   "Produce",
@@ -86,6 +88,18 @@ export default function GroceryPage() {
     setIsGenerating(true);
     try {
       await generateFromPlan({});
+      track("grocery_list_generated", {
+        source: "grocery_tab",
+      });
+    } catch (err) {
+      track("grocery_list_generation_failed", {
+        source: "grocery_tab",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "generate_from_plan", platform: "web" },
+      });
+      toast("Failed to generate grocery list", "error");
     } finally {
       setIsGenerating(false);
     }
@@ -97,6 +111,9 @@ export default function GroceryPage() {
       await clearAllItems({ groceryListId: groceryList._id });
       toast("Grocery list cleared", "info");
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "clear_all", platform: "web" },
+      });
       console.error("Failed to clear grocery list:", err);
       toast("Failed to clear list", "error");
     }
@@ -107,6 +124,9 @@ export default function GroceryPage() {
     setBusyIndex(itemIndex);
     try {
       await toggleItem({ groceryListId, itemIndex });
+      track("grocery_item_checked", {
+        source: "grocery_tab",
+      });
     } finally {
       setBusyIndex(null);
     }
@@ -125,8 +145,15 @@ export default function GroceryPage() {
         storageLocation: "pantry",
       });
       await removeItem({ groceryListId: groceryList._id, itemIndex });
+      track("pantry_item_added", {
+        source: "grocery_to_pantry",
+        category: item.category,
+      });
       toast("Added to pantry!", "success");
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "move_to_pantry", platform: "web" },
+      });
       toast("Failed to add to pantry", "error");
     } finally {
       setBusyIndex(null);
@@ -137,7 +164,13 @@ export default function GroceryPage() {
     setBusyIndex(itemIndex);
     try {
       await removeItem({ groceryListId, itemIndex });
+      track("grocery_item_removed", {
+        source: "grocery_tab",
+      });
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "remove_item", platform: "web" },
+      });
       console.error("Failed to remove item:", err);
       toast("Failed to remove item", "error");
     } finally {
@@ -156,10 +189,18 @@ export default function GroceryPage() {
         groceryListId: groceryList._id,
         ...values,
       });
+      track("grocery_item_added", {
+        source: "manual_form",
+        category: values.category,
+      });
       return;
     }
 
     await addMyCustomItem(values);
+    track("grocery_item_added", {
+      source: "manual_form",
+      category: values.category,
+    });
   };
 
   return (

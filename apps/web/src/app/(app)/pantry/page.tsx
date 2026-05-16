@@ -41,6 +41,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PANTRY_CATEGORIES } from "@/lib/pantryCategories";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 type StorageLocation = "pantry" | "fridge" | "freezer";
 type PantryItem = Doc<"pantryItems">;
@@ -206,6 +208,10 @@ export default function PantryPage() {
   };
 
   const handleScannerResult = (result: BarcodeScannerResult) => {
+    track("barcode_scan_completed", {
+      found: result.found,
+      source: "web_pantry",
+    });
     setEditingItem(null);
     setPrefillValues(result);
     setShowScanner(false);
@@ -221,7 +227,13 @@ export default function PantryPage() {
         itemId: item._id,
         quantity: nextQuantity,
       });
+      track("pantry_item_updated", {
+        source: "quantity_adjust",
+      });
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "pantry", action: "quantity_adjust", platform: "web" },
+      });
       console.error("Failed to update quantity:", err);
       toast("Failed to update quantity", "error");
     }
@@ -242,7 +254,12 @@ export default function PantryPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowSnap(true)}
+                onClick={() => {
+                  track("camera_scan_started", {
+                    source: "web_pantry",
+                  });
+                  setShowSnap(true);
+                }}
                 className="gap-1.5"
               >
                 <Camera className="h-4 w-4" />
@@ -251,7 +268,12 @@ export default function PantryPage() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setShowScanner(true)}
+                onClick={() => {
+                  track("barcode_scan_started", {
+                    source: "web_pantry",
+                  });
+                  setShowScanner(true);
+                }}
                 aria-label="Scan barcode"
               >
                 <ScanLine className="h-5 w-5" />
@@ -296,6 +318,10 @@ export default function PantryPage() {
                   storageLocation: "pantry",
                 });
               }
+              track("pantry_item_added", {
+                count: items.length,
+                source: "quick_add",
+              });
               toast(`Added ${items.length} item${items.length > 1 ? "s" : ""}!`, "success");
             }}
           />
@@ -517,6 +543,10 @@ export default function PantryPage() {
                   storageLocation: "pantry",
                 });
               }
+              track("pantry_item_added", {
+                count: newItems.length,
+                source: "photo_scan",
+              });
               toast(`Added ${newItems.length} item${newItems.length !== 1 ? "s" : ""} from photo!`, "success");
             }}
           />
@@ -532,9 +562,15 @@ export default function PantryPage() {
         onConfirm={() => {
           if (confirmDeleteId) {
             void deleteItem({ itemId: confirmDeleteId as Id<"pantryItems"> }).then(() => {
+              track("pantry_item_deleted", {
+                source: "pantry_list",
+              });
               toast("Item deleted", "info");
               setConfirmDeleteId(null);
             }).catch(() => {
+              track("pantry_item_add_failed", {
+                source: "delete_item",
+              });
               toast("Failed to delete", "error");
               setConfirmDeleteId(null);
             });
@@ -636,6 +672,13 @@ function PantryItemDialogForm({
               : {}),
           ...(trimmedBarcode ? { barcode: trimmedBarcode } : item.barcode ? { clearBarcode: true } : {}),
         });
+        track("pantry_item_updated", {
+          category,
+          storage_location: storageLocation,
+          has_expiration: expirationTimestamp !== undefined,
+          has_barcode: !!trimmedBarcode,
+          source: "item_dialog",
+        });
       } else {
         await addItem({
           householdId,
@@ -649,10 +692,28 @@ function PantryItemDialogForm({
             : {}),
           ...(trimmedBarcode ? { barcode: trimmedBarcode } : {}),
         });
+        track("pantry_item_added", {
+          category,
+          storage_location: storageLocation,
+          has_expiration: expirationTimestamp !== undefined,
+          has_barcode: !!trimmedBarcode,
+          source: prefillValues ? "barcode_prefill" : "item_dialog",
+        });
       }
 
       onComplete();
     } catch (submitError) {
+      track(item ? "pantry_item_update_failed" : "pantry_item_add_failed", {
+        source: prefillValues ? "barcode_prefill" : "item_dialog",
+        reason: submitError instanceof Error ? submitError.message : "unknown",
+      });
+      Sentry.captureException(submitError, {
+        tags: {
+          area: "pantry",
+          action: item ? "update_item" : "add_item",
+          platform: "web",
+        },
+      });
       setError(
         submitError instanceof Error ? submitError.message : "Unable to save item."
       );

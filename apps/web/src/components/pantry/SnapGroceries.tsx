@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 type RecognizedItem = {
   name: string;
@@ -59,6 +61,13 @@ export function SnapGroceries({ onClose, onAdd }: SnapGroceriesProps) {
         };
       }
     } catch (err) {
+      track("camera_scan_failed", {
+        source: "snap_groceries",
+        reason: err instanceof Error ? err.message : "camera_access_denied",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "snap_groceries", action: "start_camera", platform: "web" },
+      });
       setCameraError("Camera access denied. Allow camera access and try again.");
     }
   };
@@ -84,11 +93,28 @@ export function SnapGroceries({ onClose, onAdd }: SnapGroceriesProps) {
     setAnalyzeError("");
 
     try {
+      track("camera_scan_started", {
+        source: "snap_groceries",
+      });
       const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
       const result = await recognizeAction({ imageBase64: base64 });
+      track("camera_scan_completed", {
+        source: "snap_groceries",
+        count: result.items.length,
+        high_confidence_count: result.items.filter(
+          (item) => item.confidence === "high",
+        ).length,
+      });
       setItems(result.items);
       setPhase("review");
     } catch (err) {
+      track("camera_scan_failed", {
+        source: "snap_groceries",
+        reason: err instanceof Error ? err.message : "recognition_failed",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "snap_groceries", action: "recognize_photo", platform: "web" },
+      });
       console.error("Recognition failed:", err);
       setAnalyzeError("Couldn't identify items. Try again with better lighting.");
       setPhase("camera");
@@ -112,7 +138,20 @@ export function SnapGroceries({ onClose, onAdd }: SnapGroceriesProps) {
         unit: item.unit,
         category: item.category,
       })));
+      track("pantry_item_added", {
+        source: "snap_groceries_review",
+        count: items.length,
+      });
       onClose();
+    } catch (err) {
+      track("pantry_item_add_failed", {
+        source: "snap_groceries_review",
+        count: items.length,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "snap_groceries", action: "add_review_items", platform: "web" },
+      });
     } finally {
       setIsAdding(false);
     }

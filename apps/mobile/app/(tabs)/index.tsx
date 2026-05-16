@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import {
   formatExpirationLabel,
   getExpirationColor,
@@ -35,6 +36,8 @@ import {
   type SnapGroceryItem,
 } from "@/components/pantry/SnapGroceries";
 import { LoadingCard } from "@/components/LoadingCard";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type PantryItem = Doc<"pantryItems">;
 type Tab = "all" | StorageLocation;
@@ -53,6 +56,7 @@ const STORAGE_ICON: Record<StorageLocation, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function PantryScreen() {
+  const posthog = usePostHog();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showForm, setShowForm] = useState(false);
@@ -159,10 +163,22 @@ export default function PantryScreen() {
         });
       }
       setActiveTab("all");
+      track(posthog, "pantry_item_added", {
+        count: items.length,
+        source: "quick_add",
+      });
       setQuickAddNotice(
         `Added ${items.length} item${items.length === 1 ? "" : "s"} to Pantry.`,
       );
     } catch (err) {
+      track(posthog, "pantry_item_add_failed", {
+        count: items.length,
+        source: "quick_add",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "pantry", action: "quick_add", platform: "ios" },
+      });
       setQuickAddError(
         err instanceof Error ? err.message : "Couldn't add pantry items.",
       );
@@ -188,10 +204,22 @@ export default function PantryScreen() {
         });
       }
       setActiveTab("all");
+      track(posthog, "pantry_item_added", {
+        count: items.length,
+        source: "photo_scan",
+      });
       setQuickAddNotice(
         `Added ${items.length} item${items.length === 1 ? "" : "s"} from photo.`,
       );
     } catch (err) {
+      track(posthog, "pantry_item_add_failed", {
+        count: items.length,
+        source: "photo_scan",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "pantry", action: "photo_scan_add", platform: "ios" },
+      });
       setQuickAddError(
         err instanceof Error ? err.message : "Couldn't add photo items.",
       );
@@ -251,7 +279,12 @@ export default function PantryScreen() {
         </View>
         <View className="flex-row gap-2">
           <TouchableOpacity
-            onPress={() => setShowScanner(true)}
+            onPress={() => {
+              track(posthog, "barcode_scan_started", {
+                source: "mobile_pantry",
+              });
+              setShowScanner(true);
+            }}
             disabled={!householdId}
             className="h-11 w-11 items-center justify-center rounded-xl border border-border bg-card"
             style={{ opacity: householdId ? 1 : 0.4 }}
@@ -260,7 +293,12 @@ export default function PantryScreen() {
             <Ionicons name="scan" size={21} color="#248f58" />
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => setShowSnapGroceries(true)}
+            onPress={() => {
+              track(posthog, "camera_scan_started", {
+                source: "mobile_pantry",
+              });
+              setShowSnapGroceries(true);
+            }}
             disabled={!householdId}
             className="h-11 w-11 items-center justify-center rounded-xl border border-border bg-card"
             style={{ opacity: householdId ? 1 : 0.4 }}

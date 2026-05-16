@@ -11,11 +11,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
+import { usePostHog } from "posthog-react-native";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { inferCategory } from "@/lib/pantry";
+import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 
 type Recipe = Doc<"recipeSuggestions">;
 type RecipeIngredient = Recipe["ingredients"][number];
@@ -40,6 +43,7 @@ function getSourceLabel(source: Recipe["source"]) {
 }
 
 export default function CookbookScreen() {
+  const posthog = usePostHog();
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
@@ -64,10 +68,26 @@ export default function CookbookScreen() {
             setRemovingId(recipe._id);
             void unsaveRecipe({
               recipeId: recipe._id as Id<"recipeSuggestions">,
-            }).finally(() => {
-              setRemovingId(null);
-              if (expandedId === recipe._id) setExpandedId(null);
-            });
+            })
+              .then(() => {
+                track(posthog, "recipe_unsaved", {
+                  source: "cookbook",
+                });
+              })
+              .catch((err) => {
+                Sentry.captureException(err, {
+                  tags: { area: "cookbook", action: "remove_recipe", platform: "ios" },
+                });
+                setError(
+                  err instanceof Error
+                    ? err.message
+                    : "Couldn't remove recipe from Cookbook.",
+                );
+              })
+              .finally(() => {
+                setRemovingId(null);
+                if (expandedId === recipe._id) setExpandedId(null);
+              });
           },
         },
       ],
@@ -93,10 +113,21 @@ export default function CookbookScreen() {
           category: inferCategory(ingredient.name),
         });
       }
+      track(posthog, "grocery_item_added", {
+        source: "cookbook_missing_ingredients",
+        count: missing.length,
+      });
+      track(posthog, "missing_ingredients_added_to_grocery", {
+        source: "cookbook",
+        count: missing.length,
+      });
       setNotice(
         `Added ${missing.length} missing item${missing.length === 1 ? "" : "s"} to Grocery List.`,
       );
     } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cookbook", action: "add_missing_to_grocery", platform: "ios" },
+      });
       setError(
         err instanceof Error
           ? err.message

@@ -40,6 +40,11 @@ export default defineSchema({
     lsCustomerId: v.optional(v.string()),
     lsSubscriptionId: v.optional(v.string()),
     lsVariantId: v.optional(v.string()),
+    rcAppUserId: v.optional(v.string()),
+    rcOriginalAppUserId: v.optional(v.string()),
+    rcProductId: v.optional(v.string()),
+    rcEntitlementId: v.optional(v.string()),
+    rcStore: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()),
     subscriptionEndsAt: v.optional(v.string()),
     planGenerationsThisMonth: v.optional(v.number()),
@@ -48,7 +53,8 @@ export default defineSchema({
   })
     .index("by_householdId", ["householdId"])
     .index("by_authId", ["authId"])
-    .index("by_lsCustomerId", ["lsCustomerId"]),
+    .index("by_lsCustomerId", ["lsCustomerId"])
+    .index("by_rcAppUserId", ["rcAppUserId"]),
 
   pantryItems: defineTable({
     householdId: v.id("households"),

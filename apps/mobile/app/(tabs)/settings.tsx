@@ -11,10 +11,22 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import * as WebBrowser from "expo-web-browser";
+import { usePostHog } from "posthog-react-native";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
 import { AI_CONSENT_DISCLOSURE, clearAiConsent } from "@/lib/aiConsent";
+import { track } from "@/lib/analytics";
+import {
+  configureRevenueCat,
+  getFamilyOffering,
+  getFamilyPackages,
+  hasFamilyEntitlement,
+  isRevenueCatAvailable,
+  purchaseFamilyPackage,
+  restoreFamilyPurchases,
+  type RevenueCatPackage,
+} from "@/lib/revenuecat";
 
 type Profile = Doc<"userProfiles">;
 type CurrentUser = {
@@ -36,6 +48,7 @@ type Subscription = {
 const PRIVACY_URL = "https://familyplate.co/privacy";
 const TERMS_URL = "https://familyplate.co/terms";
 const SUPPORT_URL = "https://familyplate.co/support";
+const APP_STORE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
 
 function parseCommaSeparatedList(value: string) {
   return Array.from(
@@ -62,6 +75,39 @@ function getErrorMessage(err: unknown) {
   return "Unable to save settings. Please try again.";
 }
 
+function getBillingError(err: unknown) {
+  const fallback = "App Store billing is unavailable right now. Please try again.";
+  if (typeof err === "object" && err !== null) {
+    const maybeError = err as {
+      message?: unknown;
+      userCancelled?: unknown;
+      code?: unknown;
+    };
+    const message =
+      typeof maybeError.message === "string" ? maybeError.message : fallback;
+    const isStoreConfigurationError =
+      message.includes("offerings-empty") ||
+      message.includes("None of the products registered") ||
+      message.includes("could be fetched from App Store Connect");
+
+    return {
+      message: isStoreConfigurationError
+        ? "App Store plans are not available yet. Please try again soon."
+        : message,
+      userCancelled:
+        maybeError.userCancelled === true ||
+        maybeError.code === "1" ||
+        maybeError.code === "PURCHASE_CANCELLED_ERROR",
+    };
+  }
+
+  return { message: fallback, userCancelled: false };
+}
+
+function getBillingErrorMessage(err: unknown) {
+  return getBillingError(err).message;
+}
+
 function getUniqueValues(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean)),
@@ -70,6 +116,7 @@ function getUniqueValues(values: string[]) {
 
 export default function SettingsScreen() {
   const { signOut } = useAuthActions();
+  const posthog = usePostHog();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
@@ -89,6 +136,11 @@ export default function SettingsScreen() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [familyPackages, setFamilyPackages] = useState<RevenueCatPackage[]>([]);
+  const [billingMessage, setBillingMessage] = useState("");
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [isPurchasingPackage, setIsPurchasingPackage] = useState<string | null>(null);
+  const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const syncedProfileId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -123,6 +175,54 @@ export default function SettingsScreen() {
     currentUser === undefined ||
     profile === undefined ||
     household === undefined;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadBilling() {
+      if (!currentUser?.authId) return;
+
+      if (!isRevenueCatAvailable()) {
+        setFamilyPackages([]);
+        setBillingMessage("App Store subscriptions are being configured.");
+        return;
+      }
+
+      setIsLoadingBilling(true);
+      setBillingMessage("");
+
+      try {
+        await configureRevenueCat({
+          appUserId: currentUser.authId,
+          email: currentUser.email,
+        });
+        const offering = await getFamilyOffering();
+        const packages = getFamilyPackages(offering);
+
+        if (!isMounted) return;
+        setFamilyPackages(packages);
+        setBillingMessage(
+          packages.length > 0
+            ? ""
+            : "No App Store subscription products are available yet.",
+        );
+      } catch (err) {
+        if (!isMounted) return;
+        setFamilyPackages([]);
+        setBillingMessage(getBillingErrorMessage(err));
+      } finally {
+        if (isMounted) {
+          setIsLoadingBilling(false);
+        }
+      }
+    }
+
+    void loadBilling();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.authId, currentUser?.email]);
 
   const handleSavePreferences = async () => {
     if (!profile?._id || !hasPreferenceChanges) return;
@@ -181,6 +281,67 @@ export default function SettingsScreen() {
     );
   };
 
+  const handlePurchasePackage = async (pack: RevenueCatPackage) => {
+    track(posthog, "purchase_started", {
+      product_id: pack.product.identifier,
+      package_id: pack.identifier,
+    });
+    setIsPurchasingPackage(pack.identifier);
+
+    try {
+      const result = await purchaseFamilyPackage(pack);
+      const isFamily = hasFamilyEntitlement(result.customerInfo);
+      track(posthog, "purchase_completed", {
+        product_id: result.productIdentifier,
+        is_family: isFamily,
+      });
+      Alert.alert(
+        isFamily ? "Family plan active" : "Purchase complete",
+        isFamily
+          ? "Your FamilyPlate family plan is active. It may take a moment to refresh across your household."
+          : "Apple completed the purchase. FamilyPlate will refresh your plan shortly.",
+      );
+    } catch (err) {
+      const billingError = getBillingError(err);
+      track(posthog, "purchase_failed", {
+        product_id: pack.product.identifier,
+        package_id: pack.identifier,
+        cancelled: billingError.userCancelled,
+      });
+
+      if (!billingError.userCancelled) {
+        Alert.alert("Purchase failed", billingError.message);
+      }
+    } finally {
+      setIsPurchasingPackage(null);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    setIsRestoringPurchases(true);
+
+    try {
+      const customerInfo = await restoreFamilyPurchases();
+      const isFamily = hasFamilyEntitlement(customerInfo);
+      track(posthog, "purchase_restored", { is_family: isFamily });
+      Alert.alert(
+        isFamily ? "Purchases restored" : "No family plan found",
+        isFamily
+          ? "Your FamilyPlate family plan was restored. It may take a moment to refresh across your household."
+          : "We did not find an active FamilyPlate family plan on this Apple ID.",
+      );
+    } catch (err) {
+      track(posthog, "purchase_restore_failed", {});
+      Alert.alert("Restore failed", getBillingErrorMessage(err));
+    } finally {
+      setIsRestoringPurchases(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    await WebBrowser.openBrowserAsync(APP_STORE_SUBSCRIPTIONS_URL);
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete account?",
@@ -227,7 +388,17 @@ export default function SettingsScreen() {
 
           <HouseholdCard household={household} members={members ?? []} />
 
-          <PlanUsageCard subscription={subscription} />
+          <PlanUsageCard
+            subscription={subscription}
+            familyPackages={familyPackages}
+            billingMessage={billingMessage}
+            isLoadingBilling={isLoadingBilling}
+            isPurchasingPackage={isPurchasingPackage}
+            isRestoringPurchases={isRestoringPurchases}
+            onPurchasePackage={handlePurchasePackage}
+            onRestorePurchases={handleRestorePurchases}
+            onManageSubscription={handleManageSubscription}
+          />
 
           <HouseholdSafetyCard
             allergies={householdAllergies}
@@ -601,8 +772,24 @@ function HouseholdCard({
 
 function PlanUsageCard({
   subscription,
+  familyPackages,
+  billingMessage,
+  isLoadingBilling,
+  isPurchasingPackage,
+  isRestoringPurchases,
+  onPurchasePackage,
+  onRestorePurchases,
+  onManageSubscription,
 }: {
   subscription: Subscription | undefined;
+  familyPackages: RevenueCatPackage[];
+  billingMessage: string;
+  isLoadingBilling: boolean;
+  isPurchasingPackage: string | null;
+  isRestoringPurchases: boolean;
+  onPurchasePackage: (pack: RevenueCatPackage) => Promise<void>;
+  onRestorePurchases: () => Promise<void>;
+  onManageSubscription: () => Promise<void>;
 }) {
   const isFamily = subscription?.tier === "family";
   const tierLabel =
@@ -662,8 +849,129 @@ function PlanUsageCard({
           </Text>
         ) : null}
       </View>
+
+      {isFamily ? (
+        <View className="gap-2">
+          <SettingsAction
+            icon="card-outline"
+            label="Manage Subscription"
+            onPress={() => void onManageSubscription()}
+          />
+          <SettingsAction
+            icon="refresh-outline"
+            label={isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
+            disabled={isRestoringPurchases}
+            onPress={() => void onRestorePurchases()}
+          />
+        </View>
+      ) : (
+        <View className="rounded-xl border border-border bg-card p-3">
+          <View className="mb-3 flex-row items-start gap-2">
+            <Ionicons name="people-outline" size={18} color="#248f58" />
+            <View className="flex-1">
+              <Text className="text-sm font-bold text-foreground">
+                Family plan
+              </Text>
+              <Text className="mt-1 text-xs leading-4 text-muted-foreground">
+                Unlock unlimited weekly plans for the household.
+              </Text>
+            </View>
+          </View>
+
+          {isLoadingBilling ? (
+            <View className="mb-2 flex-row items-center gap-2 rounded-xl bg-muted p-3">
+              <ActivityIndicator color="#248f58" />
+              <Text className="text-sm text-muted-foreground">
+                Loading App Store plans...
+              </Text>
+            </View>
+          ) : null}
+
+          {!isLoadingBilling && familyPackages.length > 0 ? (
+            <View className="gap-2">
+              {familyPackages.map((pack) => {
+                const isPurchasing = isPurchasingPackage === pack.identifier;
+                return (
+                  <TouchableOpacity
+                    key={pack.identifier}
+                    onPress={() => void onPurchasePackage(pack)}
+                    disabled={isPurchasingPackage !== null || isRestoringPurchases}
+                    className="flex-row items-center gap-3 rounded-xl bg-primary px-3 py-3"
+                    style={{
+                      opacity:
+                        isPurchasingPackage !== null || isRestoringPurchases
+                          ? 0.65
+                          : 1,
+                    }}
+                  >
+                    {isPurchasing ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Ionicons name="sparkles" size={18} color="white" />
+                    )}
+                    <View className="flex-1">
+                      <Text className="font-bold text-white">
+                        {getPackageTitle(pack)}
+                      </Text>
+                      <Text className="text-xs text-white/80">
+                        {getPackagePriceLabel(pack)}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={17} color="white" />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+
+          {!isLoadingBilling && billingMessage ? (
+            <View className="mb-2 rounded-xl bg-muted p-3">
+              <Text className="text-sm leading-5 text-muted-foreground">
+                {billingMessage}
+              </Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => void onRestorePurchases()}
+            disabled={isPurchasingPackage !== null || isRestoringPurchases}
+            className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+            style={{
+              opacity:
+                isPurchasingPackage !== null || isRestoringPurchases ? 0.65 : 1,
+            }}
+          >
+            {isRestoringPurchases ? (
+              <ActivityIndicator color="#248f58" />
+            ) : (
+              <Ionicons name="refresh-outline" size={17} color="#248f58" />
+            )}
+            <Text className="font-semibold text-foreground">
+              {isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
+}
+
+function getPackageTitle(pack: RevenueCatPackage) {
+  const period = pack.product.subscriptionPeriod;
+  if (period === "P1Y" || pack.identifier.toLowerCase().includes("annual")) {
+    return "Annual";
+  }
+  if (period === "P1M" || pack.identifier.toLowerCase().includes("month")) {
+    return "Monthly";
+  }
+  return pack.product.title || "Family";
+}
+
+function getPackagePriceLabel(pack: RevenueCatPackage) {
+  const period = pack.product.subscriptionPeriod;
+  if (period === "P1Y") return `${pack.product.priceString} per year`;
+  if (period === "P1M") return `${pack.product.priceString} per month`;
+  return pack.product.priceString;
 }
 
 function HouseholdSafetyCard({
