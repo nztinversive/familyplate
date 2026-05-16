@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Tabs, Redirect } from "expo-router";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { View, ActivityIndicator } from "react-native";
 import { api } from "@familyplate/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -34,17 +34,10 @@ export default function TabLayout() {
 
   if (isLoading || (isAuthenticated && currentUser === undefined)) {
     return (
-      <View
-        className="flex-1 items-center justify-center bg-background"
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: Colors.light.background,
-        }}
-      >
-        <ActivityIndicator />
-      </View>
+      <LoadingScreen
+        message="Setting the table..."
+        detail="Checking your account"
+      />
     );
   }
 
@@ -54,17 +47,10 @@ export default function TabLayout() {
 
   if (currentUser?.needsOnboarding) {
     return (
-      <View
-        className="flex-1 items-center justify-center bg-background"
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: Colors.light.background,
-        }}
-      >
-        <ActivityIndicator />
-      </View>
+      <LoadingScreen
+        message="Creating your household..."
+        detail="Preparing your shared kitchen"
+      />
     );
   }
 
