@@ -38,8 +38,18 @@ Track:
 
 - `paywall_viewed`
 - `checkout_clicked`
+- `purchase_started`
+- `purchase_completed`
+- `purchase_failed`
+- `purchase_restore_started`
+- `purchase_restored`
+- `purchase_restore_failed`
+- `subscription_manage_opened`
 
-Break down by `platform`, `location`, `plan`, and `source`.
+Break down by `platform`, `location`, `plan`, `source`, `product_id`, and
+`is_family`. A healthy sandbox test should show `paywall_viewed`, then
+`purchase_started`, then either `purchase_completed` or `purchase_failed` with
+`cancelled = true` if the tester backs out.
 
 ### Retention workflow usage
 

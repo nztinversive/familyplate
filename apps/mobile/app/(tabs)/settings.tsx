@@ -138,10 +138,12 @@ export default function SettingsScreen() {
   const [error, setError] = useState("");
   const [familyPackages, setFamilyPackages] = useState<RevenueCatPackage[]>([]);
   const [billingMessage, setBillingMessage] = useState("");
+  const [billingNotice, setBillingNotice] = useState("");
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isPurchasingPackage, setIsPurchasingPackage] = useState<string | null>(null);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const syncedProfileId = useRef<string | null>(null);
+  const trackedPaywallForUser = useRef<string | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -224,6 +226,19 @@ export default function SettingsScreen() {
     };
   }, [currentUser?.authId, currentUser?.email]);
 
+  useEffect(() => {
+    if (!currentUser?.authId) return;
+    if (subscription?.tier === "family") return;
+    if (familyPackages.length === 0) return;
+    if (trackedPaywallForUser.current === currentUser.authId) return;
+
+    trackedPaywallForUser.current = currentUser.authId;
+    track(posthog, "paywall_viewed", {
+      source: "settings_plan_usage",
+      package_count: familyPackages.length,
+    });
+  }, [currentUser?.authId, familyPackages.length, posthog, subscription?.tier]);
+
   const handleSavePreferences = async () => {
     if (!profile?._id || !hasPreferenceChanges) return;
 
@@ -285,7 +300,9 @@ export default function SettingsScreen() {
     track(posthog, "purchase_started", {
       product_id: pack.product.identifier,
       package_id: pack.identifier,
+      package_title: getPackageTitle(pack),
     });
+    setBillingNotice("");
     setIsPurchasingPackage(pack.identifier);
 
     try {
@@ -295,6 +312,11 @@ export default function SettingsScreen() {
         product_id: result.productIdentifier,
         is_family: isFamily,
       });
+      setBillingNotice(
+        isFamily
+          ? "Family plan activated. Unlimited weekly planning is ready for this household."
+          : "Apple completed the purchase. FamilyPlate is refreshing your household plan.",
+      );
       Alert.alert(
         isFamily ? "Family plan active" : "Purchase complete",
         isFamily
@@ -319,11 +341,20 @@ export default function SettingsScreen() {
 
   const handleRestorePurchases = async () => {
     setIsRestoringPurchases(true);
+    setBillingNotice("");
+    track(posthog, "purchase_restore_started", {
+      source: "settings_plan_usage",
+    });
 
     try {
       const customerInfo = await restoreFamilyPurchases();
       const isFamily = hasFamilyEntitlement(customerInfo);
       track(posthog, "purchase_restored", { is_family: isFamily });
+      setBillingNotice(
+        isFamily
+          ? "Purchases restored. Your Family plan should appear here shortly."
+          : "No active Family plan was found for this Apple ID.",
+      );
       Alert.alert(
         isFamily ? "Purchases restored" : "No family plan found",
         isFamily
@@ -339,6 +370,9 @@ export default function SettingsScreen() {
   };
 
   const handleManageSubscription = async () => {
+    track(posthog, "subscription_manage_opened", {
+      source: "settings_plan_usage",
+    });
     await WebBrowser.openBrowserAsync(APP_STORE_SUBSCRIPTIONS_URL);
   };
 
@@ -392,6 +426,7 @@ export default function SettingsScreen() {
             subscription={subscription}
             familyPackages={familyPackages}
             billingMessage={billingMessage}
+            billingNotice={billingNotice}
             isLoadingBilling={isLoadingBilling}
             isPurchasingPackage={isPurchasingPackage}
             isRestoringPurchases={isRestoringPurchases}
@@ -774,6 +809,7 @@ function PlanUsageCard({
   subscription,
   familyPackages,
   billingMessage,
+  billingNotice,
   isLoadingBilling,
   isPurchasingPackage,
   isRestoringPurchases,
@@ -784,6 +820,7 @@ function PlanUsageCard({
   subscription: Subscription | undefined;
   familyPackages: RevenueCatPackage[];
   billingMessage: string;
+  billingNotice: string;
   isLoadingBilling: boolean;
   isPurchasingPackage: string | null;
   isRestoringPurchases: boolean;
@@ -800,6 +837,14 @@ function PlanUsageCard({
       : isFamily
         ? "Unlimited meal plans"
         : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
+  const planDetail =
+    subscription === undefined
+      ? "Checking Apple billing and household usage."
+      : isFamily
+        ? "Your household can generate unlimited weekly plans."
+        : subscription.canGenerate
+          ? "Free households can generate two weekly plans each month."
+          : "The free monthly planning limit has been reached. Pantry, cookbook, and grocery list tools are still available.";
 
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -841,17 +886,36 @@ function PlanUsageCard({
             {planLimitLabel}
           </Text>
         </View>
-        {!isFamily && subscription !== undefined ? (
-          <Text className="mt-2 text-xs leading-4 text-muted-foreground">
-            {subscription.canGenerate
-              ? "Free households can generate two weekly plans each month."
-              : "The free monthly planning limit has been reached. Pantry, cookbook, and grocery list tools are still available."}
-          </Text>
-        ) : null}
+        <Text className="mt-2 text-xs leading-4 text-muted-foreground">
+          {planDetail}
+        </Text>
       </View>
+
+      {billingNotice ? (
+        <View className="mb-4 flex-row items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3">
+          <Ionicons name="checkmark-circle" size={18} color="#248f58" />
+          <Text className="flex-1 text-sm leading-5 text-primary">
+            {billingNotice}
+          </Text>
+        </View>
+      ) : null}
 
       {isFamily ? (
         <View className="gap-2">
+          <View className="rounded-xl border border-primary/20 bg-primary/10 p-3">
+            <View className="flex-row items-start gap-2">
+              <Ionicons name="checkmark-circle" size={18} color="#248f58" />
+              <View className="flex-1">
+                <Text className="text-sm font-bold text-primary">
+                  Family plan is active
+                </Text>
+                <Text className="mt-1 text-xs leading-4 text-muted-foreground">
+                  App Store manages billing. FamilyPlate syncs entitlement
+                  changes back to this household automatically.
+                </Text>
+              </View>
+            </View>
+          </View>
           <SettingsAction
             icon="card-outline"
             label="Manage Subscription"
@@ -866,14 +930,17 @@ function PlanUsageCard({
         </View>
       ) : (
         <View className="rounded-xl border border-border bg-card p-3">
-          <View className="mb-3 flex-row items-start gap-2">
-            <Ionicons name="people-outline" size={18} color="#248f58" />
+          <View className="mb-3 flex-row items-start gap-3">
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Ionicons name="people-outline" size={20} color="#248f58" />
+            </View>
             <View className="flex-1">
-              <Text className="text-sm font-bold text-foreground">
-                Family plan
+              <Text className="text-base font-bold text-foreground">
+                Upgrade to Family
               </Text>
               <Text className="mt-1 text-xs leading-4 text-muted-foreground">
-                Unlock unlimited weekly plans for the household.
+                Unlock unlimited weekly plans for the whole household. Billing
+                stays inside your Apple ID.
               </Text>
             </View>
           </View>
@@ -910,9 +977,18 @@ function PlanUsageCard({
                       <Ionicons name="sparkles" size={18} color="white" />
                     )}
                     <View className="flex-1">
-                      <Text className="font-bold text-white">
-                        {getPackageTitle(pack)}
-                      </Text>
+                      <View className="flex-row items-center gap-2">
+                        <Text className="font-bold text-white">
+                          {getPackageTitle(pack)}
+                        </Text>
+                        {getPackageBadge(pack) ? (
+                          <View className="rounded-full bg-white/20 px-2 py-0.5">
+                            <Text className="text-[10px] font-bold uppercase text-white">
+                              {getPackageBadge(pack)}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text className="text-xs text-white/80">
                         {getPackagePriceLabel(pack)}
                       </Text>
@@ -950,6 +1026,11 @@ function PlanUsageCard({
               {isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
             </Text>
           </TouchableOpacity>
+
+          <Text className="mt-3 text-center text-[11px] leading-4 text-muted-foreground">
+            Purchases are handled by Apple. Cancel or manage anytime in your
+            App Store subscription settings.
+          </Text>
         </View>
       )}
     </View>
@@ -972,6 +1053,14 @@ function getPackagePriceLabel(pack: RevenueCatPackage) {
   if (period === "P1Y") return `${pack.product.priceString} per year`;
   if (period === "P1M") return `${pack.product.priceString} per month`;
   return pack.product.priceString;
+}
+
+function getPackageBadge(pack: RevenueCatPackage) {
+  const period = pack.product.subscriptionPeriod;
+  if (period === "P1Y" || pack.identifier.toLowerCase().includes("annual")) {
+    return "Best value";
+  }
+  return "";
 }
 
 function HouseholdSafetyCard({

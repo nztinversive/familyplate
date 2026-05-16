@@ -626,7 +626,8 @@ function PlanLimitNotice() {
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
             You can keep using pantry tracking, saved recipes, and grocery
-            lists until weekly planning resets.
+            lists until weekly planning resets. Upgrade from Settings &gt; Plan
+            Usage to unlock unlimited weekly plans.
           </Text>
         </View>
       </View>
