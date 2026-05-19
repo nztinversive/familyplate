@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "store:preview": "npm run render --workspace=@familyplate/store-preview"
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.91",

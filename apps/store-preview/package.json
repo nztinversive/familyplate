@@ -1,0 +1,27 @@
+{
+  "name": "@familyplate/store-preview",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sync-assets": "node scripts/sync-assets.mjs",
+    "soundtrack": "node scripts/generate-audio.mjs",
+    "dev": "npm run sync-assets && npm run soundtrack && remotion studio src/index.ts",
+    "still": "npm run sync-assets && npm run soundtrack && remotion still src/index.ts FamilyPlateAppPreview out/familyplate-preview-frame.png --frame=210",
+    "poster": "npm run sync-assets && npm run soundtrack && remotion still src/index.ts FamilyPlateAppPreview ../mobile/store-assets/ios-69/familyplate-app-preview-poster.png --frame=210",
+    "render": "npm run sync-assets && npm run soundtrack && remotion render src/index.ts FamilyPlateAppPreview ../mobile/store-assets/ios-69/familyplate-app-preview-886x1920.mp4 --codec=h264 --audio-codec=aac --overwrite",
+    "render:review": "npm run sync-assets && npm run soundtrack && remotion render src/index.ts FamilyPlateAppPreview out/familyplate-app-preview-review.mp4 --codec=h264 --audio-codec=aac --overwrite",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.462",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.462",
+    "@types/react": "~19.1.0",
+    "@types/react-dom": "~19.1.0",
+    "typescript": "~5.9.2"
+  }
+}

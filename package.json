@@ -14,6 +14,10 @@
     "build": "npm run build --workspace=@familyplate/web",
     "start": "npm run start --workspace=@familyplate/web",
     "lint": "npm run lint --workspace=@familyplate/web",
+    "store-preview:dev": "npm run dev --workspace=@familyplate/store-preview",
+    "store-preview:render": "npm run render --workspace=@familyplate/store-preview",
+    "store-preview:poster": "npm run poster --workspace=@familyplate/store-preview",
+    "store-preview:still": "npm run still --workspace=@familyplate/store-preview",
     "convex:dev": "convex dev --typecheck=enable",
     "convex:deploy": "convex deploy"
   },

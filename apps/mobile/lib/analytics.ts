@@ -16,6 +16,7 @@ export type AnalyticsEvent =
   | "password_reset_requested"
   | "user_signed_in"
   | "user_signed_up"
+  | "eater_profile_added"
   | "pantry_item_added"
   | "pantry_item_updated"
   | "pantry_item_update_failed"

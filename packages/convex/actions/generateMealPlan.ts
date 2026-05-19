@@ -85,7 +85,7 @@ const recipeSchema = {
 
 type MealProfile = Pick<
   Doc<"userProfiles">,
-  "name" | "dietaryPreferences" | "allergies" | "dislikes"
+  "_id" | "name" | "dietaryPreferences" | "allergies" | "dislikes"
 >;
 type PantryForPrompt = Pick<
   Doc<"pantryItems">,
@@ -107,10 +107,15 @@ export const generateMealPlan: ReturnType<typeof action> = action({
   args: {
     weekStartDate: v.string(),
     householdId: v.id("households"),
+    profileIds: v.optional(v.array(v.id("userProfiles"))),
   },
   handler: async (
     ctx,
-    args: { weekStartDate: string; householdId: Id<"households"> }
+    args: {
+      weekStartDate: string;
+      householdId: Id<"households">;
+      profileIds?: Id<"userProfiles">[];
+    }
   ): Promise<{ mealPlanId: Id<"weeklyMealPlans"> }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -133,12 +138,29 @@ export const generateMealPlan: ReturnType<typeof action> = action({
         context.pantryItems as PantryForPrompt[]
       );
       const weekDates = getWeekDates(args.weekStartDate);
-      const householdSize = Math.max(context.profiles.length, 1);
+      const selectedProfileIds = new Set((args.profileIds ?? []).map(String));
+      const selectedProfiles =
+        selectedProfileIds.size > 0
+          ? context.profiles.filter((profile) =>
+              selectedProfileIds.has(String(profile._id))
+            )
+          : context.profiles;
+
+      if (
+        selectedProfileIds.size > 0 &&
+        selectedProfiles.length !== selectedProfileIds.size
+      ) {
+        throw new ConvexError("One or more selected eaters are not in this household.");
+      }
+
+      const mealProfiles =
+        selectedProfiles.length > 0 ? selectedProfiles : context.profiles;
+      const householdSize = Math.max(mealProfiles.length, 1);
 
       // Collect ALL household allergies and dislikes for server-side enforcement
       const allAllergies = Array.from(
         new Set(
-          context.profiles
+          mealProfiles
             .flatMap((p: MealProfile) => p.allergies ?? [])
             .map((a: string) => a.toLowerCase().trim())
             .filter(Boolean)
@@ -147,7 +169,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
 
       const allDislikes = Array.from(
         new Set(
-          context.profiles
+          mealProfiles
             .flatMap((p: MealProfile) => p.dislikes ?? [])
             .map((d: string) => d.toLowerCase().trim())
             .filter(Boolean)
@@ -179,7 +201,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
               .join("\n")
           : "- No pantry items logged yet.";
 
-      const profilesSummary = context.profiles.map((profile: MealProfile) => {
+      const profilesSummary = mealProfiles.map((profile: MealProfile) => {
           const dietaryPreferences =
             profile.dietaryPreferences.length > 0
               ? profile.dietaryPreferences.join(", ")
@@ -230,6 +252,9 @@ export const generateMealPlan: ReturnType<typeof action> = action({
           "You are a pragmatic family meal planner. Create realistic weeknight dinner plans that prioritize pantry usage and vary cuisines and proteins across the week. Return only valid JSON that matches the schema.\n\nCRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. If someone is allergic to milk, do NOT use milk, cream, butter, cheese, yogurt, whey, or ANY dairy derivative. If someone is allergic to wheat, do NOT use flour, bread, pasta, soy sauce, or ANY wheat-containing ingredient. Apply this same logic to ALL listed allergies. Also avoid all listed dislikes entirely. There are no exceptions.",
         userPrompt: [
           `Build a seven-night dinner plan for the household "${context.household.name}" starting on ${args.weekStartDate}.`,
+          selectedProfileIds.size > 0
+            ? `This plan is specifically for: ${mealProfiles.map((profile) => profile.name).join(", ")}. Use only these selected eaters' preferences, allergies, and dislikes.`
+            : "This plan is for the whole household. Use every household member's preferences, allergies, and dislikes.",
           `Plan for ${householdSize} servings by default unless a recipe clearly needs a different whole-number serving count.`,
           "Use pantry items first, especially items closest to expiration.",
           "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen. Allergies are life-threatening.",

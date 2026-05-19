@@ -17,6 +17,7 @@ import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { ScreenShell } from "@/components/ScreenShell";
 import { AI_CONSENT_DISCLOSURE, clearAiConsent } from "@/lib/aiConsent";
 import { track } from "@/lib/analytics";
+import { Sentry } from "@/lib/sentry";
 import {
   configureRevenueCat,
   getFamilyOffering,
@@ -128,10 +129,21 @@ export default function SettingsScreen() {
       : "skip",
   );
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
+  const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
   const deleteAccount = useMutation(api.mutations.profiles.deleteMyAccount);
 
   const [allergiesInput, setAllergiesInput] = useState("");
   const [dislikesInput, setDislikesInput] = useState("");
+  const [showEaterForm, setShowEaterForm] = useState(false);
+  const [eaterName, setEaterName] = useState("");
+  const [eaterAge, setEaterAge] = useState("");
+  const [eaterIsChild, setEaterIsChild] = useState(true);
+  const [eaterDietaryInput, setEaterDietaryInput] = useState("");
+  const [eaterAllergiesInput, setEaterAllergiesInput] = useState("");
+  const [eaterDislikesInput, setEaterDislikesInput] = useState("");
+  const [isAddingEater, setIsAddingEater] = useState(false);
+  const [eaterError, setEaterError] = useState("");
+  const [eaterSaved, setEaterSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -165,6 +177,7 @@ export default function SettingsScreen() {
   const hasPreferenceChanges =
     parsedAllergies.join("|") !== (profile?.allergies ?? []).join("|") ||
     parsedDislikes.join("|") !== (profile?.dislikes ?? []).join("|");
+  const canManageMembers = profile?.role === "admin";
   const householdAllergies = useMemo(
     () => getUniqueValues((members ?? []).flatMap((member) => member.allergies)),
     [members],
@@ -265,6 +278,62 @@ export default function SettingsScreen() {
     setDislikesInput((profile?.dislikes ?? []).join(", "));
     setError("");
     setSaved(false);
+  };
+
+  const resetEaterForm = () => {
+    setEaterName("");
+    setEaterAge("");
+    setEaterIsChild(true);
+    setEaterDietaryInput("");
+    setEaterAllergiesInput("");
+    setEaterDislikesInput("");
+  };
+
+  const handleAddEater = async () => {
+    if (!currentUser?.householdId) return;
+
+    const name = eaterName.trim();
+    if (!name) {
+      setEaterError("Add a name before saving this eater profile.");
+      return;
+    }
+
+    const parsedAge = eaterAge.trim() ? Number(eaterAge.trim()) : undefined;
+    if (parsedAge !== undefined && (!Number.isFinite(parsedAge) || parsedAge <= 0)) {
+      setEaterError("Age must be a positive number.");
+      return;
+    }
+
+    setIsAddingEater(true);
+    setEaterError("");
+    setEaterSaved(false);
+
+    try {
+      await addFamilyMember({
+        householdId: currentUser.householdId,
+        name,
+        isChild: eaterIsChild,
+        age: parsedAge,
+        dietaryPreferences: parseCommaSeparatedList(eaterDietaryInput),
+        allergies: parseCommaSeparatedList(eaterAllergiesInput),
+        dislikes: parseCommaSeparatedList(eaterDislikesInput),
+      });
+      track(posthog, "eater_profile_added", {
+        is_child: eaterIsChild,
+        has_allergies: parseCommaSeparatedList(eaterAllergiesInput).length > 0,
+        has_dislikes: parseCommaSeparatedList(eaterDislikesInput).length > 0,
+      });
+      resetEaterForm();
+      setShowEaterForm(false);
+      setEaterSaved(true);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "add_eater_profile", platform: "ios" },
+      });
+      setEaterError(getErrorMessage(err));
+    } finally {
+      setIsAddingEater(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -421,6 +490,38 @@ export default function SettingsScreen() {
           <ProfileCard currentUser={currentUser} profile={profile} />
 
           <HouseholdCard household={household} members={members ?? []} />
+
+          <EaterProfilesCard
+            members={members ?? []}
+            canManageMembers={canManageMembers}
+            showForm={showEaterForm}
+            eaterName={eaterName}
+            eaterAge={eaterAge}
+            eaterIsChild={eaterIsChild}
+            eaterDietaryInput={eaterDietaryInput}
+            eaterAllergiesInput={eaterAllergiesInput}
+            eaterDislikesInput={eaterDislikesInput}
+            isAddingEater={isAddingEater}
+            eaterError={eaterError}
+            eaterSaved={eaterSaved}
+            onToggleForm={() => {
+              setShowEaterForm((current) => !current);
+              setEaterError("");
+              setEaterSaved(false);
+            }}
+            onCancel={() => {
+              resetEaterForm();
+              setShowEaterForm(false);
+              setEaterError("");
+            }}
+            onChangeName={setEaterName}
+            onChangeAge={setEaterAge}
+            onChangeIsChild={setEaterIsChild}
+            onChangeDietary={setEaterDietaryInput}
+            onChangeAllergies={setEaterAllergiesInput}
+            onChangeDislikes={setEaterDislikesInput}
+            onAddEater={() => void handleAddEater()}
+          />
 
           <PlanUsageCard
             subscription={subscription}
@@ -779,25 +880,45 @@ function HouseholdCard({
 
       <View className="gap-2">
         {members.map((member) => (
-          <View key={member._id} className="flex-row items-center gap-3">
-            <View className="h-9 w-9 items-center justify-center rounded-xl bg-muted">
-              <Text className="font-bold text-foreground">
-                {member.name[0]?.toUpperCase() ?? "?"}
-              </Text>
+          <View key={member._id} className="rounded-xl bg-muted p-3">
+            <View className="flex-row items-center gap-3">
+              <View className="h-9 w-9 items-center justify-center rounded-xl bg-card">
+                <Text className="font-bold text-foreground">
+                  {member.name[0]?.toUpperCase() ?? "?"}
+                </Text>
+              </View>
+              <View className="flex-1">
+                <Text className="font-semibold text-foreground">
+                  {member.name}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {member.email || "Managed eater profile"}
+                </Text>
+              </View>
+              <View className="rounded-full bg-card px-2 py-1">
+                <Text className="text-xs font-semibold capitalize text-muted-foreground">
+                  {member.isChild ? "child" : member.role}
+                </Text>
+              </View>
             </View>
-            <View className="flex-1">
-              <Text className="font-semibold text-foreground">
-                {member.name}
-              </Text>
-              <Text className="text-xs text-muted-foreground">
-                {member.email || "Managed profile"}
-              </Text>
-            </View>
-            <View className="rounded-full bg-muted px-2 py-1">
-              <Text className="text-xs font-semibold capitalize text-muted-foreground">
-                {member.isChild ? "child" : member.role}
-              </Text>
-            </View>
+            {member.allergies.length > 0 || member.dislikes.length > 0 ? (
+              <View className="mt-3 gap-2">
+                {member.allergies.length > 0 ? (
+                  <MemberSafetyRow
+                    icon="medical-outline"
+                    label="Allergies"
+                    values={member.allergies}
+                  />
+                ) : null}
+                {member.dislikes.length > 0 ? (
+                  <MemberSafetyRow
+                    icon="close-circle-outline"
+                    label="Dislikes"
+                    values={member.dislikes}
+                  />
+                ) : null}
+              </View>
+            ) : null}
           </View>
         ))}
       </View>
@@ -805,6 +926,240 @@ function HouseholdCard({
   );
 }
 
+function MemberSafetyRow({
+  icon,
+  label,
+  values,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  values: string[];
+}) {
+  return (
+    <View className="flex-row items-start gap-2">
+      <Ionicons name={icon} size={14} color="#686158" />
+      <Text className="text-xs font-semibold text-muted-foreground">
+        {label}:
+      </Text>
+      <Text className="flex-1 text-xs text-muted-foreground">
+        {values.join(", ")}
+      </Text>
+    </View>
+  );
+}
+
+function EaterProfilesCard({
+  members,
+  canManageMembers,
+  showForm,
+  eaterName,
+  eaterAge,
+  eaterIsChild,
+  eaterDietaryInput,
+  eaterAllergiesInput,
+  eaterDislikesInput,
+  isAddingEater,
+  eaterError,
+  eaterSaved,
+  onToggleForm,
+  onCancel,
+  onChangeName,
+  onChangeAge,
+  onChangeIsChild,
+  onChangeDietary,
+  onChangeAllergies,
+  onChangeDislikes,
+  onAddEater,
+}: {
+  members: Profile[];
+  canManageMembers: boolean;
+  showForm: boolean;
+  eaterName: string;
+  eaterAge: string;
+  eaterIsChild: boolean;
+  eaterDietaryInput: string;
+  eaterAllergiesInput: string;
+  eaterDislikesInput: string;
+  isAddingEater: boolean;
+  eaterError: string;
+  eaterSaved: boolean;
+  onToggleForm: () => void;
+  onCancel: () => void;
+  onChangeName: (value: string) => void;
+  onChangeAge: (value: string) => void;
+  onChangeIsChild: (value: boolean) => void;
+  onChangeDietary: (value: string) => void;
+  onChangeAllergies: (value: string) => void;
+  onChangeDislikes: (value: string) => void;
+  onAddEater: () => void;
+}) {
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-4 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="people-outline" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Eater Profiles
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Add kids or managed adults so planning can target the whole family,
+            just you, or selected people.
+          </Text>
+        </View>
+      </View>
+
+      <View className="mb-4 rounded-xl bg-muted p-3">
+        <Text className="text-sm font-semibold text-foreground">
+          {members.length} eater{members.length === 1 ? "" : "s"} available
+        </Text>
+        <Text className="mt-1 text-xs leading-4 text-muted-foreground">
+          Allergies are hard safety rules. Dislikes are avoided when that eater
+          is selected for a meal plan.
+        </Text>
+      </View>
+
+      {eaterSaved ? (
+        <View className="mb-3 flex-row items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3">
+          <Ionicons name="checkmark-circle" size={18} color="#248f58" />
+          <Text className="flex-1 text-sm leading-5 text-primary">
+            Eater profile added.
+          </Text>
+        </View>
+      ) : null}
+
+      {eaterError ? (
+        <View className="mb-3 flex-row items-start gap-2 rounded-xl border border-destructive/20 bg-destructive/10 p-3">
+          <Ionicons name="alert-circle" size={18} color="#c2410c" />
+          <Text className="flex-1 text-sm leading-5 text-destructive">
+            {eaterError}
+          </Text>
+        </View>
+      ) : null}
+
+      {!canManageMembers ? (
+        <View className="rounded-xl bg-muted p-3">
+          <Text className="text-sm leading-5 text-muted-foreground">
+            Ask a household admin to add or update eater profiles.
+          </Text>
+        </View>
+      ) : showForm ? (
+        <View className="gap-3">
+          <View>
+            <Text className="mb-2 text-sm font-bold text-foreground">
+              Name
+            </Text>
+            <TextInput
+              value={eaterName}
+              onChangeText={onChangeName}
+              placeholder="Avery"
+              placeholderTextColor="#9a9489"
+              className="rounded-xl bg-muted p-3 text-base text-foreground"
+            />
+          </View>
+
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => onChangeIsChild(true)}
+              className={`flex-1 rounded-xl border p-3 ${
+                eaterIsChild ? "border-primary bg-primary/10" : "border-border bg-card"
+              }`}
+            >
+              <Text
+                className={`text-center font-semibold ${
+                  eaterIsChild ? "text-primary" : "text-foreground"
+                }`}
+              >
+                Kid
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onChangeIsChild(false)}
+              className={`flex-1 rounded-xl border p-3 ${
+                !eaterIsChild ? "border-primary bg-primary/10" : "border-border bg-card"
+              }`}
+            >
+              <Text
+                className={`text-center font-semibold ${
+                  !eaterIsChild ? "text-primary" : "text-foreground"
+                }`}
+              >
+                Adult
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View>
+            <Text className="mb-2 text-sm font-bold text-foreground">
+              Age optional
+            </Text>
+            <TextInput
+              value={eaterAge}
+              onChangeText={onChangeAge}
+              placeholder="8"
+              keyboardType="number-pad"
+              placeholderTextColor="#9a9489"
+              className="rounded-xl bg-muted p-3 text-base text-foreground"
+            />
+          </View>
+
+          <PreferenceEditor
+            label="Dietary preferences"
+            value={eaterDietaryInput}
+            placeholder="vegetarian, dairy-free"
+            onChangeText={onChangeDietary}
+          />
+          <PreferenceEditor
+            label="Allergies"
+            value={eaterAllergiesInput}
+            placeholder="peanuts, shellfish"
+            onChangeText={onChangeAllergies}
+          />
+          <PreferenceEditor
+            label="Dislikes"
+            value={eaterDislikesInput}
+            placeholder="beef, mushrooms"
+            onChangeText={onChangeDislikes}
+          />
+
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={onAddEater}
+              disabled={isAddingEater}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+              style={{ opacity: isAddingEater ? 0.55 : 1 }}
+            >
+              {isAddingEater ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Ionicons name="person-add-outline" size={18} color="white" />
+              )}
+              <Text className="font-semibold text-white">
+                {isAddingEater ? "Adding..." : "Add Profile"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onCancel}
+              disabled={isAddingEater}
+              className="flex-1 items-center rounded-xl border border-border bg-card py-3"
+            >
+              <Text className="font-semibold text-foreground">Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity
+          onPress={onToggleForm}
+          className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+        >
+          <Ionicons name="person-add-outline" size={18} color="white" />
+          <Text className="font-semibold text-white">Add eater profile</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
 function PlanUsageCard({
   subscription,
   familyPackages,
@@ -843,8 +1198,11 @@ function PlanUsageCard({
       : isFamily
         ? "Your household can generate unlimited weekly plans."
         : subscription.canGenerate
-          ? "Free households can generate two weekly plans each month."
-          : "The free monthly planning limit has been reached. Pantry, cookbook, and grocery list tools are still available.";
+        ? "Free households can generate two weekly plans each month."
+        : "The free monthly planning limit has been reached. Pantry, cookbook, and grocery list tools are still available.";
+  const openUrl = async (url: string) => {
+    await WebBrowser.openBrowserAsync(url);
+  };
 
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -1033,6 +1391,24 @@ function PlanUsageCard({
           </Text>
         </View>
       )}
+      <View className="mt-4 rounded-xl bg-muted p-3">
+        <Text className="text-center text-[11px] leading-4 text-muted-foreground">
+          Family subscriptions renew automatically through Apple unless canceled
+          at least 24 hours before renewal.
+        </Text>
+        <View className="mt-2 flex-row justify-center gap-4">
+          <TouchableOpacity onPress={() => void openUrl(TERMS_URL)}>
+            <Text className="text-xs font-semibold text-primary">
+              Terms of Service
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => void openUrl(PRIVACY_URL)}>
+            <Text className="text-xs font-semibold text-primary">
+              Privacy Policy
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }

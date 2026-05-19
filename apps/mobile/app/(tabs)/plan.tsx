@@ -23,11 +23,13 @@ import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
 type Recipe = Doc<"recipeSuggestions">;
+type Profile = Doc<"userProfiles">;
 type PlannedMeal = Doc<"plannedMeals"> & {
   recipe: Recipe;
   alternatives: Recipe[];
 };
 type MealStatus = PlannedMeal["status"];
+type MealAudience = "whole" | "me" | "selected";
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -129,6 +131,12 @@ export default function PlanScreen() {
   const posthog = usePostHog();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const members = useQuery(
+    api.queries.profiles.getProfiles,
+    currentUser?.householdId
+      ? { householdId: currentUser.householdId }
+      : "skip",
+  );
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const generateAiPlan = useAction(
     api.actions.generateMealPlan.generateMealPlan,
@@ -152,6 +160,8 @@ export default function PlanScreen() {
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingGroceries, setIsGeneratingGroceries] = useState(false);
+  const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -167,6 +177,21 @@ export default function PlanScreen() {
   const savedRecipeIds = useMemo(() => {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
+  const audienceProfileIds = useMemo(() => {
+    if (mealAudience === "whole") return undefined;
+    if (mealAudience === "me") {
+      return currentUser?.profileId ? [currentUser.profileId] : [];
+    }
+    return selectedProfileIds as Id<"userProfiles">[];
+  }, [currentUser?.profileId, mealAudience, selectedProfileIds]);
+  const hasAudienceSelection =
+    mealAudience === "whole" || (audienceProfileIds?.length ?? 0) > 0;
+  const audienceLabel =
+    mealAudience === "whole"
+      ? "whole family"
+      : mealAudience === "me"
+        ? "just me"
+        : `${audienceProfileIds?.length ?? 0} selected`;
   const isFamilyPlan = subscription?.tier === "family";
   const isAtPlanLimit = subscription?.canGenerate === false;
   const planUsageLabel =
@@ -186,9 +211,12 @@ export default function PlanScreen() {
     isGenerating ||
     subscription === undefined ||
     isAtPlanLimit ||
+    !hasAudienceSelection ||
     !currentUser?.householdId;
   const generateDisabledReason = !currentUser?.householdId
     ? "Finish setting up your household before generating a plan."
+    : !hasAudienceSelection
+      ? "Choose at least one eater for this plan."
     : subscription === undefined
       ? "Checking your plan limit..."
       : isAtPlanLimit
@@ -220,6 +248,8 @@ export default function PlanScreen() {
       track(posthog, "meal_plan_generation_started", {
         source: meals.length ? "refresh" : "empty_state",
         tier: subscription?.tier ?? "unknown",
+        audience: mealAudience,
+        selected_eater_count: audienceProfileIds?.length ?? (members?.length ?? 0),
       });
       const householdId = currentUser?.householdId;
       if (!householdId) {
@@ -230,13 +260,16 @@ export default function PlanScreen() {
         await generateAiPlan({
           householdId: householdId as Id<"households">,
           weekStartDate: formatDate(getStartOfWeek(new Date())),
+          profileIds: audienceProfileIds,
         });
         track(posthog, "meal_plan_generated", {
           source: "ai",
           week_start_date: formatDate(getStartOfWeek(new Date())),
           tier: subscription?.tier ?? "unknown",
+          audience: mealAudience,
+          selected_eater_count: audienceProfileIds?.length ?? (members?.length ?? 0),
         });
-        setNotice("Fresh weekly plan generated.");
+        setNotice(`Fresh weekly plan generated for ${audienceLabel}.`);
       } catch {
         await generateCuratedPlan({});
         track(posthog, "meal_plan_generated", {
@@ -250,6 +283,7 @@ export default function PlanScreen() {
     } catch (err) {
       track(posthog, "meal_plan_generation_failed", {
         tier: subscription?.tier ?? "unknown",
+        audience: mealAudience,
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
@@ -455,6 +489,28 @@ export default function PlanScreen() {
           </View>
         </View>
 
+        <MealAudienceCard
+          members={members ?? []}
+          currentProfileId={currentUser?.profileId ?? null}
+          audience={mealAudience}
+          selectedProfileIds={selectedProfileIds}
+          onChangeAudience={(value) => {
+            setMealAudience(value);
+            setError("");
+            if (value !== "selected") {
+              setSelectedProfileIds([]);
+            }
+          }}
+          onToggleProfile={(profileId) => {
+            setError("");
+            setSelectedProfileIds((current) =>
+              current.includes(profileId)
+                ? current.filter((id) => id !== profileId)
+                : [...current, profileId],
+            );
+          }}
+        />
+
         <View className="flex-row gap-2">
           <TouchableOpacity
             onPress={() => void handleGeneratePlan()}
@@ -632,6 +688,170 @@ function PlanLimitNotice() {
         </View>
       </View>
     </View>
+  );
+}
+
+function MealAudienceCard({
+  members,
+  currentProfileId,
+  audience,
+  selectedProfileIds,
+  onChangeAudience,
+  onToggleProfile,
+}: {
+  members: Profile[];
+  currentProfileId: string | null;
+  audience: MealAudience;
+  selectedProfileIds: string[];
+  onChangeAudience: (value: MealAudience) => void;
+  onToggleProfile: (profileId: string) => void;
+}) {
+  const selectedCount =
+    audience === "whole"
+      ? members.length
+      : audience === "me"
+        ? currentProfileId
+          ? 1
+          : 0
+        : selectedProfileIds.length;
+
+  return (
+    <View className="mb-4 rounded-xl bg-muted p-3">
+      <View className="mb-3 flex-row items-start gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="people-outline" size={20} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-bold text-foreground">
+            Who is this plan for?
+          </Text>
+          <Text className="mt-1 text-xs leading-4 text-muted-foreground">
+            FamilyPlate merges allergies, dislikes, and preferences only for
+            the eaters you choose.
+          </Text>
+        </View>
+        <View className="rounded-full bg-card px-2 py-1">
+          <Text className="text-xs font-bold text-muted-foreground">
+            {selectedCount} selected
+          </Text>
+        </View>
+      </View>
+
+      <View className="mb-3 flex-row gap-2">
+        <AudienceButton
+          label="Family"
+          icon="home-outline"
+          active={audience === "whole"}
+          onPress={() => onChangeAudience("whole")}
+        />
+        <AudienceButton
+          label="Me"
+          icon="person-outline"
+          active={audience === "me"}
+          onPress={() => onChangeAudience("me")}
+        />
+        <AudienceButton
+          label="Pick"
+          icon="checkbox-outline"
+          active={audience === "selected"}
+          onPress={() => onChangeAudience("selected")}
+        />
+      </View>
+
+      {audience === "selected" ? (
+        <View className="gap-2">
+          {members.length > 0 ? (
+            members.map((member) => {
+              const selected = selectedProfileIds.includes(member._id);
+              return (
+                <TouchableOpacity
+                  key={member._id}
+                  onPress={() => onToggleProfile(member._id)}
+                  className={`flex-row items-center gap-3 rounded-xl border p-3 ${
+                    selected
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-card"
+                  }`}
+                >
+                  <View
+                    className={`h-9 w-9 items-center justify-center rounded-xl ${
+                      selected ? "bg-primary" : "bg-muted"
+                    }`}
+                  >
+                    <Text
+                      className={`font-bold ${
+                        selected ? "text-white" : "text-foreground"
+                      }`}
+                    >
+                      {member.name[0]?.toUpperCase() ?? "?"}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="font-semibold text-foreground">
+                      {member.name}
+                    </Text>
+                    <Text className="text-xs text-muted-foreground">
+                      {member.isChild ? "Kid" : "Adult"} ·{" "}
+                      {member.allergies.length} allergies ·{" "}
+                      {member.dislikes.length} dislikes
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name={selected ? "checkmark-circle" : "ellipse-outline"}
+                    size={22}
+                    color={selected ? "#248f58" : "#9a9489"}
+                  />
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View className="rounded-xl bg-card p-3">
+              <Text className="text-sm leading-5 text-muted-foreground">
+                Add eater profiles in Settings to plan for selected people.
+              </Text>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View className="rounded-xl bg-card p-3">
+          <Text className="text-xs leading-4 text-muted-foreground">
+            {audience === "whole"
+              ? "Planning will include every household eater profile."
+              : "Planning will use your own profile only."}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function AudienceButton({
+  label,
+  icon,
+  active,
+  onPress,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`flex-1 flex-row items-center justify-center gap-1 rounded-xl border px-2 py-2.5 ${
+        active ? "border-primary bg-primary/10" : "border-border bg-card"
+      }`}
+    >
+      <Ionicons name={icon} size={15} color={active ? "#248f58" : "#686158"} />
+      <Text
+        className={`text-sm font-semibold ${
+          active ? "text-primary" : "text-muted-foreground"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 

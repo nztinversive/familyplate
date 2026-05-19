@@ -7,8 +7,19 @@
 - Category: Food & Drink
 - Marketing URL: https://familyplate.co
 - Privacy Policy URL: https://familyplate.co/privacy
+- Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+- FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
+
+## App Preview
+
+- Primary iPhone preview: `store-assets/ios-69/familyplate-app-preview-886x1920.mp4`
+- Poster frame: `store-assets/ios-69/familyplate-app-preview-poster.png`
+- Rebuild command: `npm run store-preview:render`
+- Format target: 886 x 1920 portrait, H.264, 30 fps, 22 seconds.
+
+The production preview is built with Remotion from `apps/store-preview`. Source screenshots sync from `store-assets/ios-69`, then the render writes the final MP4 back to this folder. It opens with the FamilyPlate value proposition, moves through pantry setup, Tonight suggestions, Cookbook, and Grocery List, then ends on a short brand card.
 
 ## App Review Notes
 
@@ -24,6 +35,13 @@ FamilyPlate is an AI meal planning app for households. Reviewers can test pantry
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
 
 There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account.
+
+The App Store description includes the standard Apple Terms of Use (EULA) link:
+https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
+
+Functional legal links are also available in the app from Settings:
+Privacy Policy: https://familyplate.co/privacy
+FamilyPlate Terms: https://familyplate.co/terms
 
 Recommended in-app purchase setup:
 
