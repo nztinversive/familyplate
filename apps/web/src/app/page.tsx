@@ -22,6 +22,8 @@ import {
   Star,
   Leaf,
   BookOpen,
+  Download,
+  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +45,8 @@ const POST_AUTH_REDIRECT_KEY = "fp_post_auth_redirect";
 const SELECTED_PLAN_KEY = "fp_selected_plan";
 const POST_AUTH_REDIRECT_MAX_AGE_MS = 30 * 60 * 1000;
 const DEFAULT_POST_AUTH_REDIRECT = "/pantry";
+const IOS_APP_STORE_URL =
+  "https://apps.apple.com/us/app/familyplate-meal-planner/id6767450954?uo=4";
 
 const FEATURES = [
   {
@@ -277,6 +281,13 @@ export default function LandingPage() {
     authRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const trackIosDownload = (location: string) => {
+    track("cta_clicked", {
+      location,
+      label: "download_ios_app",
+    });
+  };
+
   const startSignupFlow = (plan?: SelectedPlan) => {
     if (plan && typeof window !== "undefined") {
       localStorage.setItem(SELECTED_PLAN_KEY, plan);
@@ -473,20 +484,38 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-y-auto">
+    <div className="min-h-screen bg-background overflow-x-hidden overflow-y-auto">
       {/* Nav */}
       <nav className="sticky top-0 z-50 border-b nav-glass">
-        <div className="mx-auto max-w-5xl flex items-center justify-between px-6 py-3">
+        <div className="mx-auto max-w-5xl flex items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-sm">
               <UtensilsCrossed className="h-4.5 w-4.5 text-primary-foreground" />
             </div>
             <span className="font-bold text-lg tracking-tight">FamilyPlate</span>
           </div>
-          <Button size="sm" onClick={scrollToAuth} className="gap-1.5 rounded-xl">
-            Get Started
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              asChild
+              size="sm"
+              variant="outline"
+              className="hidden gap-1.5 rounded-xl sm:inline-flex"
+            >
+              <a
+                href={IOS_APP_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => trackIosDownload("nav")}
+              >
+                <Smartphone className="h-3.5 w-3.5" />
+                iOS App
+              </a>
+            </Button>
+            <Button size="sm" onClick={scrollToAuth} className="gap-1.5 rounded-xl">
+              Get Started
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -499,7 +528,7 @@ export default function LandingPage() {
               <Sparkles className="h-3.5 w-3.5" />
               AI-powered meal planning
             </div>
-            <h1 className="text-4xl sm:text-6xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-in-up">
+            <h1 className="text-3xl sm:text-6xl font-bold tracking-tight leading-[1.08] mb-6 animate-fade-in-up">
               Dinner planning that{" "}
               <span className="gradient-text">actually knows</span>{" "}
               your family
@@ -509,11 +538,27 @@ export default function LandingPage() {
               Less food waste. Less stress. More meals everyone loves.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 opacity-0 animate-fade-in" style={{ animationDelay: "0.35s" }}>
-              <Button size="lg" onClick={scrollToAuth} className="gap-2 text-base px-8 h-13 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow">
+              <Button size="lg" onClick={scrollToAuth} className="w-full max-w-[230px] gap-2 text-base px-8 h-13 rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-shadow sm:w-auto sm:max-w-none">
                 Start Planning Free
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <p className="text-xs text-muted-foreground">No credit card required</p>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="w-full max-w-[230px] gap-2 text-base px-8 h-13 rounded-xl bg-background/80 sm:w-auto sm:max-w-none"
+              >
+                <a
+                  href={IOS_APP_STORE_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => trackIosDownload("hero")}
+                >
+                  <Download className="h-4 w-4" />
+                  Download iOS App
+                </a>
+              </Button>
+              <p className="text-xs text-muted-foreground sm:basis-full">No credit card required</p>
             </div>
           </div>
 
