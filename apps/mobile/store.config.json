@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.0",
+    "version": "1.0.4",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -18,7 +18,7 @@
         "keywords": [
           "meal planner,recipes,grocery list,pantry,dinner ideas,family meals,cookbook,barcode"
         ],
-        "releaseNotes": "Initial App Store release with pantry tracking, grocery scanning, meal planning, cookbook, and grocery list tools.",
+        "releaseNotes": "Added eater profiles for household meal planning, improved the camera permission flow for grocery scanning, and included polish and reliability updates.",
         "marketingUrl": "https://familyplate.co",
         "supportUrl": "https://familyplate.co/support",
         "privacyPolicyUrl": "https://familyplate.co/privacy",

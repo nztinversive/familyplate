@@ -307,9 +307,7 @@ export function BarcodeScanner({
                     onPress={() => void requestPermission()}
                     className="mt-4 rounded-xl bg-primary px-4 py-2.5"
                   >
-                    <Text className="font-semibold text-white">
-                      Allow Camera
-                    </Text>
+                    <Text className="font-semibold text-white">Continue</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
