@@ -11,7 +11,7 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: Added eater profiles for household meal planning, improved the camera permission flow for grocery scanning, and included polish and reliability updates.
+- What's New: Improved Family plan purchase and restore messaging, added clearer subscription details, and strengthened app monitoring for faster issue tracking.
 
 ## App Preview
 

@@ -221,10 +221,16 @@ export default function SettingsScreen() {
             ? ""
             : "No App Store subscription products are available yet.",
         );
+        track(posthog, "subscription_products_loaded", {
+          package_count: packages.length,
+          tier: subscription?.tier ?? "unknown",
+        });
       } catch (err) {
         if (!isMounted) return;
+        const message = getBillingErrorMessage(err);
         setFamilyPackages([]);
-        setBillingMessage(getBillingErrorMessage(err));
+        setBillingMessage(message);
+        track(posthog, "subscription_products_failed", { message });
       } finally {
         if (isMounted) {
           setIsLoadingBilling(false);
@@ -237,7 +243,7 @@ export default function SettingsScreen() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser?.authId, currentUser?.email]);
+  }, [currentUser?.authId, currentUser?.email, posthog, subscription?.tier]);
 
   useEffect(() => {
     if (!currentUser?.authId) return;
@@ -366,6 +372,7 @@ export default function SettingsScreen() {
   };
 
   const handlePurchasePackage = async (pack: RevenueCatPackage) => {
+    setBillingMessage("");
     track(posthog, "purchase_started", {
       product_id: pack.product.identifier,
       package_id: pack.identifier,
@@ -394,13 +401,18 @@ export default function SettingsScreen() {
       );
     } catch (err) {
       const billingError = getBillingError(err);
-      track(posthog, "purchase_failed", {
-        product_id: pack.product.identifier,
-        package_id: pack.identifier,
-        cancelled: billingError.userCancelled,
-      });
-
-      if (!billingError.userCancelled) {
+      if (billingError.userCancelled) {
+        track(posthog, "purchase_cancelled", {
+          product_id: pack.product.identifier,
+          package_id: pack.identifier,
+        });
+        setBillingNotice("Purchase canceled. Your free plan is still active.");
+      } else {
+        track(posthog, "purchase_failed", {
+          product_id: pack.product.identifier,
+          package_id: pack.identifier,
+        });
+        setBillingMessage(billingError.message);
         Alert.alert("Purchase failed", billingError.message);
       }
     } finally {
@@ -431,8 +443,10 @@ export default function SettingsScreen() {
           : "We did not find an active FamilyPlate family plan on this Apple ID.",
       );
     } catch (err) {
+      const message = getBillingErrorMessage(err);
       track(posthog, "purchase_restore_failed", {});
-      Alert.alert("Restore failed", getBillingErrorMessage(err));
+      setBillingMessage(message);
+      Alert.alert("Restore failed", message);
     } finally {
       setIsRestoringPurchases(false);
     }
@@ -442,7 +456,17 @@ export default function SettingsScreen() {
     track(posthog, "subscription_manage_opened", {
       source: "settings_plan_usage",
     });
-    await WebBrowser.openBrowserAsync(APP_STORE_SUBSCRIPTIONS_URL);
+    try {
+      await WebBrowser.openBrowserAsync(APP_STORE_SUBSCRIPTIONS_URL);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "manage_subscription", platform: "ios" },
+      });
+      Alert.alert(
+        "Could not open subscriptions",
+        "Open the App Store app, tap your account, then choose Subscriptions.",
+      );
+    }
   };
 
   const handleDeleteAccount = () => {
@@ -1303,6 +1327,21 @@ function PlanUsageCard({
             </View>
           </View>
 
+          <View className="mb-3 gap-2 rounded-xl bg-muted p-3">
+            <PlanBenefit
+              icon="calendar-outline"
+              label="Unlimited weekly meal plans"
+            />
+            <PlanBenefit
+              icon="people-outline"
+              label="Plans for the whole family or selected eater profiles"
+            />
+            <PlanBenefit
+              icon="cart-outline"
+              label="Missing ingredients can flow into your grocery list"
+            />
+          </View>
+
           {isLoadingBilling ? (
             <View className="mb-2 flex-row items-center gap-2 rounded-xl bg-muted p-3">
               <ActivityIndicator color="#248f58" />
@@ -1350,11 +1389,17 @@ function PlanUsageCard({
                       <Text className="text-xs text-white/80">
                         {getPackagePriceLabel(pack)}
                       </Text>
+                      <Text className="mt-0.5 text-[11px] text-white/70">
+                        {getPackageSubtitle(pack)}
+                      </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={17} color="white" />
                   </TouchableOpacity>
                 );
               })}
+              <Text className="mt-1 text-center text-[11px] leading-4 text-muted-foreground">
+                Tap a plan to confirm with Apple before you are charged.
+              </Text>
             </View>
           ) : null}
 
@@ -1413,6 +1458,23 @@ function PlanUsageCard({
   );
 }
 
+function PlanBenefit({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-foreground">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 function getPackageTitle(pack: RevenueCatPackage) {
   const period = pack.product.subscriptionPeriod;
   if (period === "P1Y" || pack.identifier.toLowerCase().includes("annual")) {
@@ -1429,6 +1491,17 @@ function getPackagePriceLabel(pack: RevenueCatPackage) {
   if (period === "P1Y") return `${pack.product.priceString} per year`;
   if (period === "P1M") return `${pack.product.priceString} per month`;
   return pack.product.priceString;
+}
+
+function getPackageSubtitle(pack: RevenueCatPackage) {
+  const period = pack.product.subscriptionPeriod;
+  if (period === "P1Y" || pack.identifier.toLowerCase().includes("annual")) {
+    return "Best for households planning every week";
+  }
+  if (period === "P1M" || pack.identifier.toLowerCase().includes("month")) {
+    return "Flexible month-to-month access";
+  }
+  return "Unlimited household planning";
 }
 
 function getPackageBadge(pack: RevenueCatPackage) {
