@@ -221,6 +221,37 @@ function EmptyCookbook() {
       <Text className="text-center text-sm leading-5 text-muted-foreground">
         Save dinner ideas from Tonight or Weekly Plan and they will appear here.
       </Text>
+      <View className="mt-5 w-full gap-2">
+        <EmptyGuideRow
+          icon="sparkles-outline"
+          label="Generate Tonight ideas, then tap the heart to save."
+        />
+        <EmptyGuideRow
+          icon="calendar-outline"
+          label="Weekly Plan dinners can also be saved from details."
+        />
+        <EmptyGuideRow
+          icon="cart-outline"
+          label="Saved recipes can send missing ingredients to Grocery."
+        />
+      </View>
+    </View>
+  );
+}
+
+function EmptyGuideRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-xl bg-muted p-3">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-muted-foreground">
+        {label}
+      </Text>
     </View>
   );
 }

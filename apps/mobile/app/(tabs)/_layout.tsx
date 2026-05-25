@@ -1,6 +1,5 @@
-import { useEffect, useRef } from "react";
 import { Tabs, Redirect } from "expo-router";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/theme";
@@ -14,23 +13,6 @@ export default function TabLayout() {
     api.queries.profiles.getCurrentUser,
     isAuthenticated ? {} : "skip",
   );
-  const createHousehold = useMutation(api.mutations.households.createHousehold);
-  const isBootstrappingHousehold = useRef(false);
-
-  useEffect(() => {
-    if (
-      !isAuthenticated ||
-      !currentUser?.needsOnboarding ||
-      isBootstrappingHousehold.current
-    ) {
-      return;
-    }
-
-    isBootstrappingHousehold.current = true;
-    void createHousehold({ name: "My Household" }).catch(() => {
-      isBootstrappingHousehold.current = false;
-    });
-  }, [createHousehold, currentUser?.needsOnboarding, isAuthenticated]);
 
   if (isLoading || (isAuthenticated && currentUser === undefined)) {
     return (
@@ -46,12 +28,7 @@ export default function TabLayout() {
   }
 
   if (currentUser?.needsOnboarding) {
-    return (
-      <LoadingScreen
-        message="Creating your household..."
-        detail="Preparing your shared kitchen"
-      />
-    );
+    return <Redirect href={"/setup/household" as never} />;
   }
 
   return (

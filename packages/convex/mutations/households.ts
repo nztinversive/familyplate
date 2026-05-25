@@ -15,6 +15,21 @@ function normalizeEmail(email?: string | null) {
   return email?.trim().toLowerCase() ?? "";
 }
 
+function normalizeOptionalString(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function normalizeStringList(values: string[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 async function generateUniqueInviteCode(ctx: MutationCtx) {
   for (let attempt = 0; attempt < 10; attempt++) {
     const inviteCode = generateInviteCode();
@@ -34,6 +49,10 @@ async function generateUniqueInviteCode(ctx: MutationCtx) {
 export const createHousehold = mutation({
   args: {
     name: v.string(),
+    dietaryPreferences: v.optional(v.array(v.string())),
+    allergies: v.optional(v.array(v.string())),
+    dislikes: v.optional(v.array(v.string())),
+    goals: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -72,9 +91,10 @@ export const createHousehold = mutation({
       email,
       role: "admin",
       isChild: false,
-      dietaryPreferences: [],
-      allergies: [],
-      dislikes: [],
+      dietaryPreferences: normalizeStringList(args.dietaryPreferences ?? []),
+      allergies: normalizeStringList(args.allergies ?? []),
+      dislikes: normalizeStringList(args.dislikes ?? []),
+      goals: normalizeOptionalString(args.goals),
       createdAt: Date.now(),
     });
 

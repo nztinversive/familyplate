@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -8,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
@@ -58,6 +59,7 @@ function getErrorMessage(err: unknown) {
 }
 
 export default function TonightScreen() {
+  const router = useRouter();
   const posthog = usePostHog();
   const suggestFromPantry = useAction(
     api.actions.quickDinner.suggestFromPantry,
@@ -66,6 +68,7 @@ export default function TonightScreen() {
     api.queries.planner.getQuickDinnerSuggestions,
     {},
   );
+  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
@@ -79,6 +82,7 @@ export default function TonightScreen() {
   const [activeCraving, setActiveCraving] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+  const trackedSuccessNudge = useRef(false);
 
   const initialSuggestions = useMemo<Suggestion[]>(() => {
     if (!persistedSuggestions?.length) return [];
@@ -106,6 +110,17 @@ export default function TonightScreen() {
   const savedRecipeIds = useMemo(() => {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
+
+  useEffect(() => {
+    if (trackedSuccessNudge.current) return;
+    if (suggestions.length === 0 || subscription?.tier === "family") return;
+
+    trackedSuccessNudge.current = true;
+    track(posthog, "paywall_viewed", {
+      source: "tonight_success_nudge",
+      tier: subscription?.tier ?? "unknown",
+    });
+  }, [posthog, subscription?.tier, suggestions.length]);
 
   const handleGenerate = async (overrideCraving?: string) => {
     const cravingValue = (
@@ -223,6 +238,16 @@ export default function TonightScreen() {
           <Text className="text-center text-sm leading-5 text-muted-foreground">
             Pick a craving or generate dinner ideas from what you already have.
           </Text>
+          <View className="mt-5 w-full gap-2">
+            <EmptyGuideRow
+              icon="cube-outline"
+              label="Pantry items make the suggestions more useful."
+            />
+            <EmptyGuideRow
+              icon="heart-outline"
+              label="Save good ideas to Cookbook for later."
+            />
+          </View>
         </View>
       ) : null}
 
@@ -372,7 +397,60 @@ export default function TonightScreen() {
           />
         ))}
       </View>
+
+      {suggestions.length > 0 && subscription?.tier !== "family" ? (
+        <View className="mt-4 rounded-2xl border border-border bg-card p-4">
+          <View className="flex-row items-start gap-3">
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Ionicons name="calendar-outline" size={20} color="#248f58" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-foreground">
+                Turn dinner wins into a week
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                Family unlocks unlimited weekly plans for the household and
+                selected eater profiles.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  track(posthog, "paywall_cta_tapped", {
+                    source: "tonight_success_nudge",
+                    tier: subscription?.tier ?? "unknown",
+                  });
+                  router.push("/settings");
+                }}
+                className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 py-3"
+                accessibilityRole="button"
+                accessibilityLabel="See Family plan from Tonight"
+              >
+                <Ionicons name="people-outline" size={17} color="#248f58" />
+                <Text className="font-semibold text-primary">
+                  See Family Plan
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </ScreenShell>
+  );
+}
+
+function EmptyGuideRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-xl bg-muted p-3">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-muted-foreground">
+        {label}
+      </Text>
+    </View>
   );
 }
 

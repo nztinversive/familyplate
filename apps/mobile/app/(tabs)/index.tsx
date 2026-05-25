@@ -632,6 +632,22 @@ function EmptyState({
           ? `Add items to track what's in your ${location}.`
           : "Add what you have at home — the AI will use these ingredients first when planning meals."}
       </Text>
+      {!location ? (
+        <View className="mb-5 w-full gap-2">
+          <EmptyGuideRow
+            icon="camera-outline"
+            label="Snap groceries after a shopping trip."
+          />
+          <EmptyGuideRow
+            icon="scan-outline"
+            label="Scan barcodes when you want product details."
+          />
+          <EmptyGuideRow
+            icon="sparkles-outline"
+            label="Pantry items improve Tonight and Weekly Plan ideas."
+          />
+        </View>
+      ) : null}
       <TouchableOpacity
         onPress={onAdd}
         disabled={disabled}
@@ -641,6 +657,23 @@ function EmptyState({
         <Ionicons name="add" size={18} color="white" />
         <Text className="text-base font-semibold text-white">Add item</Text>
       </TouchableOpacity>
+    </View>
+  );
+}
+
+function EmptyGuideRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-xl bg-muted p-3">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-muted-foreground">
+        {label}
+      </Text>
     </View>
   );
 }

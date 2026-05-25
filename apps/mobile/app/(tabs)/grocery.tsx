@@ -513,6 +513,20 @@ function EmptyGroceryState({
           ? "Generate from your weekly plan or add a quick manual item."
           : "Add a quick errand item now. Meal plan generation can fill this later."}
       </Text>
+      <View className="mb-5 w-full gap-2">
+        <EmptyGuideRow
+          icon="calendar-outline"
+          label="Generate from Weekly Plan when dinners are ready."
+        />
+        <EmptyGuideRow
+          icon="book-outline"
+          label="Cookbook recipes can add missing ingredients here."
+        />
+        <EmptyGuideRow
+          icon="cube-outline"
+          label="Checked items can move straight into Pantry."
+        />
+      </View>
       <View className="w-full gap-2">
         <TouchableOpacity
           onPress={onAdd}
@@ -532,6 +546,23 @@ function EmptyGroceryState({
           </TouchableOpacity>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+function EmptyGuideRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-xl bg-muted p-3">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-muted-foreground">
+        {label}
+      </Text>
     </View>
   );
 }

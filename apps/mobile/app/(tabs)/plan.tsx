@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
@@ -128,6 +129,7 @@ function getPantryMatch(recipe: Recipe) {
 }
 
 export default function PlanScreen() {
+  const router = useRouter();
   const posthog = usePostHog();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -164,6 +166,7 @@ export default function PlanScreen() {
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const trackedLimitPaywallForCycle = useRef<string | null>(null);
 
   const meals = useMemo(
     () => (mealPlan?.meals ?? []) as PlannedMeal[],
@@ -222,9 +225,42 @@ export default function PlanScreen() {
       : isAtPlanLimit
         ? "Free plan limit reached for this month."
         : "";
+  const shouldShowUpgradeNudge =
+    subscription !== undefined &&
+    !isFamilyPlan &&
+    !isAtPlanLimit &&
+    subscription.plansUsed > 0;
+
+  useEffect(() => {
+    if (!subscription || subscription.canGenerate || isFamilyPlan) return;
+    const key = `${currentUser?.householdId ?? "unknown"}:${subscription.plansUsed}:${subscription.plansLimit}`;
+    if (trackedLimitPaywallForCycle.current === key) return;
+
+    trackedLimitPaywallForCycle.current = key;
+    track(posthog, "paywall_viewed", {
+      source: "weekly_plan_limit",
+      plans_used: subscription.plansUsed,
+      plans_limit: subscription.plansLimit,
+    });
+  }, [currentUser?.householdId, isFamilyPlan, posthog, subscription]);
+
+  const openFamilyPlan = (source: string) => {
+    track(posthog, "paywall_cta_tapped", {
+      source,
+      tier: subscription?.tier ?? "unknown",
+      plans_used: subscription?.plansUsed,
+      plans_limit: subscription?.plansLimit,
+    });
+    router.push("/settings");
+  };
 
   const handleGeneratePlan = async () => {
     if (subscription && !subscription.canGenerate) {
+      track(posthog, "paywall_viewed", {
+        source: "weekly_plan_generate_blocked",
+        plans_used: subscription.plansUsed,
+        plans_limit: subscription.plansLimit,
+      });
       setError(
         `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Pantry, cookbook, and grocery list tools are still available.`,
       );
@@ -590,7 +626,13 @@ export default function PlanScreen() {
       </View>
 
       {isAtPlanLimit ? (
-        <PlanLimitNotice />
+        <PlanLimitNotice onUpgrade={() => openFamilyPlan("weekly_plan_limit")} />
+      ) : shouldShowUpgradeNudge ? (
+        <PlanUpgradeNudge
+          plansUsed={subscription.plansUsed}
+          plansLimit={subscription.plansLimit}
+          onUpgrade={() => openFamilyPlan("weekly_plan_usage_nudge")}
+        />
       ) : null}
 
       {notice ? (
@@ -629,6 +671,20 @@ export default function PlanScreen() {
             Generate a weekly plan from your pantry, preferences, and household
             size.
           </Text>
+          <View className="mt-5 w-full gap-2">
+            <EmptyGuideRow
+              icon="people-outline"
+              label="Pick Family, Me, or selected eater profiles above."
+            />
+            <EmptyGuideRow
+              icon="cube-outline"
+              label="Add pantry items first for better ingredient matches."
+            />
+            <EmptyGuideRow
+              icon="cart-outline"
+              label="After planning, send missing items to Grocery."
+            />
+          </View>
         </View>
       ) : (
         <View className="gap-3">
@@ -669,7 +725,24 @@ export default function PlanScreen() {
   );
 }
 
-function PlanLimitNotice() {
+function EmptyGuideRow({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2 rounded-xl bg-muted p-3">
+      <Ionicons name={icon} size={16} color="#248f58" />
+      <Text className="flex-1 text-xs font-semibold leading-4 text-muted-foreground">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function PlanLimitNotice({ onUpgrade }: { onUpgrade: () => void }) {
   return (
     <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
       <View className="flex-row items-start gap-3">
@@ -682,9 +755,59 @@ function PlanLimitNotice() {
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
             You can keep using pantry tracking, saved recipes, and grocery
-            lists until weekly planning resets. Upgrade from Settings &gt; Plan
-            Usage to unlock unlimited weekly plans.
+            lists until weekly planning resets. Upgrade to Family to unlock
+            unlimited weekly plans for everyone in the household.
           </Text>
+          <TouchableOpacity
+            onPress={onUpgrade}
+            className="mt-3 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+            accessibilityRole="button"
+            accessibilityLabel="View Family plan"
+          >
+            <Ionicons name="people-outline" size={17} color="white" />
+            <Text className="font-semibold text-white">View Family Plan</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function PlanUpgradeNudge({
+  plansUsed,
+  plansLimit,
+  onUpgrade,
+}: {
+  plansUsed: number;
+  plansLimit: number;
+  onUpgrade: () => void;
+}) {
+  const remaining = Math.max(plansLimit - plansUsed, 0);
+
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="sparkles-outline" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-bold text-foreground">
+            Planning for more than one week?
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            You have {remaining} free weekly plan
+            {remaining === 1 ? "" : "s"} left this month. Family unlocks
+            unlimited weekly planning and selected-eater plans.
+          </Text>
+          <TouchableOpacity
+            onPress={onUpgrade}
+            className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 py-3"
+            accessibilityRole="button"
+            accessibilityLabel="See Family plan options"
+          >
+            <Ionicons name="people-outline" size={17} color="#248f58" />
+            <Text className="font-semibold text-primary">See Family Plan</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
