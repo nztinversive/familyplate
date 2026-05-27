@@ -353,6 +353,78 @@ export const saveMealAlternatives = internalMutation({
   },
 });
 
+export const replaceMealWithGeneratedOptions = internalMutation({
+  args: {
+    mealId: v.id("plannedMeals"),
+    primary: recipeValidator,
+    alternatives: v.array(recipeValidator),
+  },
+  handler: async (ctx, args) => {
+    const meal = await ctx.db.get(args.mealId);
+    if (!meal) {
+      throw new Error("Meal not found.");
+    }
+
+    if (meal.status === "cooked") {
+      throw new Error("Cooked meals cannot be regenerated.");
+    }
+
+    const plan = await ctx.db.get(meal.mealPlanId);
+    if (!plan) {
+      throw new Error("Meal plan not found.");
+    }
+
+    assertRecipeHasIngredients(args.primary.name, args.primary.ingredients);
+    let createdAt = Date.now();
+    const primaryRecipeId = await ctx.db.insert("recipeSuggestions", {
+      householdId: plan.householdId,
+      title: args.primary.name,
+      description: args.primary.description,
+      ingredients: args.primary.ingredients,
+      instructions: args.primary.instructions,
+      effortLevel: args.primary.effortLevel,
+      estimatedTime: args.primary.estimatedTime,
+      servings: args.primary.servings,
+      tags: args.primary.tags,
+      nutrition: args.primary.nutrition,
+      usedPantryItems: args.primary.usedPantryItems,
+      source: "ai",
+      createdAt: createdAt++,
+    });
+
+    const alternativeRecipeIds = [];
+    for (const alternative of args.alternatives) {
+      assertRecipeHasIngredients(alternative.name, alternative.ingredients);
+      const alternativeId = await ctx.db.insert("recipeSuggestions", {
+        householdId: plan.householdId,
+        title: alternative.name,
+        description: alternative.description,
+        ingredients: alternative.ingredients,
+        instructions: alternative.instructions,
+        effortLevel: alternative.effortLevel,
+        estimatedTime: alternative.estimatedTime,
+        servings: alternative.servings,
+        tags: alternative.tags,
+        nutrition: alternative.nutrition,
+        usedPantryItems: alternative.usedPantryItems,
+        source: "ai",
+        createdAt: createdAt++,
+      });
+
+      alternativeRecipeIds.push(alternativeId);
+    }
+
+    await ctx.db.patch(args.mealId, {
+      recipeId: primaryRecipeId,
+      alternativeRecipeIds,
+      status: "planned",
+      pantryDeductedAt: undefined,
+    });
+
+    return args.mealId;
+  },
+});
+
 export const saveGeneratedGroceryList = internalMutation({
   args: {
     householdId: v.id("households"),

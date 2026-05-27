@@ -6,6 +6,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -31,6 +32,20 @@ type PlannedMeal = Doc<"plannedMeals"> & {
 };
 type MealStatus = PlannedMeal["status"];
 type MealAudience = "whole" | "me" | "selected";
+type AdjustmentType =
+  | "swap"
+  | "faster"
+  | "kid_friendly"
+  | "use_pantry"
+  | "avoid"
+  | "regenerate_day";
+
+type GroceryReviewItem = {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+};
 
 const STATUS_STYLES: Record<
   MealStatus,
@@ -128,11 +143,77 @@ function getPantryMatch(recipe: Recipe) {
   };
 }
 
+function inferGroceryCategory(name: string) {
+  const normalized = name.toLowerCase();
+
+  if (
+    normalized.includes("lettuce") ||
+    normalized.includes("tomato") ||
+    normalized.includes("potato") ||
+    normalized.includes("carrot") ||
+    normalized.includes("onion") ||
+    normalized.includes("broccoli") ||
+    normalized.includes("pepper") ||
+    normalized.includes("cucumber") ||
+    normalized.includes("avocado") ||
+    normalized.includes("mushroom") ||
+    normalized.includes("parsley") ||
+    normalized.includes("ginger") ||
+    normalized.includes("pea")
+  ) {
+    return "Produce";
+  }
+
+  if (
+    normalized.includes("beef") ||
+    normalized.includes("chicken") ||
+    normalized.includes("salmon") ||
+    normalized.includes("pork") ||
+    normalized.includes("turkey")
+  ) {
+    return "Meat";
+  }
+
+  if (
+    normalized.includes("cheese") ||
+    normalized.includes("milk") ||
+    normalized.includes("cream") ||
+    normalized.includes("egg") ||
+    normalized.includes("yogurt")
+  ) {
+    return "Dairy";
+  }
+
+  if (
+    normalized.includes("pasta") ||
+    normalized.includes("rice") ||
+    normalized.includes("noodle") ||
+    normalized.includes("bread") ||
+    normalized.includes("bun") ||
+    normalized.includes("tortilla")
+  ) {
+    return "Grains";
+  }
+
+  if (
+    normalized.includes("sauce") ||
+    normalized.includes("seasoning") ||
+    normalized.includes("oil") ||
+    normalized.includes("vinegar") ||
+    normalized.includes("spice")
+  ) {
+    return "Condiments";
+  }
+
+  return "Other";
+}
+
 export default function PlanScreen() {
   const router = useRouter();
   const posthog = usePostHog();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
     currentUser?.householdId
@@ -143,6 +224,7 @@ export default function PlanScreen() {
   const generateAiPlan = useAction(
     api.actions.generateMealPlan.generateMealPlan,
   );
+  const generateMealAdjustment = useAction(api.actions.swapMeal.swapMeal);
   const generateCuratedPlan = useMutation(
     api.mutations.planner.generatePlaceholderPlan,
   );
@@ -155,6 +237,7 @@ export default function PlanScreen() {
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+  const updateProfile = useMutation(api.mutations.profiles.updateProfile);
 
   const [selectedMeal, setSelectedMeal] = useState<PlannedMeal | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
@@ -162,8 +245,12 @@ export default function PlanScreen() {
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingGroceries, setIsGeneratingGroceries] = useState(false);
+  const [showGroceryReview, setShowGroceryReview] = useState(false);
   const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
+  const [adjustingMealId, setAdjustingMealId] = useState<string | null>(null);
+  const [avoidText, setAvoidText] = useState("");
+  const [savedAvoidText, setSavedAvoidText] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const trackedLimitPaywallForCycle = useRef<string | null>(null);
@@ -180,6 +267,56 @@ export default function PlanScreen() {
   const savedRecipeIds = useMemo(() => {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
+  const groceryReview = useMemo(() => {
+    const missing = new Map<string, GroceryReviewItem>();
+    const pantryCovered: GroceryReviewItem[] = [];
+
+    for (const meal of meals) {
+      if (meal.status !== "planned") continue;
+
+      for (const ingredient of meal.recipe.ingredients) {
+        if (isIngredientAvailable(ingredient)) {
+          pantryCovered.push({
+            name: ingredient.name,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            category: inferGroceryCategory(ingredient.name),
+          });
+          continue;
+        }
+
+        const category = inferGroceryCategory(ingredient.name);
+        const key = `${ingredient.name.trim().toLowerCase()}::${ingredient.unit.trim().toLowerCase()}`;
+        const existing = missing.get(key);
+        missing.set(key, {
+          name: existing?.name ?? ingredient.name,
+          quantity:
+            Math.round(((existing?.quantity ?? 0) + ingredient.quantity) * 100) /
+            100,
+          unit: ingredient.unit,
+          category: existing?.category ?? category,
+        });
+      }
+    }
+
+    const missingItems = Array.from(missing.values()).sort((a, b) =>
+      a.category === b.category
+        ? a.name.localeCompare(b.name)
+        : a.category.localeCompare(b.category),
+    );
+    const groupedMissing = new Map<string, GroceryReviewItem[]>();
+
+    for (const item of missingItems) {
+      if (!groupedMissing.has(item.category)) groupedMissing.set(item.category, []);
+      groupedMissing.get(item.category)!.push(item);
+    }
+
+    return {
+      missingItems,
+      groupedMissing: Array.from(groupedMissing.entries()),
+      pantryCovered,
+    };
+  }, [meals]);
   const audienceProfileIds = useMemo(() => {
     if (mealAudience === "whole") return undefined;
     if (mealAudience === "me") {
@@ -243,6 +380,14 @@ export default function PlanScreen() {
       plans_limit: subscription.plansLimit,
     });
   }, [currentUser?.householdId, isFamilyPlan, posthog, subscription]);
+
+  useEffect(() => {
+    if (!selectedMeal) return;
+    const updatedMeal = meals.find((meal) => meal._id === selectedMeal._id);
+    if (updatedMeal && updatedMeal !== selectedMeal) {
+      setSelectedMeal(updatedMeal);
+    }
+  }, [meals, selectedMeal]);
 
   const openFamilyPlan = (source: string) => {
     track(posthog, "paywall_cta_tapped", {
@@ -379,20 +524,26 @@ export default function PlanScreen() {
     }
   };
 
-  const handleGenerateGroceries = async () => {
+  const handleGenerateGroceries = async (source = "weekly_plan") => {
     setIsGeneratingGroceries(true);
     setError("");
     setNotice("");
     try {
       await generateGroceryList({});
       track(posthog, "grocery_list_generated", {
-        source: "weekly_plan",
+        source,
         meal_count: meals.length,
       });
+      track(posthog, "grocery_items_added_from_plan", {
+        source,
+        item_count: groceryReview.missingItems.length,
+        pantry_covered_count: groceryReview.pantryCovered.length,
+      });
+      setShowGroceryReview(false);
       setNotice("Grocery list updated from your planned dinners.");
     } catch (err) {
       track(posthog, "grocery_list_generation_failed", {
-        source: "weekly_plan",
+        source,
         meal_count: meals.length,
         reason: err instanceof Error ? err.message : "unknown",
       });
@@ -445,6 +596,10 @@ export default function PlanScreen() {
         mealId: meal._id as Id<"plannedMeals">,
         recipeId,
       });
+      track(posthog, "meal_swapped", {
+        source: "meal_detail",
+        meal_id: meal._id,
+      });
       setMovingMealId(null);
       setSelectedMeal(null);
       setNotice("Dinner swapped with an alternative.");
@@ -452,6 +607,97 @@ export default function PlanScreen() {
       setError(getErrorMessage(err));
     } finally {
       setBusyMealId(null);
+    }
+  };
+
+  const handleMealAdjustment = async (
+    meal: PlannedMeal,
+    adjustmentType: AdjustmentType,
+  ) => {
+    const trimmedAvoidText = avoidText.trim();
+    if (adjustmentType === "avoid" && !trimmedAvoidText) {
+      setError("Add what you want FamilyPlate to avoid first.");
+      return;
+    }
+
+    const consented = await ensureAiConsent();
+    if (!consented) {
+      setError("AI meal adjustments need your permission before they can use your household details.");
+      return;
+    }
+
+    setAdjustingMealId(`${meal._id}:${adjustmentType}`);
+    setError("");
+    setNotice("");
+
+    try {
+      track(posthog, "plan_adjustment_started", {
+        adjustment_type: adjustmentType,
+        meal_id: meal._id,
+        has_avoid_text: !!trimmedAvoidText,
+      });
+
+      const result = await generateMealAdjustment({
+        mealId: meal._id as Id<"plannedMeals">,
+        adjustmentType,
+        avoidText:
+          adjustmentType === "avoid" ? trimmedAvoidText : undefined,
+      });
+
+      if (adjustmentType === "regenerate_day") {
+        track(posthog, "plan_regenerated", {
+          source: "meal_detail",
+          meal_id: meal._id,
+        });
+        setSelectedMeal(null);
+        setNotice(
+          result.appliedRecipeTitle
+            ? `Regenerated ${formatMealDate(meal.date).weekday}: ${result.appliedRecipeTitle}.`
+            : "Dinner regenerated for that day.",
+        );
+      } else {
+        setNotice("Fresh alternatives are ready in dinner details.");
+      }
+    } catch (err) {
+      track(posthog, "meal_plan_generation_failed", {
+        source: "meal_adjustment",
+        adjustment_type: adjustmentType,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "adjust_meal", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setAdjustingMealId(null);
+    }
+  };
+
+  const handleSaveAvoidPreference = async () => {
+    const trimmed = avoidText.trim();
+    if (!trimmed || !myProfile) return;
+
+    setError("");
+    setNotice("");
+    try {
+      const nextDislikes = Array.from(
+        new Set([...(myProfile.dislikes ?? []), trimmed]),
+      );
+      await updateProfile({
+        profileId: myProfile._id,
+        dislikes: nextDislikes,
+      });
+      track(posthog, "preference_saved_from_feedback", {
+        source: "plan_adjustment",
+        preference_type: "dislike",
+      });
+      setSavedAvoidText(trimmed);
+      setNotice(`Saved "${trimmed}" to your dislikes for future plans.`);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "profile", action: "save_avoid_preference", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
     }
   };
 
@@ -573,7 +819,7 @@ export default function PlanScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => void handleGenerateGroceries()}
+            onPress={() => setShowGroceryReview(true)}
             disabled={isGeneratingGroceries || meals.length === 0}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
             style={{
@@ -719,7 +965,23 @@ export default function PlanScreen() {
         onSetStatus={handleSetStatus}
         onStartMove={handleStartMove}
         onSwapMeal={handleSwapMeal}
+        onAdjustMeal={handleMealAdjustment}
         onToggleSavedRecipe={handleToggleSavedRecipe}
+        adjustingMealId={adjustingMealId}
+        avoidText={avoidText}
+        savedAvoidText={savedAvoidText}
+        canSaveAvoidPreference={!!myProfile && avoidText.trim().length > 0}
+        onChangeAvoidText={setAvoidText}
+        onSaveAvoidPreference={handleSaveAvoidPreference}
+      />
+
+      <GroceryReviewModal
+        visible={showGroceryReview}
+        missingGroups={groceryReview.groupedMissing}
+        pantryCoveredCount={groceryReview.pantryCovered.length}
+        isGenerating={isGeneratingGroceries}
+        onClose={() => setShowGroceryReview(false)}
+        onGenerate={() => void handleGenerateGroceries("plan_review_modal")}
       />
     </ScreenShell>
   );
@@ -1240,6 +1502,185 @@ function InfoPill({
   );
 }
 
+function AdjustmentButton({
+  label,
+  icon,
+  busy,
+  disabled,
+  onPress,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  busy: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      className="min-w-[46%] flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
+      style={{ opacity: disabled && !busy ? 0.55 : 1 }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      {busy ? (
+        <ActivityIndicator color="#248f58" />
+      ) : (
+        <Ionicons name={icon} size={16} color="#248f58" />
+      )}
+      <Text className="text-sm font-semibold text-primary">{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function GroceryReviewModal({
+  visible,
+  missingGroups,
+  pantryCoveredCount,
+  isGenerating,
+  onClose,
+  onGenerate,
+}: {
+  visible: boolean;
+  missingGroups: [string, GroceryReviewItem[]][];
+  pantryCoveredCount: number;
+  isGenerating: boolean;
+  onClose: () => void;
+  onGenerate: () => void;
+}) {
+  const missingCount = missingGroups.reduce(
+    (count, [, items]) => count + items.length,
+    0,
+  );
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View className="flex-1 justify-end bg-black/40">
+        <View className="max-h-[82%] rounded-t-3xl bg-background">
+          <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
+            <Text className="text-lg font-bold text-foreground">
+              Grocery Review
+            </Text>
+            <Pressable
+              onPress={onClose}
+              disabled={isGenerating}
+              className="h-10 w-10 items-center justify-center rounded-full bg-muted"
+            >
+              <Ionicons name="close" size={22} color="#26211b" />
+            </Pressable>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+            <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+              <View className="flex-row items-start gap-3">
+                <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+                  <Ionicons name="basket-outline" size={22} color="#248f58" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-bold text-foreground">
+                    Review before adding
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                    FamilyPlate will add missing planned-dinner ingredients to
+                    Grocery and leave pantry-covered items out.
+                  </Text>
+                </View>
+              </View>
+              <View className="mt-4 flex-row gap-2">
+                <View className="flex-1 rounded-xl bg-muted p-3">
+                  <Text className="text-2xl font-bold text-foreground">
+                    {missingCount}
+                  </Text>
+                  <Text className="text-xs font-semibold text-muted-foreground">
+                    to buy
+                  </Text>
+                </View>
+                <View className="flex-1 rounded-xl bg-muted p-3">
+                  <Text className="text-2xl font-bold text-foreground">
+                    {pantryCoveredCount}
+                  </Text>
+                  <Text className="text-xs font-semibold text-muted-foreground">
+                    already in pantry
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {missingGroups.length === 0 ? (
+              <View className="items-center rounded-2xl border border-border bg-card p-5">
+                <Ionicons name="checkmark-circle" size={28} color="#248f58" />
+                <Text className="mt-2 text-center text-base font-bold text-foreground">
+                  Pantry covers this plan
+                </Text>
+                <Text className="mt-1 text-center text-sm leading-5 text-muted-foreground">
+                  No missing ingredients were found for planned dinners.
+                </Text>
+              </View>
+            ) : (
+              <View className="gap-4">
+                {missingGroups.map(([category, items]) => (
+                  <View key={category}>
+                    <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {category}
+                    </Text>
+                    <View className="gap-2">
+                      {items.map((item) => (
+                        <View
+                          key={`${item.name}-${item.unit}`}
+                          className="flex-row items-center gap-3 rounded-xl bg-card p-3"
+                        >
+                          <View className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                            <Ionicons
+                              name="cart-outline"
+                              size={16}
+                              color="#248f58"
+                            />
+                          </View>
+                          <Text className="flex-1 text-sm font-semibold text-foreground">
+                            {item.quantity} {item.unit} {item.name}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View className="mt-5 flex-row gap-2">
+              <TouchableOpacity
+                onPress={onClose}
+                disabled={isGenerating}
+                className="flex-1 items-center rounded-xl border border-border bg-card py-3"
+              >
+                <Text className="font-semibold text-muted-foreground">
+                  Not Now
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onGenerate}
+                disabled={isGenerating || missingCount === 0}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+                style={{ opacity: isGenerating || missingCount === 0 ? 0.55 : 1 }}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Ionicons name="cart" size={17} color="white" />
+                )}
+                <Text className="font-semibold text-white">
+                  {isGenerating ? "Adding..." : "Add to Grocery"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 function MealDetailModal({
   meal,
   busy,
@@ -1249,7 +1690,14 @@ function MealDetailModal({
   onSetStatus,
   onStartMove,
   onSwapMeal,
+  onAdjustMeal,
   onToggleSavedRecipe,
+  adjustingMealId,
+  avoidText,
+  savedAvoidText,
+  canSaveAvoidPreference,
+  onChangeAvoidText,
+  onSaveAvoidPreference,
 }: {
   meal: PlannedMeal | null;
   busy: boolean;
@@ -1262,7 +1710,17 @@ function MealDetailModal({
     meal: PlannedMeal,
     recipeId: Id<"recipeSuggestions">,
   ) => Promise<void>;
+  onAdjustMeal: (
+    meal: PlannedMeal,
+    adjustmentType: AdjustmentType,
+  ) => Promise<void>;
   onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
+  adjustingMealId: string | null;
+  avoidText: string;
+  savedAvoidText: string;
+  canSaveAvoidPreference: boolean;
+  onChangeAvoidText: (value: string) => void;
+  onSaveAvoidPreference: () => Promise<void>;
 }) {
   if (!meal) return null;
 
@@ -1318,6 +1776,107 @@ function MealDetailModal({
                 label={`${recipe.servings} servings`}
               />
               <InfoPill icon="leaf-outline" label={pantry.label} />
+            </View>
+
+            <Text className="mb-2 text-base font-bold text-foreground">
+              Adjust This Dinner
+            </Text>
+            <View className="mb-5 rounded-2xl border border-border bg-card p-3">
+              <View className="flex-row flex-wrap gap-2">
+                <AdjustmentButton
+                  label="Swap meal"
+                  icon="swap-horizontal"
+                  busy={adjustingMealId === `${meal._id}:swap`}
+                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  onPress={() => void onAdjustMeal(meal, "swap")}
+                />
+                <AdjustmentButton
+                  label="Make faster"
+                  icon="flash-outline"
+                  busy={adjustingMealId === `${meal._id}:faster`}
+                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  onPress={() => void onAdjustMeal(meal, "faster")}
+                />
+                <AdjustmentButton
+                  label="Kid-friendly"
+                  icon="happy-outline"
+                  busy={adjustingMealId === `${meal._id}:kid_friendly`}
+                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  onPress={() => void onAdjustMeal(meal, "kid_friendly")}
+                />
+                <AdjustmentButton
+                  label="Use pantry"
+                  icon="cube-outline"
+                  busy={adjustingMealId === `${meal._id}:use_pantry`}
+                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  onPress={() => void onAdjustMeal(meal, "use_pantry")}
+                />
+                <AdjustmentButton
+                  label="Regenerate day"
+                  icon="refresh-outline"
+                  busy={adjustingMealId === `${meal._id}:regenerate_day`}
+                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  onPress={() => void onAdjustMeal(meal, "regenerate_day")}
+                />
+              </View>
+
+              <View className="mt-3 rounded-xl bg-muted p-3">
+                <Text className="mb-2 text-sm font-semibold text-foreground">
+                  Avoid something next time
+                </Text>
+                <TextInput
+                  value={avoidText}
+                  onChangeText={onChangeAvoidText}
+                  placeholder="Example: beef, spicy meals, casseroles"
+                  placeholderTextColor="#9a9489"
+                  className="rounded-xl border border-border bg-background px-3 py-3 text-foreground"
+                  editable={!adjustingMealId}
+                />
+                <View className="mt-2 flex-row gap-2">
+                  <TouchableOpacity
+                    onPress={() => void onAdjustMeal(meal, "avoid")}
+                    disabled={
+                      busy ||
+                      meal.status === "cooked" ||
+                      !!adjustingMealId ||
+                      avoidText.trim().length === 0
+                    }
+                    className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+                    style={{
+                      opacity:
+                        busy ||
+                        meal.status === "cooked" ||
+                        !!adjustingMealId ||
+                        avoidText.trim().length === 0
+                          ? 0.55
+                          : 1,
+                    }}
+                  >
+                    {adjustingMealId === `${meal._id}:avoid` ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Ionicons name="ban-outline" size={16} color="white" />
+                    )}
+                    <Text className="font-semibold text-white">Adjust</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => void onSaveAvoidPreference()}
+                    disabled={!canSaveAvoidPreference || savedAvoidText === avoidText.trim()}
+                    className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
+                    style={{
+                      opacity:
+                        !canSaveAvoidPreference ||
+                        savedAvoidText === avoidText.trim()
+                          ? 0.55
+                          : 1,
+                    }}
+                  >
+                    <Text className="font-semibold text-primary">
+                      {savedAvoidText === avoidText.trim() ? "Saved" : "Save dislike"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
             <Text className="mb-2 text-base font-bold text-foreground">

@@ -96,14 +96,52 @@ type SwapContext = {
   plannedMeals: PlannedSwapMeal[];
 };
 
+type MealAdjustmentType =
+  | "swap"
+  | "faster"
+  | "kid_friendly"
+  | "use_pantry"
+  | "avoid"
+  | "regenerate_day";
+
+const ADJUSTMENT_PROMPTS: Record<MealAdjustmentType, string> = {
+  swap:
+    "Generate broadly appealing replacement dinners for this slot.",
+  faster:
+    "Prioritize faster dinners. Prefer 25 minutes or less, minimal prep, and easy cleanup.",
+  kid_friendly:
+    "Prioritize kid-friendly dinners with familiar flavors, flexible toppings, and approachable textures while still respecting all allergies and dislikes.",
+  use_pantry:
+    "Prioritize dinners that use the most pantry items, especially items close to expiration.",
+  avoid:
+    "Avoid the ingredient, dish style, or concern named by the user. Do not include close substitutes that would feel like the same issue.",
+  regenerate_day:
+    "Regenerate this day with a strong new primary dinner and two backup alternatives. Keep it practical for the week.",
+};
+
 export const swapMeal: ReturnType<typeof action> = action({
   args: {
     mealId: v.id("plannedMeals"),
+    adjustmentType: v.optional(
+      v.union(
+        v.literal("swap"),
+        v.literal("faster"),
+        v.literal("kid_friendly"),
+        v.literal("use_pantry"),
+        v.literal("avoid"),
+        v.literal("regenerate_day")
+      )
+    ),
+    avoidText: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    args: { mealId: Id<"plannedMeals"> }
-  ): Promise<{ mealId: Id<"plannedMeals"> }> => {
+    args: {
+      mealId: Id<"plannedMeals">;
+      adjustmentType?: MealAdjustmentType;
+      avoidText?: string;
+    }
+  ): Promise<{ mealId: Id<"plannedMeals">; appliedRecipeTitle?: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new ConvexError("You must be signed in to refresh meal options.");
@@ -125,6 +163,8 @@ export const swapMeal: ReturnType<typeof action> = action({
       const pantryItems = sortPantryItemsForPrompt<PantryForPrompt>(
         context.pantryItems as PantryForPrompt[]
       );
+      const adjustmentType = args.adjustmentType ?? "swap";
+      const avoidText = args.avoidText?.trim();
       const householdSize = Math.max(context.profiles.length, 1);
       const otherMeals = context.plannedMeals
         .filter((meal: PlannedSwapMeal) => meal._id !== context.meal._id)
@@ -187,6 +227,10 @@ export const swapMeal: ReturnType<typeof action> = action({
         userPrompt: [
           `Refresh the dinner options for ${context.meal.date} in the household "${context.household.name}".`,
           `The currently selected dinner is "${context.recipe.title}". Generate exactly three replacement alternatives.`,
+          `Adjustment request: ${ADJUSTMENT_PROMPTS[adjustmentType]}`,
+          adjustmentType === "avoid" && avoidText
+            ? `User specifically wants to avoid: ${avoidText}.`
+            : "",
           `Serve ${householdSize} people.`,
           "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen.",
           "Also completely avoid all listed dislikes.",
@@ -216,7 +260,7 @@ export const swapMeal: ReturnType<typeof action> = action({
                 "Use feedback to guide choices: lean toward styles similar to favorites, avoid styles similar to disliked meals.",
               ]
             : []),
-        ].join("\n"),
+        ].filter(Boolean).join("\n"),
       });
 
       if (!Array.isArray(response.alternatives) || response.alternatives.length !== 3) {
@@ -267,13 +311,30 @@ export const swapMeal: ReturnType<typeof action> = action({
           return true;
         });
 
-      await ctx.runMutation(
-        api.internal.planner.saveMealAlternatives,
-        {
+      if (alternatives.length === 0) {
+        throw new Error("No safe alternatives were returned.");
+      }
+
+      if (adjustmentType === "regenerate_day") {
+        await ctx.runMutation(
+          api.internal.planner.replaceMealWithGeneratedOptions,
+          {
+            mealId: args.mealId,
+            primary: alternatives[0],
+            alternatives: alternatives.slice(1, 3),
+          }
+        );
+
+        return {
           mealId: args.mealId,
-          alternatives,
-        }
-      );
+          appliedRecipeTitle: alternatives[0].name,
+        };
+      }
+
+      await ctx.runMutation(api.internal.planner.saveMealAlternatives, {
+        mealId: args.mealId,
+        alternatives,
+      });
 
       return {
         mealId: args.mealId,

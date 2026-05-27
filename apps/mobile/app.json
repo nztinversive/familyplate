@@ -2,7 +2,7 @@
   "expo": {
     "name": "FamilyPlate",
     "slug": "familyplate",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "familyplate",
@@ -35,7 +35,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow FamilyPlate to scan grocery barcodes for pantry items."
+          "cameraPermission": "FamilyPlate uses the camera to scan grocery barcodes for pantry items."
         }
       ],
       [
