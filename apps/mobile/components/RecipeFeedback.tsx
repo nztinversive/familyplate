@@ -15,13 +15,24 @@ import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
 const FEEDBACK_TAGS = [
-  "kid approved",
-  "make again",
-  "budget friendly",
+  "loved it",
+  "it was okay",
+  "not again",
+  "too spicy",
+  "too hard",
+  "kid liked it",
+  "kid disliked it",
   "great leftovers",
-  "too much prep",
-  "too bland",
 ];
+
+function shouldLearnPreference(liked: boolean, tags: string[]) {
+  return (
+    !liked ||
+    tags.some((tag) =>
+      ["not again", "too spicy", "too hard", "kid disliked it"].includes(tag),
+    )
+  );
+}
 
 export function RecipeFeedback({
   recipeId,
@@ -80,6 +91,18 @@ export function RecipeFeedback({
         has_notes: notes.trim().length > 0,
         source: "recipe_feedback",
       });
+      track(posthog, "recipe_feedback_saved", {
+        rating,
+        liked,
+        tag_count: tags.length,
+        source: "recipe_feedback",
+      });
+      if (shouldLearnPreference(liked, tags)) {
+        track(posthog, "preference_learned_from_feedback", {
+          source: "recipe_feedback",
+          tag_count: tags.length,
+        });
+      }
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "feedback", action: "submit", platform: "ios" },
@@ -122,7 +145,7 @@ export function RecipeFeedback({
             Cooked this?
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            Rate dinner so future plans learn what your family likes.
+            Rate dinner so future plans learn what your family likes and avoids.
           </Text>
         </View>
         {existing ? (

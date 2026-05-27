@@ -16,6 +16,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
+import { CookModeModal } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
@@ -234,13 +235,16 @@ export default function PlanScreen() {
   const generateGroceryList = useMutation(
     api.mutations.grocery.generateFromPlan,
   );
+  const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
 
   const [selectedMeal, setSelectedMeal] = useState<PlannedMeal | null>(null);
+  const [cookingMeal, setCookingMeal] = useState<PlannedMeal | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
+  const [finishingCookMode, setFinishingCookMode] = useState(false);
   const [movingMealId, setMovingMealId] = useState<string | null>(null);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -513,6 +517,11 @@ export default function PlanScreen() {
         setNotice(
           "Dinner marked cooked. Pantry updated, and feedback is ready in dinner details.",
         );
+        track(posthog, "recipe_cooked", {
+          source: "weekly_plan",
+          recipe_id: meal.recipe._id,
+          meal_id: meal._id,
+        });
       }
       track(posthog, "meal_status_updated", {
         status,
@@ -521,6 +530,67 @@ export default function PlanScreen() {
       setError(getErrorMessage(err));
     } finally {
       setBusyMealId(null);
+    }
+  };
+
+  const handleStartCookMode = (meal: PlannedMeal) => {
+    setError("");
+    setNotice("");
+    const openCookMode = () => {
+      setCookingMeal(meal);
+      track(posthog, "cook_mode_started", {
+        source: "weekly_plan",
+        recipe_id: meal.recipe._id,
+        meal_id: meal._id,
+      });
+    };
+
+    if (selectedMeal) {
+      setSelectedMeal(null);
+      setTimeout(openCookMode, 250);
+      return;
+    }
+
+    openCookMode();
+  };
+
+  const handleFinishCookMode = async (leftoverNote?: string) => {
+    if (!cookingMeal) return;
+
+    setFinishingCookMode(true);
+    setError("");
+    setNotice("");
+
+    try {
+      if (cookingMeal.status !== "cooked") {
+        await updateStatus(cookingMeal, "cooked");
+      }
+
+      if (leftoverNote && currentUser?.householdId) {
+        await addPantryItem({
+          householdId: currentUser.householdId as Id<"households">,
+          name: leftoverNote,
+          quantity: 1,
+          unit: "container",
+          category: "Leftovers",
+          storageLocation: "fridge",
+        });
+        track(posthog, "leftovers_saved", {
+          source: "cook_mode",
+          recipe_id: cookingMeal.recipe._id,
+        });
+      }
+
+      setSelectedMeal({ ...cookingMeal, status: "cooked" });
+      setCookingMeal(null);
+      setNotice("Cook Mode finished. Add feedback so future plans learn what worked.");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cook_mode", action: "finish", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setFinishingCookMode(false);
     }
   };
 
@@ -947,6 +1017,7 @@ export default function PlanScreen() {
               onStartMove={handleStartMove}
               onMoveToTarget={handleMoveToTarget}
               onToggleSavedRecipe={handleToggleSavedRecipe}
+              onStartCookMode={handleStartCookMode}
             />
           ))}
         </View>
@@ -967,12 +1038,29 @@ export default function PlanScreen() {
         onSwapMeal={handleSwapMeal}
         onAdjustMeal={handleMealAdjustment}
         onToggleSavedRecipe={handleToggleSavedRecipe}
+        onStartCookMode={handleStartCookMode}
         adjustingMealId={adjustingMealId}
         avoidText={avoidText}
         savedAvoidText={savedAvoidText}
         canSaveAvoidPreference={!!myProfile && avoidText.trim().length > 0}
         onChangeAvoidText={setAvoidText}
         onSaveAvoidPreference={handleSaveAvoidPreference}
+      />
+
+      <CookModeModal
+        visible={!!cookingMeal}
+        recipe={cookingMeal?.recipe ?? null}
+        isFinishing={finishingCookMode}
+        onClose={() => setCookingMeal(null)}
+        onStepViewed={(step) => {
+          if (!cookingMeal) return;
+          track(posthog, "cook_step_viewed", {
+            source: "weekly_plan",
+            recipe_id: cookingMeal.recipe._id,
+            step,
+          });
+        }}
+        onFinishCooking={handleFinishCookMode}
       />
 
       <GroceryReviewModal
@@ -1251,6 +1339,7 @@ function MealCard({
   onStartMove,
   onMoveToTarget,
   onToggleSavedRecipe,
+  onStartCookMode,
 }: {
   meal: PlannedMeal;
   busy: boolean;
@@ -1262,6 +1351,7 @@ function MealCard({
   onStartMove: (meal: PlannedMeal) => void;
   onMoveToTarget: (meal: PlannedMeal) => Promise<void>;
   onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
+  onStartCookMode: (meal: PlannedMeal) => void;
 }) {
   const date = formatMealDate(meal.date);
   const status = STATUS_STYLES[meal.status];
@@ -1272,22 +1362,8 @@ function MealCard({
   const canMoveTarget = isMoveTarget && meal.status !== "cooked";
 
   return (
-    <Pressable
-      onPress={() => {
-        if (canMoveTarget) {
-          void onMoveToTarget(meal);
-          return;
-        }
-
-        if (isMoveSource) {
-          onStartMove(meal);
-          return;
-        }
-
-        onOpen();
-      }}
+    <View
       className="rounded-2xl border border-border bg-card p-4"
-      accessible={false}
       style={{
         borderColor: isMoveSource || canMoveTarget ? "#248f58" : "#e7e0d6",
       }}
@@ -1310,7 +1386,24 @@ function MealCard({
             {date.day}
           </Text>
         </View>
-        <View className="flex-1">
+        <TouchableOpacity
+          onPress={() => {
+            if (canMoveTarget) {
+              void onMoveToTarget(meal);
+              return;
+            }
+
+            if (isMoveSource) {
+              onStartMove(meal);
+              return;
+            }
+
+            onOpen();
+          }}
+          className="flex-1"
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${meal.recipe.title} details`}
+        >
           <View className="mb-2 flex-row items-center gap-2">
             <View
               className="flex-row items-center gap-1 rounded-full px-2 py-1"
@@ -1342,7 +1435,7 @@ function MealCard({
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
             {meal.recipe.description}
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <View className="mb-3 flex-row flex-wrap gap-2">
@@ -1356,6 +1449,21 @@ function MealCard({
         />
         <InfoPill icon="leaf-outline" label={pantry.label} />
       </View>
+
+      <TouchableOpacity
+        onPress={(event) => {
+          event.stopPropagation();
+          onStartCookMode(meal);
+        }}
+        disabled={busy}
+        className="mb-2 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+        style={{ opacity: busy ? 0.55 : 1 }}
+        accessibilityRole="button"
+        accessibilityLabel="Start Cook Mode"
+      >
+        <Ionicons name="restaurant-outline" size={16} color="white" />
+        <Text className="font-semibold text-white">Start Cook Mode</Text>
+      </TouchableOpacity>
 
       <View className="flex-row gap-2">
         {meal.status !== "cooked" ? (
@@ -1481,7 +1589,7 @@ function MealCard({
           </Text>
         </TouchableOpacity>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -1692,6 +1800,7 @@ function MealDetailModal({
   onSwapMeal,
   onAdjustMeal,
   onToggleSavedRecipe,
+  onStartCookMode,
   adjustingMealId,
   avoidText,
   savedAvoidText,
@@ -1715,6 +1824,7 @@ function MealDetailModal({
     adjustmentType: AdjustmentType,
   ) => Promise<void>;
   onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
+  onStartCookMode: (meal: PlannedMeal) => void;
   adjustingMealId: string | null;
   avoidText: string;
   savedAvoidText: string;
@@ -1878,6 +1988,16 @@ function MealDetailModal({
                 </View>
               </View>
             </View>
+
+            <TouchableOpacity
+              onPress={() => onStartCookMode(meal)}
+              className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Start Cook Mode"
+            >
+              <Ionicons name="restaurant-outline" size={18} color="white" />
+              <Text className="font-semibold text-white">Start Cook Mode</Text>
+            </TouchableOpacity>
 
             <Text className="mb-2 text-base font-bold text-foreground">
               Ingredients

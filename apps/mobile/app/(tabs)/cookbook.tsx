@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
+import { CookModeModal } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
@@ -45,11 +46,15 @@ function getSourceLabel(source: Recipe["source"]) {
 export default function CookbookScreen() {
   const posthog = usePostHog();
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+  const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [cookingRecipe, setCookingRecipe] = useState<Recipe | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
+  const [finishingCookMode, setFinishingCookMode] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
@@ -138,6 +143,60 @@ export default function CookbookScreen() {
     }
   };
 
+  const startCookMode = (recipe: Recipe) => {
+    setCookingRecipe(recipe);
+    setNotice("");
+    setError("");
+    track(posthog, "cook_mode_started", {
+      source: "cookbook",
+      recipe_id: recipe._id,
+    });
+  };
+
+  const finishCookMode = async (leftoverNote?: string) => {
+    if (!cookingRecipe) return;
+
+    setFinishingCookMode(true);
+    setNotice("");
+    setError("");
+
+    try {
+      if (leftoverNote && currentUser?.householdId) {
+        await addPantryItem({
+          householdId: currentUser.householdId as Id<"households">,
+          name: leftoverNote,
+          quantity: 1,
+          unit: "container",
+          category: "Leftovers",
+          storageLocation: "fridge",
+        });
+        track(posthog, "leftovers_saved", {
+          source: "cookbook_cook_mode",
+          recipe_id: cookingRecipe._id,
+        });
+      }
+
+      track(posthog, "recipe_cooked", {
+        source: "cookbook",
+        recipe_id: cookingRecipe._id,
+      });
+      setCookingRecipe(null);
+      setExpandedId(cookingRecipe._id);
+      setNotice("Cook Mode finished. Add feedback below so future plans learn what worked.");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cookbook", action: "finish_cook_mode", platform: "ios" },
+      });
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Couldn't finish Cook Mode.",
+      );
+    } finally {
+      setFinishingCookMode(false);
+    }
+  };
+
   return (
     <ScreenShell
       title="Cookbook"
@@ -199,12 +258,28 @@ export default function CookbookScreen() {
                 onAddMissing={() =>
                   void addMissingToGrocery(savedRecipe.recipe)
                 }
+                onStartCookMode={() => startCookMode(savedRecipe.recipe)}
                 onRemove={() => removeRecipe(savedRecipe.recipe)}
               />
             ))}
           </View>
         </>
       )}
+      <CookModeModal
+        visible={!!cookingRecipe}
+        recipe={cookingRecipe}
+        isFinishing={finishingCookMode}
+        onClose={() => setCookingRecipe(null)}
+        onStepViewed={(step) => {
+          if (!cookingRecipe) return;
+          track(posthog, "cook_step_viewed", {
+            source: "cookbook",
+            recipe_id: cookingRecipe._id,
+            step,
+          });
+        }}
+        onFinishCooking={finishCookMode}
+      />
     </ScreenShell>
   );
 }
@@ -264,6 +339,7 @@ function RecipeCard({
   addingMissing,
   onToggleExpanded,
   onAddMissing,
+  onStartCookMode,
   onRemove,
 }: {
   recipe: Recipe;
@@ -273,6 +349,7 @@ function RecipeCard({
   addingMissing: boolean;
   onToggleExpanded: () => void;
   onAddMissing: () => void;
+  onStartCookMode: () => void;
   onRemove: () => void;
 }) {
   const pantryCount = recipe.ingredients.filter((ingredient) =>
@@ -404,6 +481,18 @@ function RecipeCard({
             missingIngredients={missingIngredients}
             onAddMissing={onAddMissing}
           />
+
+          <TouchableOpacity
+            onPress={onStartCookMode}
+            disabled={removing}
+            className="mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+            style={{ opacity: removing ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Start Cook Mode"
+          >
+            <Ionicons name="restaurant-outline" size={17} color="white" />
+            <Text className="font-semibold text-white">Start Cook Mode</Text>
+          </TouchableOpacity>
 
           <RecipeFeedback recipeId={recipe._id as Id<"recipeSuggestions">} />
 

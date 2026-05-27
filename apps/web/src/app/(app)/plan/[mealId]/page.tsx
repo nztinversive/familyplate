@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChefHat,
   Clock3,
+  CookingPot,
   Shuffle,
   XCircle,
 } from "lucide-react";
@@ -19,10 +20,13 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { MealFeedbackCard } from "@/components/feedback/MealFeedbackCard";
 import { RecipeFeedbackSummary } from "@/components/feedback/RecipeFeedbackSummary";
+import { CookModeDialog } from "@/components/plan/CookModeDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { track } from "@/lib/analytics";
+import * as Sentry from "@sentry/nextjs";
 
 function formatDateLabel(dateStr: string) {
   const date = new Date(`${dateStr}T12:00:00`);
@@ -42,12 +46,19 @@ export default function MealDetailPage() {
   const params = useParams<{ mealId: string }>();
   const mealId = params.mealId as Id<"plannedMeals">;
   const mealDetail = useQuery(api.queries.planner.getMealDetail, { mealId });
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const swapAction = useAction(api.actions.swapMeal.swapMeal);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
+  const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
+  const addPantryItem = useMutation(api.mutations.pantry.addItem);
 
   const [isRefreshingAlternatives, setIsRefreshingAlternatives] = useState(false);
   const [isApplyingSwap, setIsApplyingSwap] =
     useState<Id<"recipeSuggestions"> | null>(null);
+  const [isCookModeOpen, setIsCookModeOpen] = useState(false);
+  const [isFinishingCookMode, setIsFinishingCookMode] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
   const handleRefreshAlternatives = async () => {
     if (!mealDetail?.meal) return;
@@ -66,6 +77,65 @@ export default function MealDetailPage() {
       await swapMeal({ mealId: mealDetail.meal._id, recipeId });
     } finally {
       setIsApplyingSwap(null);
+    }
+  };
+
+  const handleStartCookMode = () => {
+    if (!mealDetail?.recipe) return;
+    setNotice("");
+    setError("");
+    setIsCookModeOpen(true);
+    track("cook_mode_started", {
+      source: "web_meal_detail",
+      recipe_id: mealDetail.recipe._id,
+      meal_id: mealDetail.meal._id,
+    });
+  };
+
+  const handleFinishCookMode = async (leftoverNote?: string) => {
+    if (!mealDetail?.meal || !mealDetail.recipe) return;
+
+    setIsFinishingCookMode(true);
+    setNotice("");
+    setError("");
+
+    try {
+      if (mealDetail.meal.status !== "cooked") {
+        await updateMealStatus({
+          mealId: mealDetail.meal._id,
+          status: "cooked",
+        });
+      }
+
+      if (leftoverNote && currentUser?.householdId) {
+        await addPantryItem({
+          householdId: currentUser.householdId,
+          name: leftoverNote,
+          quantity: 1,
+          unit: "container",
+          category: "Leftovers",
+          storageLocation: "fridge",
+        });
+        track("leftovers_saved", {
+          source: "web_cook_mode",
+          recipe_id: mealDetail.recipe._id,
+        });
+      }
+
+      track("recipe_cooked", {
+        source: "web_meal_detail",
+        recipe_id: mealDetail.recipe._id,
+        meal_id: mealDetail.meal._id,
+      });
+      setIsCookModeOpen(false);
+      setNotice("Cook Mode finished. Add feedback below so future plans learn what worked.");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cook_mode", action: "finish", platform: "web" },
+      });
+      setError(err instanceof Error ? err.message : "Couldn't finish Cook Mode.");
+    } finally {
+      setIsFinishingCookMode(false);
     }
   };
 
@@ -107,6 +177,16 @@ export default function MealDetailPage() {
           <EmptyState />
         ) : (
           <>
+            {notice ? (
+              <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm font-medium text-primary">
+                {notice}
+              </div>
+            ) : null}
+            {error ? (
+              <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 text-sm font-medium text-destructive">
+                {error}
+              </div>
+            ) : null}
             <Card>
               <CardContent className="space-y-4 p-4">
                 <div className="space-y-1">
@@ -154,6 +234,11 @@ export default function MealDetailPage() {
                 )}
 
                 <RecipeFeedbackSummary recipeId={mealDetail.recipe._id} />
+
+                <Button className="w-full gap-2" onClick={handleStartCookMode}>
+                  <CookingPot className="h-4 w-4" />
+                  Start Cook Mode
+                </Button>
               </CardContent>
             </Card>
 
@@ -282,6 +367,22 @@ export default function MealDetailPage() {
         {mealDetail && mealDetail.meal.status === "cooked" && (
           <MealFeedbackCard recipeId={mealDetail.recipe._id} />
         )}
+
+        <CookModeDialog
+          open={isCookModeOpen}
+          recipe={mealDetail?.recipe ?? null}
+          isFinishing={isFinishingCookMode}
+          onOpenChange={setIsCookModeOpen}
+          onStepViewed={(step) => {
+            if (!mealDetail?.recipe) return;
+            track("cook_step_viewed", {
+              source: "web_meal_detail",
+              recipe_id: mealDetail.recipe._id,
+              step,
+            });
+          }}
+          onFinishCooking={handleFinishCookMode}
+        />
       </div>
     </AppShell>
   );

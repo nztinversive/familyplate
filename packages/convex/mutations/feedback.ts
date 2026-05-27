@@ -2,6 +2,43 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 
+function normalizeStringList(values: string[]) {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0 && value.length <= 80)
+    )
+  );
+}
+
+function inferLearnedDislikes(args: {
+  liked: boolean;
+  tags: string[];
+  recipeTitle: string;
+}) {
+  const tags = new Set(args.tags.map((tag) => tag.trim().toLowerCase()));
+  const learned: string[] = [];
+
+  if (!args.liked || tags.has("not again")) {
+    learned.push(args.recipeTitle);
+  }
+
+  if (tags.has("kid disliked it")) {
+    learned.push(`${args.recipeTitle} for kids`);
+  }
+
+  if (tags.has("too spicy")) {
+    learned.push("spicy meals");
+  }
+
+  if (tags.has("too hard") || tags.has("too much prep")) {
+    learned.push("hard dinners");
+  }
+
+  return normalizeStringList(learned);
+}
+
 export const submitFeedback = mutation({
   args: {
     recipeId: v.id("recipeSuggestions"),
@@ -44,18 +81,40 @@ export const submitFeedback = mutation({
         tags: args.tags,
         notes: args.notes,
       });
-      return myFeedback._id;
+    } else {
+      await ctx.db.insert("mealFeedback", {
+        recipeId: args.recipeId,
+        oderId: profile._id,
+        rating: args.rating,
+        liked: args.liked,
+        tags: args.tags,
+        notes: args.notes,
+        createdAt: Date.now(),
+      });
     }
 
-    return await ctx.db.insert("mealFeedback", {
-      recipeId: args.recipeId,
-      oderId: profile._id,
-      rating: args.rating,
+    const learnedDislikes = inferLearnedDislikes({
       liked: args.liked,
       tags: args.tags,
-      notes: args.notes,
-      createdAt: Date.now(),
+      recipeTitle: recipe.title,
     });
+
+    if (learnedDislikes.length > 0) {
+      const nextDislikes = normalizeStringList([
+        ...profile.dislikes,
+        ...learnedDislikes,
+      ]);
+      if (nextDislikes.length !== profile.dislikes.length) {
+        await ctx.db.patch(profile._id, { dislikes: nextDislikes });
+      }
+    }
+
+    const updated = await ctx.db
+      .query("mealFeedback")
+      .withIndex("by_recipeId", (q) => q.eq("recipeId", args.recipeId))
+      .collect();
+
+    return updated.find((f) => f.oderId === profile._id)?._id;
   },
 });
 

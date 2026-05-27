@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Clock3,
   Copy,
+  CookingPot,
   Flame,
   Heart,
   Home,
@@ -39,6 +40,7 @@ import { OnboardingGuide } from "@/components/layout/OnboardingGuide";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { CustomRecipeDialog } from "@/components/plan/CustomRecipeDialog";
+import { CookModeDialog } from "@/components/plan/CookModeDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -278,6 +280,7 @@ export default function PlanPage() {
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
+  const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const { toast } = useToast();
 
@@ -298,6 +301,8 @@ export default function PlanPage() {
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [showAddRecipeDialog, setShowAddRecipeDialog] = useState(false);
   const [showGroceryReview, setShowGroceryReview] = useState(false);
+  const [cookingRecipe, setCookingRecipe] = useState<RecipeDoc | null>(null);
+  const [isFinishingCookMode, setIsFinishingCookMode] = useState(false);
   const [addingToGrocery, setAddingToGrocery] = useState(false);
   const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
   const [selectedProfileIds, setSelectedProfileIds] = useState<Id<"userProfiles">[]>([]);
@@ -611,6 +616,50 @@ export default function PlanPage() {
       }
     } finally {
       setSavingRecipeId(null);
+    }
+  };
+
+  const handleStartCookMode = (recipe: RecipeDoc, source: string) => {
+    setCookingRecipe(recipe);
+    track("cook_mode_started", {
+      source,
+      recipe_id: recipe._id,
+    });
+  };
+
+  const handleFinishCookMode = async (leftoverNote?: string) => {
+    if (!cookingRecipe) return;
+
+    setIsFinishingCookMode(true);
+    try {
+      if (leftoverNote && currentUser?.householdId) {
+        await addPantryItem({
+          householdId: currentUser.householdId,
+          name: leftoverNote,
+          quantity: 1,
+          unit: "container",
+          category: "Leftovers",
+          storageLocation: "fridge",
+        });
+        track("leftovers_saved", {
+          source: "web_plan_cook_mode",
+          recipe_id: cookingRecipe._id,
+        });
+      }
+
+      track("recipe_cooked", {
+        source: "web_plan_cook_mode",
+        recipe_id: cookingRecipe._id,
+      });
+      setCookingRecipe(null);
+      toast("Cook Mode finished. Add feedback so future plans learn what worked.", "success");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cook_mode", action: "finish", platform: "web" },
+      });
+      toast(getErrorMessage(err), "error");
+    } finally {
+      setIsFinishingCookMode(false);
     }
   };
 
@@ -1422,6 +1471,14 @@ export default function PlanPage() {
                     Serves {selectedRecipe.servings}
                   </span>
                 </div>
+                <Button
+                  type="button"
+                  className="mt-4 w-full gap-2 rounded-xl"
+                  onClick={() => handleStartCookMode(selectedRecipe, "web_recipe_detail")}
+                >
+                  <CookingPot className="h-4 w-4" />
+                  Start Cook Mode
+                </Button>
               </DialogHeader>
 
               <div className="space-y-6 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6" style={{ maxHeight: "60vh", WebkitOverflowScrolling: "touch" }}>
@@ -1550,6 +1607,24 @@ export default function PlanPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <CookModeDialog
+        open={!!cookingRecipe}
+        recipe={cookingRecipe}
+        isFinishing={isFinishingCookMode}
+        onOpenChange={(open) => {
+          if (!open) setCookingRecipe(null);
+        }}
+        onStepViewed={(step) => {
+          if (!cookingRecipe) return;
+          track("cook_step_viewed", {
+            source: "web_plan_recipe_detail",
+            recipe_id: cookingRecipe._id,
+            step,
+          });
+        }}
+        onFinishCooking={handleFinishCookMode}
+      />
     </AppShell>
   );
 }

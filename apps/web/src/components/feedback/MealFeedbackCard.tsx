@@ -13,15 +13,24 @@ import { track } from "@/lib/analytics";
 import * as Sentry from "@sentry/nextjs";
 
 const FEEDBACK_TAGS = [
+  "loved it",
+  "it was okay",
+  "not again",
   "too spicy",
-  "too bland",
-  "kid approved",
-  "make again",
-  "too much prep",
+  "too hard",
+  "kid liked it",
+  "kid disliked it",
   "great leftovers",
-  "budget friendly",
-  "not enough food",
 ];
+
+function shouldLearnPreference(liked: boolean, tags: string[]) {
+  return (
+    !liked ||
+    tags.some((tag) =>
+      ["not again", "too spicy", "too hard", "kid disliked it"].includes(tag)
+    )
+  );
+}
 
 interface MealFeedbackCardProps {
   recipeId: Id<"recipeSuggestions">;
@@ -76,6 +85,18 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
         has_notes: notes.trim().length > 0,
         source: "meal_feedback",
       });
+      track("recipe_feedback_saved", {
+        rating,
+        liked,
+        tag_count: tags.length,
+        source: "meal_feedback",
+      });
+      if (shouldLearnPreference(liked, tags)) {
+        track("preference_learned_from_feedback", {
+          source: "meal_feedback",
+          tag_count: tags.length,
+        });
+      }
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "feedback", action: "submit", platform: "web" },
@@ -118,7 +139,9 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
           <div>
             <h3 className="font-semibold">How was dinner?</h3>
             <p className="text-sm text-muted-foreground">
-              {existing ? "Update your feedback" : "Rate this meal to improve future suggestions"}
+              {existing
+                ? "Update your feedback"
+                : "Rate this meal to improve future suggestions"}
             </p>
           </div>
           {existing && (
