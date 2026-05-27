@@ -9,6 +9,7 @@ import {
   ArrowLeftRight,
   Ban,
   BookOpen,
+  CheckSquare,
   CalendarDays,
   CheckCircle2,
   ChefHat,
@@ -18,13 +19,20 @@ import {
   Copy,
   Flame,
   Heart,
+  Home,
   ListChecks,
+  PackageCheck,
   RefreshCw,
+  Save,
   Share2,
   ShoppingCart,
   Shuffle,
+  Smile,
   Sparkles,
   UtensilsCrossed,
+  User,
+  Users,
+  Zap,
 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { OnboardingGuide } from "@/components/layout/OnboardingGuide";
@@ -49,6 +57,25 @@ import { track } from "@/lib/analytics";
 import * as Sentry from "@sentry/nextjs";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
+type ProfileDoc = Doc<"userProfiles">;
+type PlannedMeal = Doc<"plannedMeals"> & {
+  recipe: RecipeDoc;
+  alternatives: RecipeDoc[];
+};
+type MealAudience = "whole" | "me" | "selected";
+type AdjustmentType =
+  | "swap"
+  | "faster"
+  | "kid_friendly"
+  | "use_pantry"
+  | "avoid"
+  | "regenerate_day";
+type GroceryReviewItem = {
+  name: string;
+  quantity: number;
+  unit: string;
+  category: string;
+};
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const STATUS_LABELS: Record<string, string> = {
@@ -158,6 +185,77 @@ function getRecipeSourceLabel(source: RecipeDoc["source"]) {
   return "AI";
 }
 
+function getErrorMessage(err: unknown) {
+  if (err instanceof ConvexError) return err.data as string;
+  if (err instanceof Error && err.message) return err.message;
+  return "Something went wrong. Please try again.";
+}
+
+function inferGroceryCategory(name: string) {
+  const normalized = name.toLowerCase();
+
+  if (
+    normalized.includes("lettuce") ||
+    normalized.includes("tomato") ||
+    normalized.includes("potato") ||
+    normalized.includes("carrot") ||
+    normalized.includes("onion") ||
+    normalized.includes("broccoli") ||
+    normalized.includes("pepper") ||
+    normalized.includes("cucumber") ||
+    normalized.includes("avocado") ||
+    normalized.includes("mushroom") ||
+    normalized.includes("parsley") ||
+    normalized.includes("ginger") ||
+    normalized.includes("pea")
+  ) {
+    return "Produce";
+  }
+
+  if (
+    normalized.includes("beef") ||
+    normalized.includes("chicken") ||
+    normalized.includes("salmon") ||
+    normalized.includes("pork") ||
+    normalized.includes("turkey")
+  ) {
+    return "Meat";
+  }
+
+  if (
+    normalized.includes("cheese") ||
+    normalized.includes("milk") ||
+    normalized.includes("cream") ||
+    normalized.includes("egg") ||
+    normalized.includes("yogurt")
+  ) {
+    return "Dairy";
+  }
+
+  if (
+    normalized.includes("pasta") ||
+    normalized.includes("rice") ||
+    normalized.includes("noodle") ||
+    normalized.includes("bread") ||
+    normalized.includes("bun") ||
+    normalized.includes("tortilla")
+  ) {
+    return "Grains";
+  }
+
+  if (
+    normalized.includes("sauce") ||
+    normalized.includes("seasoning") ||
+    normalized.includes("oil") ||
+    normalized.includes("vinegar") ||
+    normalized.includes("spice")
+  ) {
+    return "Condiments";
+  }
+
+  return "Other";
+}
+
 export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
@@ -165,7 +263,13 @@ export default function PlanPage() {
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
+  const householdProfiles = useQuery(
+    api.queries.profiles.getProfiles,
+    currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
+  );
   const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
+  const generateMealAdjustment = useAction(api.actions.swapMeal.swapMeal);
   const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
@@ -174,6 +278,7 @@ export default function PlanPage() {
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
+  const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const { toast } = useToast();
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -192,7 +297,14 @@ export default function PlanPage() {
   const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [showAddRecipeDialog, setShowAddRecipeDialog] = useState(false);
+  const [showGroceryReview, setShowGroceryReview] = useState(false);
   const [addingToGrocery, setAddingToGrocery] = useState(false);
+  const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
+  const [selectedProfileIds, setSelectedProfileIds] = useState<Id<"userProfiles">[]>([]);
+  const [adjustingMealId, setAdjustingMealId] = useState<string | null>(null);
+  const [adjustmentPanelMealId, setAdjustmentPanelMealId] = useState<string | null>(null);
+  const [avoidText, setAvoidText] = useState("");
+  const [savedAvoidText, setSavedAvoidText] = useState("");
 
   // Week navigation
   const sortedWeeks = useMemo(() => {
@@ -253,6 +365,72 @@ export default function PlanPage() {
     );
   }, [displayPlan, recipeSuggestions, savedRecipes, selectedRecipeId, selectedRecipeSnapshot]);
   const movingMeal = displayPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
+  const audienceProfileIds = useMemo(() => {
+    if (mealAudience === "whole") return undefined;
+    if (mealAudience === "me") {
+      return currentUser?.profileId ? [currentUser.profileId] : [];
+    }
+    return selectedProfileIds;
+  }, [currentUser?.profileId, mealAudience, selectedProfileIds]);
+  const hasAudienceSelection =
+    mealAudience === "whole" || (audienceProfileIds?.length ?? 0) > 0;
+  const audienceLabel =
+    mealAudience === "whole"
+      ? "whole family"
+      : mealAudience === "me"
+        ? "just me"
+        : `${audienceProfileIds?.length ?? 0} selected`;
+  const groceryReview = useMemo(() => {
+    const missing = new Map<string, GroceryReviewItem>();
+    const pantryCovered: GroceryReviewItem[] = [];
+
+    for (const meal of (displayPlan?.meals ?? []) as PlannedMeal[]) {
+      if (meal.status !== "planned") continue;
+
+      for (const ingredient of meal.recipe.ingredients) {
+        const category = inferGroceryCategory(ingredient.name);
+
+        if (isIngredientAvailable(ingredient)) {
+          pantryCovered.push({
+            name: ingredient.name,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            category,
+          });
+          continue;
+        }
+
+        const key = `${ingredient.name.trim().toLowerCase()}::${ingredient.unit.trim().toLowerCase()}`;
+        const existing = missing.get(key);
+        missing.set(key, {
+          name: existing?.name ?? ingredient.name,
+          quantity:
+            Math.round(((existing?.quantity ?? 0) + ingredient.quantity) * 100) /
+            100,
+          unit: ingredient.unit,
+          category: existing?.category ?? category,
+        });
+      }
+    }
+
+    const missingItems = Array.from(missing.values()).sort((a, b) =>
+      a.category === b.category
+        ? a.name.localeCompare(b.name)
+        : a.category.localeCompare(b.category)
+    );
+    const groupedMissing = new Map<string, GroceryReviewItem[]>();
+
+    for (const item of missingItems) {
+      if (!groupedMissing.has(item.category)) groupedMissing.set(item.category, []);
+      groupedMissing.get(item.category)!.push(item);
+    }
+
+    return {
+      missingItems,
+      groupedMissing: Array.from(groupedMissing.entries()),
+      pantryCovered,
+    };
+  }, [displayPlan?.meals]);
 
   const openRecipeDialog = (recipe: RecipeDoc) => {
     setSelectedRecipeId(recipe._id);
@@ -269,12 +447,18 @@ export default function PlanPage() {
       setGenerateError(`You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`);
       return;
     }
+    if (!hasAudienceSelection) {
+      setGenerateError("Choose at least one eater for this plan.");
+      return;
+    }
     setIsGenerating(true);
     setGenerateError(null);
     try {
       track("meal_plan_generation_started", {
         source: displayPlan ? "regenerate" : "empty_state",
         tier: subscription?.tier ?? "unknown",
+        audience: mealAudience,
+        selected_eater_count: audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
       });
       if (currentUser?.householdId) {
         const today = new Date();
@@ -287,12 +471,16 @@ export default function PlanPage() {
         await generatePlanAI({
           weekStartDate,
           householdId: currentUser.householdId,
+          profileIds: audienceProfileIds,
         });
         track("meal_plan_generated", {
           source: "ai",
           week_start_date: weekStartDate,
           tier: subscription?.tier ?? "unknown",
+          audience: mealAudience,
+          selected_eater_count: audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
         });
+        toast(`Fresh weekly plan generated for ${audienceLabel}.`, "success");
       } else {
         await generatePlanFallback({});
         track("meal_plan_generated", {
@@ -309,11 +497,7 @@ export default function PlanPage() {
         tags: { area: "plan", action: "generate_plan", platform: "web" },
       });
       console.error("Plan generation failed:", err);
-      setGenerateError(
-        err instanceof ConvexError
-          ? (err.data as string)
-          : "Something went wrong generating your plan. Please try again."
-      );
+      setGenerateError(getErrorMessage(err));
     } finally {
       setIsGenerating(false);
     }
@@ -345,6 +529,10 @@ export default function PlanPage() {
       track("cta_clicked", {
         location: "weekly_plan",
         label: "swap_meal",
+      });
+      track("meal_swapped", {
+        source: "weekly_plan",
+        meal_id: mealId,
       });
       setSwappingMealId(null);
     } finally {
@@ -459,6 +647,115 @@ export default function PlanPage() {
     }
   };
 
+  const handleGenerateGroceries = async (source = "weekly_plan") => {
+    setIsGeneratingGrocery(true);
+    try {
+      await generateGroceryList({});
+      track("grocery_list_generated", {
+        source,
+      });
+      track("grocery_items_added_from_plan", {
+        source,
+        item_count: groceryReview.missingItems.length,
+        pantry_covered_count: groceryReview.pantryCovered.length,
+      });
+      setShowGroceryReview(false);
+      toast("Grocery list updated from your planned dinners.", "success");
+    } catch (err) {
+      track("grocery_list_generation_failed", {
+        source,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "generate_from_plan", platform: "web" },
+      });
+      toast("Failed to generate grocery list", "error");
+    } finally {
+      setIsGeneratingGrocery(false);
+    }
+  };
+
+  const handleMealAdjustment = async (
+    meal: PlannedMeal,
+    adjustmentType: AdjustmentType
+  ) => {
+    const trimmedAvoidText = avoidText.trim();
+    if (adjustmentType === "avoid" && !trimmedAvoidText) {
+      toast("Add what you want FamilyPlate to avoid first.", "error");
+      return;
+    }
+
+    setAdjustingMealId(`${meal._id}:${adjustmentType}`);
+    try {
+      track("plan_adjustment_started", {
+        adjustment_type: adjustmentType,
+        meal_id: meal._id,
+        has_avoid_text: !!trimmedAvoidText,
+      });
+
+      const result = await generateMealAdjustment({
+        mealId: meal._id,
+        adjustmentType,
+        avoidText: adjustmentType === "avoid" ? trimmedAvoidText : undefined,
+      });
+
+      if (adjustmentType === "regenerate_day") {
+        track("plan_regenerated", {
+          source: "weekly_plan",
+          meal_id: meal._id,
+        });
+        toast(
+          result.appliedRecipeTitle
+            ? `Regenerated ${formatDateLabel(meal.date)}: ${result.appliedRecipeTitle}.`
+            : "Dinner regenerated for that day.",
+          "success"
+        );
+        setAdjustmentPanelMealId(null);
+      } else {
+        toast("Fresh alternatives are ready below.", "success");
+        setSwappingMealId(meal._id);
+      }
+    } catch (err) {
+      track("meal_plan_generation_failed", {
+        source: "meal_adjustment",
+        adjustment_type: adjustmentType,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "adjust_meal", platform: "web" },
+      });
+      toast(getErrorMessage(err), "error");
+    } finally {
+      setAdjustingMealId(null);
+    }
+  };
+
+  const handleSaveAvoidPreference = async () => {
+    const trimmed = avoidText.trim();
+    if (!trimmed || !myProfile) return;
+
+    try {
+      const nextDislikes = Array.from(
+        new Set([...(myProfile.dislikes ?? []), trimmed])
+      );
+      await updateProfile({
+        profileId: myProfile._id,
+        dislikes: nextDislikes,
+      });
+      track("preference_saved_from_feedback", {
+        source: "plan_adjustment",
+        preference_type: "dislike",
+      });
+      setSavedAvoidText(trimmed);
+      toast(`Saved "${trimmed}" to your dislikes for future plans.`, "success");
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "profile", action: "save_avoid_preference", platform: "web" },
+      });
+      toast(getErrorMessage(err), "error");
+    }
+  };
+
   const handleCustomRecipeCreated = () => {
     setActiveTab("cookbook");
   };
@@ -474,7 +771,12 @@ export default function PlanPage() {
               : "Dinner planning"
           }
           action={
-            <Button size="sm" onClick={() => displayPlan ? setShowRegenConfirm(true) : void handleGeneratePlan()} disabled={isGenerating} className="gap-2">
+            <Button
+              size="sm"
+              onClick={() => displayPlan ? setShowRegenConfirm(true) : void handleGeneratePlan()}
+              disabled={isGenerating || !hasAudienceSelection}
+              className="gap-2"
+            >
               {isGenerating ? (
                 <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
@@ -517,6 +819,28 @@ export default function PlanPage() {
             </p>
           </div>
         )}
+
+        <MealAudienceCard
+          members={householdProfiles ?? []}
+          currentProfileId={currentUser?.profileId ?? null}
+          audience={mealAudience}
+          selectedProfileIds={selectedProfileIds}
+          onChangeAudience={(value) => {
+            setMealAudience(value);
+            setGenerateError(null);
+            if (value !== "selected") {
+              setSelectedProfileIds([]);
+            }
+          }}
+          onToggleProfile={(profileId) => {
+            setGenerateError(null);
+            setSelectedProfileIds((current) =>
+              current.includes(profileId)
+                ? current.filter((id) => id !== profileId)
+                : [...current, profileId]
+            );
+          }}
+        />
 
         {/* Move mode banner */}
         {movingMealId && (
@@ -607,30 +931,10 @@ export default function PlanPage() {
                 size="sm"
                 className="flex-1 gap-2"
                 disabled={isGeneratingGrocery}
-                onClick={async () => {
-                  setIsGeneratingGrocery(true);
-                  try {
-                    await generateGroceryList({});
-                    track("grocery_list_generated", {
-                      source: "weekly_plan",
-                    });
-                    toast("Grocery list generated!", "success");
-                  } catch (err) {
-                    track("grocery_list_generation_failed", {
-                      source: "weekly_plan",
-                      reason: err instanceof Error ? err.message : "unknown",
-                    });
-                    Sentry.captureException(err, {
-                      tags: { area: "grocery", action: "generate_from_plan", platform: "web" },
-                    });
-                    toast("Failed to generate grocery list", "error");
-                  } finally {
-                    setIsGeneratingGrocery(false);
-                  }
-                }}
+                onClick={() => setShowGroceryReview(true)}
               >
                 <ListChecks className="h-4 w-4" />
-                {isGeneratingGrocery ? "Generating..." : "Grocery List"}
+                {isGeneratingGrocery ? "Generating..." : "Review Groceries"}
               </Button>
               </div>
             </div>
@@ -679,11 +983,14 @@ export default function PlanPage() {
                     );
                   }
 
-                  const swapOptions = recipePool.filter(
-                    (recipe) => recipe._id !== meal.recipe._id
-                  );
+                  const plannedMeal = meal as PlannedMeal;
+                  const swapOptions =
+                    plannedMeal.alternatives.length > 0
+                      ? plannedMeal.alternatives
+                      : recipePool.filter((recipe) => recipe._id !== meal.recipe._id);
                   const isBusy = busyMealId === meal._id;
                   const isSwapOpen = swappingMealId === meal._id;
+                  const isAdjustOpen = adjustmentPanelMealId === meal._id;
                   const isMoveSource = movingMealId === meal._id;
                   const canMoveMeal =
                     meal.status !== "cooked" && displayPlan.meals.length > 1;
@@ -802,11 +1109,27 @@ export default function PlanPage() {
                             <button
                               onClick={() => {
                                 setMovingMealId(null);
+                                setAdjustmentPanelMealId(null);
                                 setSwappingMealId(isSwapOpen ? null : meal._id);
                               }}
                               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted/60 transition-colors"
                             >
                               <Shuffle className="h-3 w-3" />
+                            </button>
+                          )}
+                          {meal.status !== "cooked" && (
+                            <button
+                              onClick={() => {
+                                setMovingMealId(null);
+                                setSwappingMealId(null);
+                                setAdjustmentPanelMealId(isAdjustOpen ? null : meal._id);
+                              }}
+                              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                                isAdjustOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"
+                              }`}
+                              aria-label="Adjust dinner"
+                            >
+                              <Sparkles className="h-3 w-3" />
                             </button>
                           )}
                           <button
@@ -826,7 +1149,9 @@ export default function PlanPage() {
                         {/* Swap panel */}
                         {isSwapOpen && canSwapMeal && (
                           <div className="border-t bg-muted/20 px-3 py-3 animate-fade-in">
-                            <p className="text-xs font-medium text-muted-foreground mb-2">Swap with:</p>
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                              {plannedMeal.alternatives.length > 0 ? "Fresh alternatives:" : "Swap with:"}
+                            </p>
                             <div className="grid gap-1.5">
                               {swapOptions.slice(0, 4).map((recipe) => (
                                 <button
@@ -847,6 +1172,19 @@ export default function PlanPage() {
                               ))}
                             </div>
                           </div>
+                        )}
+
+                        {isAdjustOpen && (
+                          <MealAdjustmentPanel
+                            meal={plannedMeal}
+                            adjustingMealId={adjustingMealId}
+                            avoidText={avoidText}
+                            savedAvoidText={savedAvoidText}
+                            canSaveAvoidPreference={!!myProfile && avoidText.trim().length > 0}
+                            onChangeAvoidText={setAvoidText}
+                            onAdjustMeal={handleMealAdjustment}
+                            onSaveAvoidPreference={handleSaveAvoidPreference}
+                          />
                         )}
                       </CardContent>
                     </Card>
@@ -1021,6 +1359,15 @@ export default function PlanPage() {
         open={showAddRecipeDialog}
         onOpenChange={setShowAddRecipeDialog}
         onCreated={handleCustomRecipeCreated}
+      />
+
+      <GroceryReviewDialog
+        open={showGroceryReview}
+        onOpenChange={setShowGroceryReview}
+        missingGroups={groceryReview.groupedMissing}
+        pantryCoveredCount={groceryReview.pantryCovered.length}
+        isGenerating={isGeneratingGrocery}
+        onGenerate={() => void handleGenerateGroceries("plan_review_dialog")}
       />
 
       <Dialog
@@ -1204,6 +1551,380 @@ export default function PlanPage() {
         </DialogContent>
       </Dialog>
     </AppShell>
+  );
+}
+
+function MealAudienceCard({
+  members,
+  currentProfileId,
+  audience,
+  selectedProfileIds,
+  onChangeAudience,
+  onToggleProfile,
+}: {
+  members: ProfileDoc[];
+  currentProfileId: Id<"userProfiles"> | null;
+  audience: MealAudience;
+  selectedProfileIds: Id<"userProfiles">[];
+  onChangeAudience: (value: MealAudience) => void;
+  onToggleProfile: (profileId: Id<"userProfiles">) => void;
+}) {
+  const selectedCount =
+    audience === "whole"
+      ? members.length
+      : audience === "me"
+        ? currentProfileId
+          ? 1
+          : 0
+        : selectedProfileIds.length;
+
+  return (
+    <Card className="overflow-hidden border-dashed bg-muted/20">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-semibold">Who is this plan for?</h3>
+              <Badge variant="secondary">{selectedCount} selected</Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              FamilyPlate merges allergies, dislikes, and preferences only for the eaters you choose.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <AudienceButton
+            label="Family"
+            icon={<Home className="h-4 w-4" />}
+            active={audience === "whole"}
+            onClick={() => onChangeAudience("whole")}
+          />
+          <AudienceButton
+            label="Me"
+            icon={<User className="h-4 w-4" />}
+            active={audience === "me"}
+            onClick={() => onChangeAudience("me")}
+          />
+          <AudienceButton
+            label="Pick"
+            icon={<CheckSquare className="h-4 w-4" />}
+            active={audience === "selected"}
+            onClick={() => onChangeAudience("selected")}
+          />
+        </div>
+
+        {audience === "selected" ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {members.length > 0 ? (
+              members.map((member) => {
+                const selected = selectedProfileIds.includes(member._id);
+                return (
+                  <button
+                    key={member._id}
+                    type="button"
+                    onClick={() => onToggleProfile(member._id)}
+                    className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                      selected
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold ${
+                        selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                      }`}
+                    >
+                      {member.name[0]?.toUpperCase() ?? "?"}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{member.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {member.isChild ? "Kid" : "Adult"} · {member.allergies.length} allergies · {member.dislikes.length} dislikes
+                      </p>
+                    </div>
+                    <CheckCircle2 className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground/35"}`} />
+                  </button>
+                );
+              })
+            ) : (
+              <p className="rounded-xl bg-background p-3 text-sm text-muted-foreground">
+                Add eater profiles in Settings to plan for selected people.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-background p-3 text-sm text-muted-foreground">
+            {audience === "whole"
+              ? "Planning will include every household eater profile."
+              : "Planning will use your own profile only."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AudienceButton({
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background text-muted-foreground hover:bg-muted/40"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function MealAdjustmentPanel({
+  meal,
+  adjustingMealId,
+  avoidText,
+  savedAvoidText,
+  canSaveAvoidPreference,
+  onChangeAvoidText,
+  onAdjustMeal,
+  onSaveAvoidPreference,
+}: {
+  meal: PlannedMeal;
+  adjustingMealId: string | null;
+  avoidText: string;
+  savedAvoidText: string;
+  canSaveAvoidPreference: boolean;
+  onChangeAvoidText: (value: string) => void;
+  onAdjustMeal: (meal: PlannedMeal, adjustmentType: AdjustmentType) => Promise<void>;
+  onSaveAvoidPreference: () => Promise<void>;
+}) {
+  const disabled = !!adjustingMealId || meal.status === "cooked";
+
+  return (
+    <div className="border-t bg-muted/20 px-3 py-3 animate-fade-in">
+      <div className="mb-3 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <p className="text-sm font-semibold">Adjust this dinner</p>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <AdjustmentButton
+          label="Swap"
+          icon={<Shuffle className="h-3.5 w-3.5" />}
+          busy={adjustingMealId === `${meal._id}:swap`}
+          disabled={disabled}
+          onClick={() => void onAdjustMeal(meal, "swap")}
+        />
+        <AdjustmentButton
+          label="Faster"
+          icon={<Zap className="h-3.5 w-3.5" />}
+          busy={adjustingMealId === `${meal._id}:faster`}
+          disabled={disabled}
+          onClick={() => void onAdjustMeal(meal, "faster")}
+        />
+        <AdjustmentButton
+          label="Kid"
+          icon={<Smile className="h-3.5 w-3.5" />}
+          busy={adjustingMealId === `${meal._id}:kid_friendly`}
+          disabled={disabled}
+          onClick={() => void onAdjustMeal(meal, "kid_friendly")}
+        />
+        <AdjustmentButton
+          label="Pantry"
+          icon={<PackageCheck className="h-3.5 w-3.5" />}
+          busy={adjustingMealId === `${meal._id}:use_pantry`}
+          disabled={disabled}
+          onClick={() => void onAdjustMeal(meal, "use_pantry")}
+        />
+        <AdjustmentButton
+          label="Regen"
+          icon={<RefreshCw className="h-3.5 w-3.5" />}
+          busy={adjustingMealId === `${meal._id}:regenerate_day`}
+          disabled={disabled}
+          onClick={() => void onAdjustMeal(meal, "regenerate_day")}
+        />
+      </div>
+
+      <div className="mt-3 rounded-xl bg-background p-3">
+        <label className="text-sm font-semibold" htmlFor={`avoid-${meal._id}`}>
+          Avoid something next time
+        </label>
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+          <input
+            id={`avoid-${meal._id}`}
+            value={avoidText}
+            onChange={(event) => onChangeAvoidText(event.target.value)}
+            placeholder="Example: beef, spicy meals, casseroles"
+            className="h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none ring-offset-background transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            disabled={!!adjustingMealId}
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={disabled || avoidText.trim().length === 0}
+            onClick={() => void onAdjustMeal(meal, "avoid")}
+            className="gap-2"
+          >
+            <Ban className="h-3.5 w-3.5" />
+            Adjust
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canSaveAvoidPreference || savedAvoidText === avoidText.trim()}
+            onClick={() => void onSaveAvoidPreference()}
+            className="gap-2"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {savedAvoidText === avoidText.trim() ? "Saved" : "Save dislike"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdjustmentButton({
+  label,
+  icon,
+  busy,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  busy: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex items-center justify-center gap-1.5 rounded-xl border bg-background px-2 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {busy ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : icon}
+      {label}
+    </button>
+  );
+}
+
+function GroceryReviewDialog({
+  open,
+  onOpenChange,
+  missingGroups,
+  pantryCoveredCount,
+  isGenerating,
+  onGenerate,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  missingGroups: [string, GroceryReviewItem[]][];
+  pantryCoveredCount: number;
+  isGenerating: boolean;
+  onGenerate: () => void;
+}) {
+  const missingCount = missingGroups.reduce(
+    (count, [, items]) => count + items.length,
+    0
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>Grocery Review</DialogTitle>
+          <DialogDescription>
+            FamilyPlate will add missing planned-dinner ingredients and leave pantry-covered items out.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-muted/50 p-4">
+            <p className="text-2xl font-bold">{missingCount}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">To buy</p>
+          </div>
+          <div className="rounded-xl bg-muted/50 p-4">
+            <p className="text-2xl font-bold">{pantryCoveredCount}</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">In pantry</p>
+          </div>
+        </div>
+
+        {missingGroups.length === 0 ? (
+          <div className="rounded-xl border bg-muted/20 p-5 text-center">
+            <CheckCircle2 className="mx-auto h-7 w-7 text-primary" />
+            <h3 className="mt-2 font-semibold">Pantry covers this plan</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              No missing ingredients were found for planned dinners.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {missingGroups.map(([category, items]) => (
+              <div key={category}>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                    {category}
+                  </p>
+                  <Badge variant="secondary">{items.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <div
+                      key={`${item.name}-${item.unit}`}
+                      className="flex items-center gap-3 rounded-xl bg-muted/30 px-3 py-2.5"
+                    >
+                      <ShoppingCart className="h-4 w-4 text-primary" />
+                      <p className="text-sm font-medium">
+                        {item.quantity} {item.unit} {item.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex gap-2 pt-1">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            disabled={isGenerating}
+            onClick={() => onOpenChange(false)}
+          >
+            Not Now
+          </Button>
+          <Button
+            type="button"
+            className="flex-1 gap-2"
+            disabled={isGenerating || missingCount === 0}
+            onClick={onGenerate}
+          >
+            {isGenerating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+            {isGenerating ? "Adding..." : "Add to Grocery"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
