@@ -1,5 +1,4 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const { withSentryConfig } = require("@sentry/react-native/metro");
 const { withNativeWind } = require("nativewind/metro");
 const path = require("node:path");
 
@@ -35,6 +34,4 @@ config.resolver.extraNodeModules = {
 // keeps workspace package resolution predictable.
 config.resolver.disableHierarchicalLookup = true;
 
-module.exports = withSentryConfig(
-  withNativeWind(config, { input: "./global.css" }),
-);
+module.exports = withNativeWind(config, { input: "./global.css" });
