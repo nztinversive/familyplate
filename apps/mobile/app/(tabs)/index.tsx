@@ -498,6 +498,14 @@ export default function PantryScreen() {
         <SnapGroceries
           onClose={() => setShowSnapGroceries(false)}
           onAdd={handleSnapAdd}
+          onManualAdd={() => {
+            setShowSnapGroceries(false);
+            openAdd();
+          }}
+          onScanBarcode={() => {
+            setShowSnapGroceries(false);
+            setShowScanner(true);
+          }}
         />
       </Modal>
     </SafeAreaView>

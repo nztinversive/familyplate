@@ -4,13 +4,19 @@ import { ConvexError, v } from "convex/values";
 import { internal as api } from "../_generated/api";
 import { action } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { daysUntilExpiration, sortPantryItemsForPrompt } from "../lib/mealPlanning";
+import {
+  daysUntilExpiration,
+  sortPantryItemsForPrompt,
+} from "../lib/mealPlanning";
 import {
   generateStructuredJson,
   type RawRecipe,
   sanitizeRecipe,
 } from "../lib/openaiMealPlanner";
-import { checkRecipeForDislikes, filterRecipeIngredientsForHouseholdSafety } from "../lib/recipeSafety";
+import {
+  checkRecipeForDislikes,
+  filterRecipeIngredientsForHouseholdSafety,
+} from "../lib/recipeSafety";
 
 const recipeSchema = {
   type: "object",
@@ -105,8 +111,7 @@ type MealAdjustmentType =
   | "regenerate_day";
 
 const ADJUSTMENT_PROMPTS: Record<MealAdjustmentType, string> = {
-  swap:
-    "Generate broadly appealing replacement dinners for this slot.",
+  swap: "Generate broadly appealing replacement dinners for this slot.",
   faster:
     "Prioritize faster dinners. Prefer 25 minutes or less, minimal prep, and easy cleanup.",
   kid_friendly:
@@ -129,8 +134,8 @@ export const swapMeal: ReturnType<typeof action> = action({
         v.literal("kid_friendly"),
         v.literal("use_pantry"),
         v.literal("avoid"),
-        v.literal("regenerate_day")
-      )
+        v.literal("regenerate_day"),
+      ),
     ),
     avoidText: v.optional(v.string()),
   },
@@ -140,7 +145,7 @@ export const swapMeal: ReturnType<typeof action> = action({
       mealId: Id<"plannedMeals">;
       adjustmentType?: MealAdjustmentType;
       avoidText?: string;
-    }
+    },
   ): Promise<{ mealId: Id<"plannedMeals">; appliedRecipeTitle?: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -149,26 +154,37 @@ export const swapMeal: ReturnType<typeof action> = action({
 
     try {
       const authId = userId as string;
-      const context = await ctx.runQuery(api.internal.planner.getMealSwapContext, {
-        authId,
-        mealId: args.mealId,
-      }) as SwapContext;
+      const context = (await ctx.runQuery(
+        api.internal.planner.getMealSwapContext,
+        {
+          authId,
+          mealId: args.mealId,
+        },
+      )) as SwapContext;
+
+      if (context.meal.status === "cooked") {
+        throw new ConvexError(
+          "Cooked dinners are locked to preserve pantry history.",
+        );
+      }
 
       // Fetch feedback history for smarter suggestions
-      const feedbackSummary = await ctx.runQuery(
+      const feedbackSummary = (await ctx.runQuery(
         api.internal.planner.getHouseholdFeedbackSummary,
-        { householdId: context.household._id }
-      ) as { summary: string; favorites: string[]; disliked: string[] };
+        { householdId: context.household._id },
+      )) as { summary: string; favorites: string[]; disliked: string[] };
 
       const pantryItems = sortPantryItemsForPrompt<PantryForPrompt>(
-        context.pantryItems as PantryForPrompt[]
+        context.pantryItems as PantryForPrompt[],
       );
       const adjustmentType = args.adjustmentType ?? "swap";
       const avoidText = args.avoidText?.trim();
       const householdSize = Math.max(context.profiles.length, 1);
       const otherMeals = context.plannedMeals
         .filter((meal: PlannedSwapMeal) => meal._id !== context.meal._id)
-        .map((meal) => `- ${meal.date}: ${meal.recipeTitle ?? "Unknown dinner"}`)
+        .map(
+          (meal) => `- ${meal.date}: ${meal.recipeTitle ?? "Unknown dinner"}`,
+        )
         .join("\n");
 
       const pantrySummary =
@@ -197,7 +213,9 @@ export const swapMeal: ReturnType<typeof action> = action({
               ? profile.dietaryPreferences.join(", ")
               : "none";
           const allergies =
-            profile.allergies.length > 0 ? profile.allergies.join(", ") : "none";
+            profile.allergies.length > 0
+              ? profile.allergies.join(", ")
+              : "none";
           const dislikes =
             profile.dislikes.length > 0 ? profile.dislikes.join(", ") : "none";
 
@@ -260,11 +278,16 @@ export const swapMeal: ReturnType<typeof action> = action({
                 "Use feedback to guide choices: lean toward styles similar to favorites, avoid styles similar to disliked meals.",
               ]
             : []),
-        ].filter(Boolean).join("\n"),
+        ]
+          .filter(Boolean)
+          .join("\n"),
       });
 
-      if (!Array.isArray(response.alternatives) || response.alternatives.length !== 3) {
-        throw new Error("OpenAI did not return three alternatives.");
+      if (
+        !Array.isArray(response.alternatives) ||
+        response.alternatives.length === 0
+      ) {
+        throw new Error("OpenAI did not return replacement dinners.");
       }
 
       // Collect all household allergies and dislikes for server-side enforcement
@@ -273,8 +296,8 @@ export const swapMeal: ReturnType<typeof action> = action({
           context.profiles
             .flatMap((p: MealProfile) => p.allergies ?? [])
             .map((a: string) => a.toLowerCase().trim())
-            .filter(Boolean)
-        )
+            .filter(Boolean),
+        ),
       );
 
       const allDislikes = Array.from(
@@ -282,13 +305,19 @@ export const swapMeal: ReturnType<typeof action> = action({
           context.profiles
             .flatMap((p: MealProfile) => p.dislikes ?? [])
             .map((d: string) => d.toLowerCase().trim())
-            .filter(Boolean)
-        )
+            .filter(Boolean),
+        ),
       );
 
-      const alternatives = response.alternatives
-        .map((alternative) => {
-          const sanitized = sanitizeRecipe(alternative, pantryItems, householdSize);
+      const alternatives: Array<ReturnType<typeof sanitizeRecipe>> = [];
+
+      for (const alternative of response.alternatives) {
+        try {
+          const sanitized = sanitizeRecipe(
+            alternative,
+            pantryItems,
+            householdSize,
+          );
           const safeAlternative = filterRecipeIngredientsForHouseholdSafety({
             recipeName: sanitized.name,
             ingredients: sanitized.ingredients,
@@ -297,19 +326,28 @@ export const swapMeal: ReturnType<typeof action> = action({
             contextLabel: "swap alternative",
           });
 
-          return {
+          const preparedAlternative = {
             ...sanitized,
             ...safeAlternative,
           };
-        })
-        .filter((alt) => {
-          const dislikeHits = checkRecipeForDislikes(alt.name, alt.ingredients, allDislikes);
+
+          const dislikeHits = checkRecipeForDislikes(
+            preparedAlternative.name,
+            preparedAlternative.ingredients,
+            allDislikes,
+          );
           if (dislikeHits.length > 0) {
-            console.warn(`Dropping swap alternative "${alt.name}" — contains dislikes: ${dislikeHits.join(", ")}`);
-            return false;
+            console.warn(
+              `Dropping swap alternative "${preparedAlternative.name}" — contains dislikes: ${dislikeHits.join(", ")}`,
+            );
+            continue;
           }
-          return true;
-        });
+
+          alternatives.push(preparedAlternative);
+        } catch (error) {
+          console.warn("Dropping invalid swap alternative", error);
+        }
+      }
 
       if (alternatives.length === 0) {
         throw new Error("No safe alternatives were returned.");
@@ -322,7 +360,7 @@ export const swapMeal: ReturnType<typeof action> = action({
             mealId: args.mealId,
             primary: alternatives[0],
             alternatives: alternatives.slice(1, 3),
-          }
+          },
         );
 
         return {
@@ -342,7 +380,9 @@ export const swapMeal: ReturnType<typeof action> = action({
     } catch (error) {
       if (error instanceof ConvexError) throw error;
       console.error("swapMeal failed", error);
-      throw new ConvexError("Unable to refresh dinner options right now. Please try again.");
+      throw new ConvexError(
+        "Unable to refresh dinner options right now. Please try again.",
+      );
     }
   },
 });

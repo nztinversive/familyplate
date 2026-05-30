@@ -145,11 +145,27 @@ function getEffortIcon(level: string) {
 
 function getRecipeGradient(tags: string[]) {
   const t = tags.join(" ").toLowerCase();
-  if (t.includes("asian") || t.includes("stir") || t.includes("thai") || t.includes("chinese") || t.includes("japanese"))
+  if (
+    t.includes("asian") ||
+    t.includes("stir") ||
+    t.includes("thai") ||
+    t.includes("chinese") ||
+    t.includes("japanese")
+  )
     return "bg-gradient-to-br from-red-400/30 via-orange-300/20 to-yellow-200/30";
-  if (t.includes("italian") || t.includes("pasta") || t.includes("pizza") || t.includes("mediterranean"))
+  if (
+    t.includes("italian") ||
+    t.includes("pasta") ||
+    t.includes("pizza") ||
+    t.includes("mediterranean")
+  )
     return "bg-gradient-to-br from-green-400/25 via-red-300/15 to-yellow-200/25";
-  if (t.includes("mexican") || t.includes("taco") || t.includes("burrito") || t.includes("latin"))
+  if (
+    t.includes("mexican") ||
+    t.includes("taco") ||
+    t.includes("burrito") ||
+    t.includes("latin")
+  )
     return "bg-gradient-to-br from-yellow-400/30 via-red-400/20 to-green-300/25";
   if (t.includes("indian") || t.includes("curry") || t.includes("spic"))
     return "bg-gradient-to-br from-orange-400/30 via-yellow-300/20 to-red-300/25";
@@ -157,7 +173,12 @@ function getRecipeGradient(tags: string[]) {
     return "bg-gradient-to-br from-blue-300/25 via-cyan-200/20 to-teal-200/25";
   if (t.includes("comfort") || t.includes("soup") || t.includes("stew"))
     return "bg-gradient-to-br from-amber-300/30 via-orange-200/20 to-yellow-100/25";
-  if (t.includes("salad") || t.includes("healthy") || t.includes("vegetarian") || t.includes("vegan"))
+  if (
+    t.includes("salad") ||
+    t.includes("healthy") ||
+    t.includes("vegetarian") ||
+    t.includes("vegan")
+  )
     return "bg-gradient-to-br from-emerald-300/25 via-green-200/20 to-lime-200/25";
   if (t.includes("bbq") || t.includes("grill"))
     return "bg-gradient-to-br from-red-500/25 via-orange-400/20 to-amber-300/25";
@@ -166,7 +187,13 @@ function getRecipeGradient(tags: string[]) {
 
 function getRecipeEmoji(tags: string[]) {
   const t = tags.join(" ").toLowerCase();
-  if (t.includes("asian") || t.includes("stir") || t.includes("chinese") || t.includes("japanese")) return "🍜";
+  if (
+    t.includes("asian") ||
+    t.includes("stir") ||
+    t.includes("chinese") ||
+    t.includes("japanese")
+  )
+    return "🍜";
   if (t.includes("italian") || t.includes("pasta")) return "🍝";
   if (t.includes("pizza")) return "🍕";
   if (t.includes("mexican") || t.includes("taco")) return "🌮";
@@ -260,7 +287,10 @@ function inferGroceryCategory(name: string) {
 
 export default function PlanPage() {
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
-  const recipeSuggestions = useQuery(api.queries.planner.getMyRecipeSuggestions, {});
+  const recipeSuggestions = useQuery(
+    api.queries.planner.getMyRecipeSuggestions,
+    {},
+  );
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
@@ -268,17 +298,25 @@ export default function PlanPage() {
   const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
   const householdProfiles = useQuery(
     api.queries.profiles.getProfiles,
-    currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
+    currentUser?.householdId
+      ? { householdId: currentUser.householdId }
+      : "skip",
   );
-  const generatePlanAI = useAction(api.actions.generateMealPlan.generateMealPlan);
+  const generatePlanAI = useAction(
+    api.actions.generateMealPlan.generateMealPlan,
+  );
   const generateMealAdjustment = useAction(api.actions.swapMeal.swapMeal);
-  const generatePlanFallback = useMutation(api.mutations.planner.generatePlaceholderPlan);
+  const generatePlanFallback = useMutation(
+    api.mutations.planner.generatePlaceholderPlan,
+  );
   const updateMealStatus = useMutation(api.mutations.planner.updateMealStatus);
   const swapMeal = useMutation(api.mutations.planner.swapMeal);
   const swapMealDates = useMutation(api.mutations.planner.swapMealDates);
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
-  const generateGroceryList = useMutation(api.mutations.grocery.generateFromPlan);
+  const generateGroceryList = useMutation(
+    api.mutations.grocery.generateFromPlan,
+  );
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
@@ -290,13 +328,16 @@ export default function PlanPage() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [busyMealId, setBusyMealId] = useState<string | null>(null);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
-  const [movingMealId, setMovingMealId] = useState<Id<"plannedMeals"> | null>(null);
-  const [savingRecipeId, setSavingRecipeId] = useState<Id<"recipeSuggestions"> | null>(null);
-  const [activeTab, setActiveTab] = useState("week");
-  const [selectedRecipeId, setSelectedRecipeId] = useState<Id<"recipeSuggestions"> | null>(
-    null
+  const [movingMealId, setMovingMealId] = useState<Id<"plannedMeals"> | null>(
+    null,
   );
-  const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] = useState<RecipeDoc | null>(null);
+  const [savingRecipeId, setSavingRecipeId] =
+    useState<Id<"recipeSuggestions"> | null>(null);
+  const [activeTab, setActiveTab] = useState("week");
+  const [selectedRecipeId, setSelectedRecipeId] =
+    useState<Id<"recipeSuggestions"> | null>(null);
+  const [selectedRecipeSnapshot, setSelectedRecipeSnapshot] =
+    useState<RecipeDoc | null>(null);
   const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const [showRegenConfirm, setShowRegenConfirm] = useState(false);
   const [showAddRecipeDialog, setShowAddRecipeDialog] = useState(false);
@@ -305,21 +346,27 @@ export default function PlanPage() {
   const [isFinishingCookMode, setIsFinishingCookMode] = useState(false);
   const [addingToGrocery, setAddingToGrocery] = useState(false);
   const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
-  const [selectedProfileIds, setSelectedProfileIds] = useState<Id<"userProfiles">[]>([]);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<
+    Id<"userProfiles">[]
+  >([]);
   const [adjustingMealId, setAdjustingMealId] = useState<string | null>(null);
-  const [adjustmentPanelMealId, setAdjustmentPanelMealId] = useState<string | null>(null);
+  const [adjustmentPanelMealId, setAdjustmentPanelMealId] = useState<
+    string | null
+  >(null);
   const [avoidText, setAvoidText] = useState("");
   const [savedAvoidText, setSavedAvoidText] = useState("");
 
   // Week navigation
   const sortedWeeks = useMemo(() => {
-    return (mealPlanWeeks ?? []).sort((a, b) => b.weekStartDate.localeCompare(a.weekStartDate));
+    return (mealPlanWeeks ?? []).sort((a, b) =>
+      b.weekStartDate.localeCompare(a.weekStartDate),
+    );
   }, [mealPlanWeeks]);
   const viewingWeekDate = sortedWeeks[viewingWeekIndex]?.weekStartDate ?? null;
   const viewingPastWeek = viewingWeekIndex > 0 && viewingWeekDate;
   const pastWeekPlan = useQuery(
     api.queries.planner.getMyMealPlanByWeek,
-    viewingPastWeek ? { weekStartDate: viewingWeekDate } : "skip"
+    viewingPastWeek ? { weekStartDate: viewingWeekDate } : "skip",
   );
   const activeMealPlan = viewingPastWeek ? pastWeekPlan : mealPlan;
   const canGoBack = viewingWeekIndex < sortedWeeks.length - 1;
@@ -327,19 +374,23 @@ export default function PlanPage() {
 
   const isSelectedRecipeSaved = useQuery(
     api.queries.savedRecipes.isRecipeSaved,
-    selectedRecipeId ? { recipeId: selectedRecipeId } : "skip"
+    selectedRecipeId ? { recipeId: selectedRecipeId } : "skip",
   );
 
   // Use activeMealPlan for display (supports past week navigation)
   const displayPlan = activeMealPlan;
-  const cookedCount = displayPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
+  const cookedCount =
+    displayPlan?.meals.filter((m) => m.status === "cooked").length ?? 0;
   const totalMeals = displayPlan?.meals.length ?? 7;
-  const progressPct = totalMeals > 0 ? Math.round((cookedCount / totalMeals) * 100) : 0;
+  const progressPct =
+    totalMeals > 0 ? Math.round((cookedCount / totalMeals) * 100) : 0;
 
   const weekSchedule = useMemo(() => {
     if (!displayPlan?.plan) return [];
 
-    const mealsByDate = new Map(displayPlan.meals.map((meal) => [meal.date, meal]));
+    const mealsByDate = new Map(
+      displayPlan.meals.map((meal) => [meal.date, meal]),
+    );
     const weekStart = parseDate(displayPlan.plan.weekStartDate);
 
     return Array.from({ length: 7 }, (_, index) => {
@@ -354,8 +405,12 @@ export default function PlanPage() {
     });
   }, [displayPlan]);
 
-  const usedRecipeIds = new Set(displayPlan?.meals.map((m) => m.recipe._id) ?? []);
-  const recipePool = (recipeSuggestions ?? []).filter((r) => !usedRecipeIds.has(r._id));
+  const usedRecipeIds = new Set(
+    displayPlan?.meals.map((m) => m.recipe._id) ?? [],
+  );
+  const recipePool = (recipeSuggestions ?? []).filter(
+    (r) => !usedRecipeIds.has(r._id),
+  );
   const cookbookRecipes = savedRecipes ?? [];
   const selectedRecipe = useMemo(() => {
     if (!selectedRecipeId) {
@@ -363,13 +418,25 @@ export default function PlanPage() {
     }
 
     return (
-      displayPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)?.recipe ??
+      displayPlan?.meals.find((meal) => meal.recipe._id === selectedRecipeId)
+        ?.recipe ??
       recipeSuggestions?.find((recipe) => recipe._id === selectedRecipeId) ??
-      savedRecipes?.find((savedRecipe) => savedRecipe.recipe._id === selectedRecipeId)?.recipe ??
-      (selectedRecipeSnapshot?._id === selectedRecipeId ? selectedRecipeSnapshot : null)
+      savedRecipes?.find(
+        (savedRecipe) => savedRecipe.recipe._id === selectedRecipeId,
+      )?.recipe ??
+      (selectedRecipeSnapshot?._id === selectedRecipeId
+        ? selectedRecipeSnapshot
+        : null)
     );
-  }, [displayPlan, recipeSuggestions, savedRecipes, selectedRecipeId, selectedRecipeSnapshot]);
-  const movingMeal = displayPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
+  }, [
+    displayPlan,
+    recipeSuggestions,
+    savedRecipes,
+    selectedRecipeId,
+    selectedRecipeSnapshot,
+  ]);
+  const movingMeal =
+    displayPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
   const audienceProfileIds = useMemo(() => {
     if (mealAudience === "whole") return undefined;
     if (mealAudience === "me") {
@@ -410,8 +477,9 @@ export default function PlanPage() {
         missing.set(key, {
           name: existing?.name ?? ingredient.name,
           quantity:
-            Math.round(((existing?.quantity ?? 0) + ingredient.quantity) * 100) /
-            100,
+            Math.round(
+              ((existing?.quantity ?? 0) + ingredient.quantity) * 100,
+            ) / 100,
           unit: ingredient.unit,
           category: existing?.category ?? category,
         });
@@ -421,12 +489,13 @@ export default function PlanPage() {
     const missingItems = Array.from(missing.values()).sort((a, b) =>
       a.category === b.category
         ? a.name.localeCompare(b.name)
-        : a.category.localeCompare(b.category)
+        : a.category.localeCompare(b.category),
     );
     const groupedMissing = new Map<string, GroceryReviewItem[]>();
 
     for (const item of missingItems) {
-      if (!groupedMissing.has(item.category)) groupedMissing.set(item.category, []);
+      if (!groupedMissing.has(item.category))
+        groupedMissing.set(item.category, []);
       groupedMissing.get(item.category)!.push(item);
     }
 
@@ -449,7 +518,9 @@ export default function PlanPage() {
 
   const handleGeneratePlan = async () => {
     if (subscription && !subscription.canGenerate) {
-      setGenerateError(`You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`);
+      setGenerateError(
+        `You've used ${subscription.plansUsed}/${subscription.plansLimit} free plans this month. Upgrade to Family for unlimited plans.`,
+      );
       return;
     }
     if (!hasAudienceSelection) {
@@ -463,7 +534,8 @@ export default function PlanPage() {
         source: displayPlan ? "regenerate" : "empty_state",
         tier: subscription?.tier ?? "unknown",
         audience: mealAudience,
-        selected_eater_count: audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
+        selected_eater_count:
+          audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
       });
       if (currentUser?.householdId) {
         const today = new Date();
@@ -483,7 +555,8 @@ export default function PlanPage() {
           week_start_date: weekStartDate,
           tier: subscription?.tier ?? "unknown",
           audience: mealAudience,
-          selected_eater_count: audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
+          selected_eater_count:
+            audienceProfileIds?.length ?? householdProfiles?.length ?? 0,
         });
         toast(`Fresh weekly plan generated for ${audienceLabel}.`, "success");
       } else {
@@ -510,7 +583,7 @@ export default function PlanPage() {
 
   const handleStatusChange = async (
     mealId: Id<"plannedMeals">,
-    status: "planned" | "cooked" | "skipped"
+    status: "planned" | "cooked" | "skipped",
   ) => {
     setBusyMealId(mealId);
     try {
@@ -526,7 +599,7 @@ export default function PlanPage() {
 
   const handleSwapMeal = async (
     mealId: Id<"plannedMeals">,
-    recipeId: Id<"recipeSuggestions">
+    recipeId: Id<"recipeSuggestions">,
   ) => {
     setBusyMealId(mealId);
     try {
@@ -652,7 +725,10 @@ export default function PlanPage() {
         recipe_id: cookingRecipe._id,
       });
       setCookingRecipe(null);
-      toast("Cook Mode finished. Add feedback so future plans learn what worked.", "success");
+      toast(
+        "Cook Mode finished. Add feedback so future plans learn what worked.",
+        "success",
+      );
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "cook_mode", action: "finish", platform: "web" },
@@ -663,7 +739,14 @@ export default function PlanPage() {
     }
   };
 
-  const handleAddMissingToGrocery = async (ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>) => {
+  const handleAddMissingToGrocery = async (
+    ingredients: Array<{
+      name: string;
+      quantity: number;
+      unit: string;
+      inPantry: boolean;
+    }>,
+  ) => {
     const missing = ingredients.filter((ing) => !isIngredientAvailable(ing));
     if (missing.length === 0) return;
     setAddingToGrocery(true);
@@ -684,10 +767,17 @@ export default function PlanPage() {
         source: "weekly_plan",
         count: missing.length,
       });
-      toast(`Added ${missing.length} item${missing.length > 1 ? "s" : ""} to grocery list`, "success");
+      toast(
+        `Added ${missing.length} item${missing.length > 1 ? "s" : ""} to grocery list`,
+        "success",
+      );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "add_missing_to_grocery", platform: "web" },
+        tags: {
+          area: "plan",
+          action: "add_missing_to_grocery",
+          platform: "web",
+        },
       });
       console.error("Failed to add to grocery list:", err);
       toast("Failed to add items to grocery list", "error");
@@ -716,7 +806,11 @@ export default function PlanPage() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "generate_from_plan", platform: "web" },
+        tags: {
+          area: "grocery",
+          action: "generate_from_plan",
+          platform: "web",
+        },
       });
       toast("Failed to generate grocery list", "error");
     } finally {
@@ -726,8 +820,13 @@ export default function PlanPage() {
 
   const handleMealAdjustment = async (
     meal: PlannedMeal,
-    adjustmentType: AdjustmentType
+    adjustmentType: AdjustmentType,
   ) => {
+    if (meal.status === "cooked") {
+      toast("Cooked dinners are locked to preserve pantry history.", "error");
+      return;
+    }
+
     const trimmedAvoidText = avoidText.trim();
     if (adjustmentType === "avoid" && !trimmedAvoidText) {
       toast("Add what you want FamilyPlate to avoid first.", "error");
@@ -757,7 +856,7 @@ export default function PlanPage() {
           result.appliedRecipeTitle
             ? `Regenerated ${formatDateLabel(meal.date)}: ${result.appliedRecipeTitle}.`
             : "Dinner regenerated for that day.",
-          "success"
+          "success",
         );
         setAdjustmentPanelMealId(null);
       } else {
@@ -785,7 +884,7 @@ export default function PlanPage() {
 
     try {
       const nextDislikes = Array.from(
-        new Set([...(myProfile.dislikes ?? []), trimmed])
+        new Set([...(myProfile.dislikes ?? []), trimmed]),
       );
       await updateProfile({
         profileId: myProfile._id,
@@ -799,7 +898,11 @@ export default function PlanPage() {
       toast(`Saved "${trimmed}" to your dislikes for future plans.`, "success");
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "profile", action: "save_avoid_preference", platform: "web" },
+        tags: {
+          area: "profile",
+          action: "save_avoid_preference",
+          platform: "web",
+        },
       });
       toast(getErrorMessage(err), "error");
     }
@@ -822,7 +925,11 @@ export default function PlanPage() {
           action={
             <Button
               size="sm"
-              onClick={() => displayPlan ? setShowRegenConfirm(true) : void handleGeneratePlan()}
+              onClick={() =>
+                displayPlan
+                  ? setShowRegenConfirm(true)
+                  : void handleGeneratePlan()
+              }
               disabled={isGenerating || !hasAudienceSelection}
               className="gap-2"
             >
@@ -831,7 +938,11 @@ export default function PlanPage() {
               ) : (
                 <Sparkles className="h-4 w-4" />
               )}
-              {isGenerating ? "Creating plan..." : displayPlan ? "Regenerate" : "Generate"}
+              {isGenerating
+                ? "Creating plan..."
+                : displayPlan
+                  ? "Regenerate"
+                  : "Generate"}
             </Button>
           }
         />
@@ -843,7 +954,9 @@ export default function PlanPage() {
         {/* Error banner */}
         {generateError && (
           <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-3 animate-fade-in">
-            <p className="text-sm text-destructive font-medium">{generateError}</p>
+            <p className="text-sm text-destructive font-medium">
+              {generateError}
+            </p>
             <button
               type="button"
               className="text-xs text-destructive/70 underline mt-1"
@@ -862,7 +975,9 @@ export default function PlanPage() {
                 <Sparkles className="h-6 w-6 text-primary animate-pulse" />
               </div>
             </div>
-            <h3 className="text-sm font-semibold text-foreground/80">Creating your personalized plan...</h3>
+            <h3 className="text-sm font-semibold text-foreground/80">
+              Creating your personalized plan...
+            </h3>
             <p className="text-xs text-muted-foreground mt-1">
               Analyzing your pantry, preferences, and past feedback
             </p>
@@ -886,7 +1001,7 @@ export default function PlanPage() {
             setSelectedProfileIds((current) =>
               current.includes(profileId)
                 ? current.filter((id) => id !== profileId)
-                : [...current, profileId]
+                : [...current, profileId],
             );
           }}
         />
@@ -896,9 +1011,16 @@ export default function PlanPage() {
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between animate-fade-in">
             <div className="flex items-center gap-2">
               <ArrowLeftRight className="h-4 w-4 text-primary" />
-              <p className="text-sm font-medium text-primary">Tap another meal to swap dates</p>
+              <p className="text-sm font-medium text-primary">
+                Tap another meal to swap dates
+              </p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setMovingMealId(null)} className="h-7 px-2 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMovingMealId(null)}
+              className="h-7 px-2 text-xs"
+            >
               Cancel
             </Button>
           </div>
@@ -933,7 +1055,9 @@ export default function PlanPage() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <p className="text-xs font-medium text-muted-foreground">
-                    {displayPlan?.plan ? formatWeekRange(displayPlan.plan.weekStartDate) : ""}
+                    {displayPlan?.plan
+                      ? formatWeekRange(displayPlan.plan.weekStartDate)
+                      : ""}
                     {viewingWeekIndex > 0 && " (past)"}
                   </p>
                   <button
@@ -948,11 +1072,17 @@ export default function PlanPage() {
               )}
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-medium text-foreground/80">{viewingWeekIndex === 0 ? "This week\u2019s progress" : "Week progress"}</p>
+                  <p className="text-sm font-medium text-foreground/80">
+                    {viewingWeekIndex === 0
+                      ? "This week\u2019s progress"
+                      : "Week progress"}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Flame className="h-4 w-4 text-accent" />
-                  <span className="text-sm font-bold text-accent">{cookedCount}/{totalMeals}</span>
+                  <span className="text-sm font-bold text-accent">
+                    {cookedCount}/{totalMeals}
+                  </span>
                 </div>
               </div>
               <div className="h-2.5 w-full rounded-full bg-background/60 overflow-hidden">
@@ -962,33 +1092,45 @@ export default function PlanPage() {
                 />
               </div>
               <div className="flex justify-between mt-2">
-                <span className="text-xs text-muted-foreground">{cookedCount} cooked</span>
-                <span className="text-xs text-muted-foreground">{displayPlan.meals.filter(m => m.status === "skipped").length} skipped</span>
+                <span className="text-xs text-muted-foreground">
+                  {cookedCount} cooked
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {
+                    displayPlan.meals.filter((m) => m.status === "skipped")
+                      .length
+                  }{" "}
+                  skipped
+                </span>
               </div>
               <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 gap-2"
-                onClick={() => void handleSharePlan()}
-              >
-                <Share2 className="h-4 w-4" />
-                Share Plan
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 gap-2"
-                disabled={isGeneratingGrocery}
-                onClick={() => setShowGroceryReview(true)}
-              >
-                <ListChecks className="h-4 w-4" />
-                {isGeneratingGrocery ? "Generating..." : "Review Groceries"}
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2"
+                  onClick={() => void handleSharePlan()}
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share Plan
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-2"
+                  disabled={isGeneratingGrocery}
+                  onClick={() => setShowGroceryReview(true)}
+                >
+                  <ListChecks className="h-4 w-4" />
+                  {isGeneratingGrocery ? "Generating..." : "Review Groceries"}
+                </Button>
               </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="week">Week</TabsTrigger>
                 <TabsTrigger value="recipes">Recipes</TabsTrigger>
@@ -1016,7 +1158,12 @@ export default function PlanPage() {
                                   {formatDateLabel(dateKey)}
                                 </p>
                                 {today && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Today</Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0"
+                                  >
+                                    Today
+                                  </Badge>
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground">
@@ -1036,7 +1183,9 @@ export default function PlanPage() {
                   const swapOptions =
                     plannedMeal.alternatives.length > 0
                       ? plannedMeal.alternatives
-                      : recipePool.filter((recipe) => recipe._id !== meal.recipe._id);
+                      : recipePool.filter(
+                          (recipe) => recipe._id !== meal.recipe._id,
+                        );
                   const isBusy = busyMealId === meal._id;
                   const isSwapOpen = swappingMealId === meal._id;
                   const isAdjustOpen = adjustmentPanelMealId === meal._id;
@@ -1086,7 +1235,12 @@ export default function PlanPage() {
                                   {formatDateLabel(meal.date)}
                                 </p>
                                 {today && (
-                                  <Badge variant="default" className="text-[10px] px-1.5 py-0">Today</Badge>
+                                  <Badge
+                                    variant="default"
+                                    className="text-[10px] px-1.5 py-0"
+                                  >
+                                    Today
+                                  </Badge>
                                 )}
                               </div>
                               <h3 className="text-lg font-semibold leading-tight tracking-tight">
@@ -1101,7 +1255,8 @@ export default function PlanPage() {
 
                           <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
                             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
-                              {getEffortIcon(meal.recipe.effortLevel)} {meal.recipe.effortLevel}
+                              {getEffortIcon(meal.recipe.effortLevel)}{" "}
+                              {meal.recipe.effortLevel}
                             </span>
                             <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
                               <Clock3 className="h-3 w-3" />
@@ -1116,29 +1271,33 @@ export default function PlanPage() {
                         {/* Action bar */}
                         <div className="flex items-center gap-1 px-3 pb-3 pt-1">
                           <div className="flex items-center gap-1 flex-1">
-                            {(["planned", "cooked", "skipped"] as const).map((status) => {
-                              const isActive = meal.status === status;
-                              const Icon = STATUS_ICONS[status];
-                              return (
-                                <button
-                                  key={status}
-                                  disabled={isBusy}
-                                  onClick={() => void handleStatusChange(meal._id, status)}
-                                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                                    isActive
-                                      ? status === "cooked"
-                                        ? "bg-primary text-primary-foreground shadow-sm"
-                                        : status === "skipped"
-                                          ? "bg-destructive/10 text-destructive"
-                                          : "bg-primary/10 text-primary"
-                                      : "text-muted-foreground hover:bg-muted/60"
-                                  }`}
-                                >
-                                  <Icon className="h-3 w-3" />
-                                  {STATUS_LABELS[status]}
-                                </button>
-                              );
-                            })}
+                            {(["planned", "cooked", "skipped"] as const).map(
+                              (status) => {
+                                const isActive = meal.status === status;
+                                const Icon = STATUS_ICONS[status];
+                                return (
+                                  <button
+                                    key={status}
+                                    disabled={isBusy}
+                                    onClick={() =>
+                                      void handleStatusChange(meal._id, status)
+                                    }
+                                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                                      isActive
+                                        ? status === "cooked"
+                                          ? "bg-primary text-primary-foreground shadow-sm"
+                                          : status === "skipped"
+                                            ? "bg-destructive/10 text-destructive"
+                                            : "bg-primary/10 text-primary"
+                                        : "text-muted-foreground hover:bg-muted/60"
+                                    }`}
+                                  >
+                                    <Icon className="h-3 w-3" />
+                                    {STATUS_LABELS[status]}
+                                  </button>
+                                );
+                              },
+                            )}
                           </div>
                           {canMoveMeal && (
                             <button
@@ -1148,7 +1307,9 @@ export default function PlanPage() {
                                 setMovingMealId(isMoveSource ? null : meal._id);
                               }}
                               className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                                isMoveSource ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"
+                                isMoveSource
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-muted-foreground hover:bg-muted/60"
                               }`}
                             >
                               <ArrowLeftRight className="h-3 w-3" />
@@ -1171,10 +1332,14 @@ export default function PlanPage() {
                               onClick={() => {
                                 setMovingMealId(null);
                                 setSwappingMealId(null);
-                                setAdjustmentPanelMealId(isAdjustOpen ? null : meal._id);
+                                setAdjustmentPanelMealId(
+                                  isAdjustOpen ? null : meal._id,
+                                );
                               }}
                               className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                                isAdjustOpen ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/60"
+                                isAdjustOpen
+                                  ? "bg-primary text-primary-foreground"
+                                  : "text-muted-foreground hover:bg-muted/60"
                               }`}
                               aria-label="Adjust dinner"
                             >
@@ -1182,16 +1347,28 @@ export default function PlanPage() {
                             </button>
                           )}
                           <button
-                            onClick={() => void handleToggleSavedRecipe(meal.recipe._id)}
+                            onClick={() =>
+                              void handleToggleSavedRecipe(meal.recipe._id)
+                            }
                             disabled={savingRecipeId === meal.recipe._id}
                             className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                              savedRecipes?.some((s) => s.recipe._id === meal.recipe._id)
+                              savedRecipes?.some(
+                                (s) => s.recipe._id === meal.recipe._id,
+                              )
                                 ? "text-primary"
                                 : "text-muted-foreground hover:bg-muted/60"
                             }`}
-                            aria-label={savedRecipes?.some((s) => s.recipe._id === meal.recipe._id) ? "Remove from cookbook" : "Save to cookbook"}
+                            aria-label={
+                              savedRecipes?.some(
+                                (s) => s.recipe._id === meal.recipe._id,
+                              )
+                                ? "Remove from cookbook"
+                                : "Save to cookbook"
+                            }
                           >
-                            <Heart className={`h-3 w-3 ${savedRecipes?.some((s) => s.recipe._id === meal.recipe._id) ? "fill-current" : ""}`} />
+                            <Heart
+                              className={`h-3 w-3 ${savedRecipes?.some((s) => s.recipe._id === meal.recipe._id) ? "fill-current" : ""}`}
+                            />
                           </button>
                         </div>
 
@@ -1199,7 +1376,9 @@ export default function PlanPage() {
                         {isSwapOpen && canSwapMeal && (
                           <div className="border-t bg-muted/20 px-3 py-3 animate-fade-in">
                             <p className="text-xs font-medium text-muted-foreground mb-2">
-                              {plannedMeal.alternatives.length > 0 ? "Fresh alternatives:" : "Swap with:"}
+                              {plannedMeal.alternatives.length > 0
+                                ? "Fresh alternatives:"
+                                : "Swap with:"}
                             </p>
                             <div className="grid gap-1.5">
                               {swapOptions.slice(0, 4).map((recipe) => (
@@ -1208,12 +1387,17 @@ export default function PlanPage() {
                                   type="button"
                                   className="flex items-center justify-between rounded-xl border bg-background px-3 py-2.5 text-left transition-all hover:bg-accent/5 hover:border-primary/20 disabled:opacity-50 card-interactive"
                                   disabled={isBusy}
-                                  onClick={() => void handleSwapMeal(meal._id, recipe._id)}
+                                  onClick={() =>
+                                    void handleSwapMeal(meal._id, recipe._id)
+                                  }
                                 >
                                   <div>
-                                    <p className="text-sm font-medium">{recipe.title}</p>
+                                    <p className="text-sm font-medium">
+                                      {recipe.title}
+                                    </p>
                                     <p className="text-xs text-muted-foreground">
-                                      {getEffortIcon(recipe.effortLevel)} {recipe.estimatedTime}m
+                                      {getEffortIcon(recipe.effortLevel)}{" "}
+                                      {recipe.estimatedTime}m
                                     </p>
                                   </div>
                                   <RefreshCw className="h-3.5 w-3.5 text-primary/60" />
@@ -1229,7 +1413,9 @@ export default function PlanPage() {
                             adjustingMealId={adjustingMealId}
                             avoidText={avoidText}
                             savedAvoidText={savedAvoidText}
-                            canSaveAvoidPreference={!!myProfile && avoidText.trim().length > 0}
+                            canSaveAvoidPreference={
+                              !!myProfile && avoidText.trim().length > 0
+                            }
                             onChangeAvoidText={setAvoidText}
                             onAdjustMeal={handleMealAdjustment}
                             onSaveAvoidPreference={handleSaveAvoidPreference}
@@ -1252,10 +1438,14 @@ export default function PlanPage() {
                         <h3 className="font-semibold">Add your own recipes</h3>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Save household favorites and let everyone in your family reuse them.
+                        Save household favorites and let everyone in your family
+                        reuse them.
                       </p>
                     </div>
-                    <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                    <Button
+                      type="button"
+                      onClick={() => setShowAddRecipeDialog(true)}
+                    >
                       Add Recipe
                     </Button>
                   </CardContent>
@@ -1274,7 +1464,9 @@ export default function PlanPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 min-w-0 flex-1">
-                            <h3 className="font-semibold leading-tight">{recipe.title}</h3>
+                            <h3 className="font-semibold leading-tight">
+                              {recipe.title}
+                            </h3>
                             <p className="text-sm text-muted-foreground line-clamp-2">
                               {recipe.description}
                             </p>
@@ -1284,7 +1476,8 @@ export default function PlanPage() {
                               <Badge variant="outline">Custom</Badge>
                             )}
                             <span className="inline-flex items-center gap-1 rounded-lg bg-muted/60 px-2 py-1 text-xs font-medium capitalize">
-                              {getEffortIcon(recipe.effortLevel)} {recipe.effortLevel}
+                              {getEffortIcon(recipe.effortLevel)}{" "}
+                              {recipe.effortLevel}
                             </span>
                           </div>
                         </div>
@@ -1297,7 +1490,10 @@ export default function PlanPage() {
                             Serves {recipe.servings}
                           </span>
                           {recipe.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+                            <span
+                              key={tag}
+                              className="inline-flex items-center rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground"
+                            >
                               {tag}
                             </span>
                           ))}
@@ -1312,12 +1508,18 @@ export default function PlanPage() {
                 <Card className="overflow-hidden border-dashed bg-gradient-to-br from-primary/8 via-background to-primary/5">
                   <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                      <h3 className="font-semibold">Build your family cookbook</h3>
+                      <h3 className="font-semibold">
+                        Build your family cookbook
+                      </h3>
                       <p className="text-sm text-muted-foreground">
-                        Add handwritten staples, quick kid dinners, or any recipe you want in the rotation.
+                        Add handwritten staples, quick kid dinners, or any
+                        recipe you want in the rotation.
                       </p>
                     </div>
-                    <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                    <Button
+                      type="button"
+                      onClick={() => setShowAddRecipeDialog(true)}
+                    >
                       Add Recipe
                     </Button>
                   </CardContent>
@@ -1330,12 +1532,18 @@ export default function PlanPage() {
                         <BookOpen className="h-6 w-6 text-primary" />
                       </div>
                       <div className="space-y-1">
-                        <h3 className="text-lg font-semibold">Your cookbook is empty</h3>
+                        <h3 className="text-lg font-semibold">
+                          Your cookbook is empty
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          Save recipes from your plan or add your own family favorites here.
+                          Save recipes from your plan or add your own family
+                          favorites here.
                         </p>
                       </div>
-                      <Button type="button" onClick={() => setShowAddRecipeDialog(true)}>
+                      <Button
+                        type="button"
+                        onClick={() => setShowAddRecipeDialog(true)}
+                      >
                         Add Your First Recipe
                       </Button>
                     </CardContent>
@@ -1353,7 +1561,9 @@ export default function PlanPage() {
                             className="min-w-0 flex-1 text-left"
                             onClick={() => openRecipeDialog(saved.recipe)}
                           >
-                            <h3 className="font-semibold leading-tight">{saved.recipe.title}</h3>
+                            <h3 className="font-semibold leading-tight">
+                              {saved.recipe.title}
+                            </h3>
                             <p className="text-sm text-muted-foreground line-clamp-1 mt-1">
                               {saved.recipe.description}
                             </p>
@@ -1362,7 +1572,8 @@ export default function PlanPage() {
                                 <Badge variant="outline">Custom</Badge>
                               )}
                               <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
-                                {getEffortIcon(saved.recipe.effortLevel)} {saved.recipe.effortLevel}
+                                {getEffortIcon(saved.recipe.effortLevel)}{" "}
+                                {saved.recipe.effortLevel}
                               </span>
                               <span className="inline-flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
                                 <Clock3 className="h-3 w-3" />
@@ -1376,7 +1587,9 @@ export default function PlanPage() {
                             size="icon"
                             className="h-9 w-9 shrink-0 rounded-xl text-primary hover:text-primary"
                             disabled={savingRecipeId === saved.recipe._id}
-                            onClick={() => void handleToggleSavedRecipe(saved.recipe._id)}
+                            onClick={() =>
+                              void handleToggleSavedRecipe(saved.recipe._id)
+                            }
                             aria-label="Remove from cookbook"
                           >
                             <Heart className="h-4 w-4 fill-current" />
@@ -1425,13 +1638,20 @@ export default function PlanPage() {
           if (!open) closeRecipeDialog();
         }}
       >
-        <DialogContent className="fixed top-auto bottom-0 left-0 right-0 max-h-[85vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom" style={{ touchAction: "pan-y" }}>
+        <DialogContent
+          className="fixed top-auto bottom-0 left-0 right-0 max-h-[85vh] translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-t-3xl rounded-b-none border-x-0 border-b-0 p-0 sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:max-h-[85vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border animate-slide-in-bottom"
+          style={{ touchAction: "pan-y" }}
+        >
           {selectedRecipe && (
             <>
               {/* Cuisine gradient hero */}
-              <div className={`h-24 sm:h-28 relative overflow-hidden ${getRecipeGradient(selectedRecipe.tags)}`}>
+              <div
+                className={`h-24 sm:h-28 relative overflow-hidden ${getRecipeGradient(selectedRecipe.tags)}`}
+              >
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.12]">
-                  <span className="text-7xl sm:text-8xl select-none">{getRecipeEmoji(selectedRecipe.tags)}</span>
+                  <span className="text-7xl sm:text-8xl select-none">
+                    {getRecipeEmoji(selectedRecipe.tags)}
+                  </span>
                 </div>
                 <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent" />
               </div>
@@ -1451,17 +1671,31 @@ export default function PlanPage() {
                     variant="ghost"
                     size="icon"
                     className="h-10 w-10 shrink-0 rounded-xl"
-                    disabled={savingRecipeId === selectedRecipe._id || isSelectedRecipeSaved === undefined}
-                    onClick={() => void handleToggleSavedRecipe(selectedRecipe._id)}
-                    aria-label={isSelectedRecipeSaved ? "Remove from cookbook" : "Save to cookbook"}
+                    disabled={
+                      savingRecipeId === selectedRecipe._id ||
+                      isSelectedRecipeSaved === undefined
+                    }
+                    onClick={() =>
+                      void handleToggleSavedRecipe(selectedRecipe._id)
+                    }
+                    aria-label={
+                      isSelectedRecipeSaved
+                        ? "Remove from cookbook"
+                        : "Save to cookbook"
+                    }
                   >
-                    <Heart className={`h-5 w-5 ${isSelectedRecipeSaved ? "fill-current text-primary" : "text-muted-foreground"}`} />
+                    <Heart
+                      className={`h-5 w-5 ${isSelectedRecipeSaved ? "fill-current text-primary" : "text-muted-foreground"}`}
+                    />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-3">
-                  <Badge variant="outline">{getRecipeSourceLabel(selectedRecipe.source)}</Badge>
+                  <Badge variant="outline">
+                    {getRecipeSourceLabel(selectedRecipe.source)}
+                  </Badge>
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium capitalize">
-                    {getEffortIcon(selectedRecipe.effortLevel)} {selectedRecipe.effortLevel}
+                    {getEffortIcon(selectedRecipe.effortLevel)}{" "}
+                    {selectedRecipe.effortLevel}
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1 text-xs font-medium">
                     <Clock3 className="h-3 w-3" />
@@ -1474,35 +1708,71 @@ export default function PlanPage() {
                 <Button
                   type="button"
                   className="mt-4 w-full gap-2 rounded-xl"
-                  onClick={() => handleStartCookMode(selectedRecipe, "web_recipe_detail")}
+                  onClick={() =>
+                    handleStartCookMode(selectedRecipe, "web_recipe_detail")
+                  }
                 >
                   <CookingPot className="h-4 w-4" />
                   Start Cook Mode
                 </Button>
               </DialogHeader>
 
-              <div className="space-y-6 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6" style={{ maxHeight: "60vh", WebkitOverflowScrolling: "touch" }}>
+              <div
+                className="space-y-6 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
+                style={{ maxHeight: "60vh", WebkitOverflowScrolling: "touch" }}
+              >
                 {selectedRecipe.nutrition && (
                   <section className="space-y-3">
                     <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                      Nutrition <span className="normal-case font-normal">(per serving)</span>
+                      Nutrition{" "}
+                      <span className="normal-case font-normal">
+                        (per serving)
+                      </span>
                     </h4>
                     <div className="grid grid-cols-4 gap-2">
                       <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Cal</p>
-                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.calories, "")}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Cal
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatNutritionValue(
+                            selectedRecipe.nutrition.calories,
+                            "",
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Protein</p>
-                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.protein, "g")}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Protein
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatNutritionValue(
+                            selectedRecipe.nutrition.protein,
+                            "g",
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Carbs</p>
-                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.carbs, "g")}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Carbs
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatNutritionValue(
+                            selectedRecipe.nutrition.carbs,
+                            "g",
+                          )}
+                        </p>
                       </div>
                       <div className="rounded-xl bg-muted/40 px-2 py-3 text-center">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Fat</p>
-                        <p className="mt-1 text-sm font-semibold">{formatNutritionValue(selectedRecipe.nutrition.fat, "g")}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          Fat
+                        </p>
+                        <p className="mt-1 text-sm font-semibold">
+                          {formatNutritionValue(
+                            selectedRecipe.nutrition.fat,
+                            "g",
+                          )}
+                        </p>
                       </div>
                     </div>
                   </section>
@@ -1522,34 +1792,51 @@ export default function PlanPage() {
                           className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3.5 py-3"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className={`h-2 w-2 rounded-full shrink-0 ${
-                              isAvailable ? "bg-primary" : "bg-muted-foreground/25"
-                            }`} />
+                            <span
+                              className={`h-2 w-2 rounded-full shrink-0 ${
+                                isAvailable
+                                  ? "bg-primary"
+                                  : "bg-muted-foreground/25"
+                              }`}
+                            />
                             <div>
-                              <p className="text-sm font-medium">{ingredient.name}</p>
+                              <p className="text-sm font-medium">
+                                {ingredient.name}
+                              </p>
                               <p className="text-xs text-muted-foreground">
-                                {formatIngredientAmount(ingredient.quantity, ingredient.unit)}
+                                {formatIngredientAmount(
+                                  ingredient.quantity,
+                                  ingredient.unit,
+                                )}
                               </p>
                             </div>
                           </div>
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                            isAvailable
-                              ? "bg-primary/10 text-primary"
-                              : "bg-accent/10 text-accent"
-                          }`}>
+                          <span
+                            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                              isAvailable
+                                ? "bg-primary/10 text-primary"
+                                : "bg-accent/10 text-accent"
+                            }`}
+                          >
                             {isAvailable ? "Have it" : "Need it"}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-                  {selectedRecipe.ingredients.some((ing) => !isIngredientAvailable(ing)) && (
+                  {selectedRecipe.ingredients.some(
+                    (ing) => !isIngredientAvailable(ing),
+                  ) && (
                     <Button
                       variant="outline"
                       size="sm"
                       className="w-full mt-3 gap-2 rounded-xl"
                       disabled={addingToGrocery}
-                      onClick={() => void handleAddMissingToGrocery(selectedRecipe.ingredients)}
+                      onClick={() =>
+                        void handleAddMissingToGrocery(
+                          selectedRecipe.ingredients,
+                        )
+                      }
                     >
                       <ShoppingCart className="h-3.5 w-3.5" />
                       {addingToGrocery
@@ -1591,7 +1878,9 @@ export default function PlanPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">No tags yet.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No tags yet.
+                    </p>
                   )}
                 </section>
               </div>
@@ -1666,7 +1955,8 @@ function MealAudienceCard({
               <Badge variant="secondary">{selectedCount} selected</Badge>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              FamilyPlate merges allergies, dislikes, and preferences only for the eaters you choose.
+              FamilyPlate merges allergies, dislikes, and preferences only for
+              the eaters you choose.
             </p>
           </div>
         </div>
@@ -1710,7 +2000,9 @@ function MealAudienceCard({
                   >
                     <div
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold ${
-                        selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground"
                       }`}
                     >
                       {member.name[0]?.toUpperCase() ?? "?"}
@@ -1718,10 +2010,14 @@ function MealAudienceCard({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold">{member.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {member.isChild ? "Kid" : "Adult"} · {member.allergies.length} allergies · {member.dislikes.length} dislikes
+                        {member.isChild ? "Kid" : "Adult"} ·{" "}
+                        {member.allergies.length} allergies ·{" "}
+                        {member.dislikes.length} dislikes
                       </p>
                     </div>
-                    <CheckCircle2 className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground/35"}`} />
+                    <CheckCircle2
+                      className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground/35"}`}
+                    />
                   </button>
                 );
               })
@@ -1786,7 +2082,10 @@ function MealAdjustmentPanel({
   savedAvoidText: string;
   canSaveAvoidPreference: boolean;
   onChangeAvoidText: (value: string) => void;
-  onAdjustMeal: (meal: PlannedMeal, adjustmentType: AdjustmentType) => Promise<void>;
+  onAdjustMeal: (
+    meal: PlannedMeal,
+    adjustmentType: AdjustmentType,
+  ) => Promise<void>;
   onSaveAvoidPreference: () => Promise<void>;
 }) {
   const disabled = !!adjustingMealId || meal.status === "cooked";
@@ -1862,7 +2161,9 @@ function MealAdjustmentPanel({
             type="button"
             size="sm"
             variant="outline"
-            disabled={!canSaveAvoidPreference || savedAvoidText === avoidText.trim()}
+            disabled={
+              !canSaveAvoidPreference || savedAvoidText === avoidText.trim()
+            }
             onClick={() => void onSaveAvoidPreference()}
             className="gap-2"
           >
@@ -1918,7 +2219,7 @@ function GroceryReviewDialog({
 }) {
   const missingCount = missingGroups.reduce(
     (count, [, items]) => count + items.length,
-    0
+    0,
   );
 
   return (
@@ -1927,18 +2228,23 @@ function GroceryReviewDialog({
         <DialogHeader>
           <DialogTitle>Grocery Review</DialogTitle>
           <DialogDescription>
-            FamilyPlate will add missing planned-dinner ingredients and leave pantry-covered items out.
+            FamilyPlate will add missing planned-dinner ingredients and leave
+            pantry-covered items out.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-xl bg-muted/50 p-4">
             <p className="text-2xl font-bold">{missingCount}</p>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">To buy</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              To buy
+            </p>
           </div>
           <div className="rounded-xl bg-muted/50 p-4">
             <p className="text-2xl font-bold">{pantryCoveredCount}</p>
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">In pantry</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              In pantry
+            </p>
           </div>
         </div>
 
@@ -1994,7 +2300,11 @@ function GroceryReviewDialog({
             disabled={isGenerating || missingCount === 0}
             onClick={onGenerate}
           >
-            {isGenerating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ShoppingCart className="h-4 w-4" />}
+            {isGenerating ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <ShoppingCart className="h-4 w-4" />
+            )}
             {isGenerating ? "Adding..." : "Add to Grocery"}
           </Button>
         </div>
@@ -2015,12 +2325,19 @@ function EmptyPlanState({
       <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5">
         <CalendarDays className="h-11 w-11 text-primary" />
       </div>
-      <h3 className="mb-2 text-xl font-semibold tracking-tight">No meal plan yet</h3>
+      <h3 className="mb-2 text-xl font-semibold tracking-tight">
+        No meal plan yet
+      </h3>
       <p className="mb-8 max-w-[280px] text-sm text-muted-foreground leading-relaxed">
-        Generate a full seven-night dinner lineup, then mark meals cooked or skipped as the
-        week moves.
+        Generate a full seven-night dinner lineup, then mark meals cooked or
+        skipped as the week moves.
       </p>
-      <Button onClick={onGenerate} disabled={isGenerating} size="lg" className="gap-2">
+      <Button
+        onClick={onGenerate}
+        disabled={isGenerating}
+        size="lg"
+        className="gap-2"
+      >
         {isGenerating ? (
           <RefreshCw className="h-4 w-4 animate-spin" />
         ) : (

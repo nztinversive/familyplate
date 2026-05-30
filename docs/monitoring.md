@@ -103,6 +103,16 @@ Mobile/EAS:
 - `EXPO_PUBLIC_POSTHOG_KEY`
 - `EXPO_PUBLIC_POSTHOG_HOST`
 - `EXPO_PUBLIC_SENTRY_DSN`
+- `EXPO_PUBLIC_APP_ENV=production`
+- `SENTRY_ORG=noah-yg`
+- `SENTRY_PROJECT=familyplate-ios`
+- `SENTRY_AUTH_TOKEN` as a secret EAS environment variable with release/upload
+  permissions
+
+Keep `SENTRY_DISABLE_AUTO_UPLOAD` unset or `false` for production iOS builds so
+the Sentry Expo/Xcode plugin can upload JavaScript source maps and native debug
+symbols. If Sentry shows missing debug information for an App Store build, check
+this EAS variable first.
 
 ## Verification after deploy
 

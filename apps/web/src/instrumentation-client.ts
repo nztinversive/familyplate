@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { beforeSend } from "./lib/sentryFilters";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -16,11 +17,7 @@ if (dsn) {
         blockAllMedia: true,
       }),
     ],
-    beforeSend(event) {
-      delete event.request?.cookies;
-      delete event.request?.headers;
-      return event;
-    },
+    beforeSend,
   });
 }
 

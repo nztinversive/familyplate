@@ -295,8 +295,9 @@ export default function PlanScreen() {
         missing.set(key, {
           name: existing?.name ?? ingredient.name,
           quantity:
-            Math.round(((existing?.quantity ?? 0) + ingredient.quantity) * 100) /
-            100,
+            Math.round(
+              ((existing?.quantity ?? 0) + ingredient.quantity) * 100,
+            ) / 100,
           unit: ingredient.unit,
           category: existing?.category ?? category,
         });
@@ -311,7 +312,8 @@ export default function PlanScreen() {
     const groupedMissing = new Map<string, GroceryReviewItem[]>();
 
     for (const item of missingItems) {
-      if (!groupedMissing.has(item.category)) groupedMissing.set(item.category, []);
+      if (!groupedMissing.has(item.category))
+        groupedMissing.set(item.category, []);
       groupedMissing.get(item.category)!.push(item);
     }
 
@@ -361,11 +363,11 @@ export default function PlanScreen() {
     ? "Finish setting up your household before generating a plan."
     : !hasAudienceSelection
       ? "Choose at least one eater for this plan."
-    : subscription === undefined
-      ? "Checking your plan limit..."
-      : isAtPlanLimit
-        ? "Free plan limit reached for this month."
-        : "";
+      : subscription === undefined
+        ? "Checking your plan limit..."
+        : isAtPlanLimit
+          ? "Free plan limit reached for this month."
+          : "";
   const shouldShowUpgradeNudge =
     subscription !== undefined &&
     !isFamilyPlan &&
@@ -418,7 +420,9 @@ export default function PlanScreen() {
 
     const consented = await ensureAiConsent();
     if (!consented) {
-      setError("AI meal planning needs your permission before it can use your household details.");
+      setError(
+        "AI meal planning needs your permission before it can use your household details.",
+      );
       return;
     }
     track(posthog, "ai_consent_accepted", {
@@ -434,7 +438,8 @@ export default function PlanScreen() {
         source: meals.length ? "refresh" : "empty_state",
         tier: subscription?.tier ?? "unknown",
         audience: mealAudience,
-        selected_eater_count: audienceProfileIds?.length ?? (members?.length ?? 0),
+        selected_eater_count:
+          audienceProfileIds?.length ?? members?.length ?? 0,
       });
       const householdId = currentUser?.householdId;
       if (!householdId) {
@@ -452,7 +457,8 @@ export default function PlanScreen() {
           week_start_date: formatDate(getStartOfWeek(new Date())),
           tier: subscription?.tier ?? "unknown",
           audience: mealAudience,
-          selected_eater_count: audienceProfileIds?.length ?? (members?.length ?? 0),
+          selected_eater_count:
+            audienceProfileIds?.length ?? members?.length ?? 0,
         });
         setNotice(`Fresh weekly plan generated for ${audienceLabel}.`);
       } catch {
@@ -583,7 +589,9 @@ export default function PlanScreen() {
 
       setSelectedMeal({ ...cookingMeal, status: "cooked" });
       setCookingMeal(null);
-      setNotice("Cook Mode finished. Add feedback so future plans learn what worked.");
+      setNotice(
+        "Cook Mode finished. Add feedback so future plans learn what worked.",
+      );
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "cook_mode", action: "finish", platform: "ios" },
@@ -618,7 +626,11 @@ export default function PlanScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "generate_from_plan", platform: "ios" },
+        tags: {
+          area: "grocery",
+          action: "generate_from_plan",
+          platform: "ios",
+        },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -684,6 +696,11 @@ export default function PlanScreen() {
     meal: PlannedMeal,
     adjustmentType: AdjustmentType,
   ) => {
+    if (meal.status === "cooked") {
+      setError("Cooked dinners are locked to preserve pantry history.");
+      return;
+    }
+
     const trimmedAvoidText = avoidText.trim();
     if (adjustmentType === "avoid" && !trimmedAvoidText) {
       setError("Add what you want FamilyPlate to avoid first.");
@@ -692,7 +709,9 @@ export default function PlanScreen() {
 
     const consented = await ensureAiConsent();
     if (!consented) {
-      setError("AI meal adjustments need your permission before they can use your household details.");
+      setError(
+        "AI meal adjustments need your permission before they can use your household details.",
+      );
       return;
     }
 
@@ -710,8 +729,7 @@ export default function PlanScreen() {
       const result = await generateMealAdjustment({
         mealId: meal._id as Id<"plannedMeals">,
         adjustmentType,
-        avoidText:
-          adjustmentType === "avoid" ? trimmedAvoidText : undefined,
+        avoidText: adjustmentType === "avoid" ? trimmedAvoidText : undefined,
       });
 
       if (adjustmentType === "regenerate_day") {
@@ -765,7 +783,11 @@ export default function PlanScreen() {
       setNotice(`Saved "${trimmed}" to your dislikes for future plans.`);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "profile", action: "save_avoid_preference", platform: "ios" },
+        tags: {
+          area: "profile",
+          action: "save_avoid_preference",
+          platform: "ios",
+        },
       });
       setError(getErrorMessage(err));
     }
@@ -872,7 +894,9 @@ export default function PlanScreen() {
               opacity: generateDisabled ? 0.55 : 1,
             }}
             accessibilityRole="button"
-            accessibilityLabel={meals.length ? "Refresh weekly plan" : "Generate weekly plan"}
+            accessibilityLabel={
+              meals.length ? "Refresh weekly plan" : "Generate weekly plan"
+            }
             accessibilityHint={generateDisabledReason || undefined}
           >
             {isGenerating ? (
@@ -942,7 +966,9 @@ export default function PlanScreen() {
       </View>
 
       {isAtPlanLimit ? (
-        <PlanLimitNotice onUpgrade={() => openFamilyPlan("weekly_plan_limit")} />
+        <PlanLimitNotice
+          onUpgrade={() => openFamilyPlan("weekly_plan_limit")}
+        />
       ) : shouldShowUpgradeNudge ? (
         <PlanUpgradeNudge
           plansUsed={subscription.plansUsed}
@@ -1104,9 +1130,9 @@ function PlanLimitNotice({ onUpgrade }: { onUpgrade: () => void }) {
             Monthly planning limit reached
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            You can keep using pantry tracking, saved recipes, and grocery
-            lists until weekly planning resets. Upgrade to Family to unlock
-            unlimited weekly plans for everyone in the household.
+            You can keep using pantry tracking, saved recipes, and grocery lists
+            until weekly planning resets. Upgrade to Family to unlock unlimited
+            weekly plans for everyone in the household.
           </Text>
           <TouchableOpacity
             onPress={onUpgrade}
@@ -1199,8 +1225,8 @@ function MealAudienceCard({
             Who is this plan for?
           </Text>
           <Text className="mt-1 text-xs leading-4 text-muted-foreground">
-            FamilyPlate merges allergies, dislikes, and preferences only for
-            the eaters you choose.
+            FamilyPlate merges allergies, dislikes, and preferences only for the
+            eaters you choose.
           </Text>
         </View>
         <View className="rounded-full bg-card px-2 py-1">
@@ -1540,7 +1566,9 @@ function MealCard({
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
             style={{ opacity: busy || !canMoveTarget ? 0.55 : 1 }}
             accessibilityRole="button"
-            accessibilityLabel={canMoveTarget ? "Move dinner here" : "Dinner slot locked"}
+            accessibilityLabel={
+              canMoveTarget ? "Move dinner here" : "Dinner slot locked"
+            }
           >
             <Ionicons name="swap-horizontal" size={16} color="white" />
             <Text className="font-semibold text-white">
@@ -1557,7 +1585,9 @@ function MealCard({
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
             style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
             accessibilityRole="button"
-            accessibilityLabel={isMoveSource ? "Cancel dinner move" : "Move dinner"}
+            accessibilityLabel={
+              isMoveSource ? "Cancel dinner move" : "Move dinner"
+            }
           >
             <Ionicons name="move-outline" size={16} color="#248f58" />
             <Text className="font-semibold text-primary">
@@ -1663,7 +1693,12 @@ function GroceryReviewModal({
   );
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <View className="flex-1 justify-end bg-black/40">
         <View className="max-h-[82%] rounded-t-3xl bg-background">
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
@@ -1679,7 +1714,9 @@ function GroceryReviewModal({
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 28 }}>
+          <ScrollView
+            contentContainerStyle={{ padding: 16, paddingBottom: 28 }}
+          >
             <View className="mb-4 rounded-2xl border border-border bg-card p-4">
               <View className="flex-row items-start gap-3">
                 <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
@@ -1770,7 +1807,9 @@ function GroceryReviewModal({
                 onPress={onGenerate}
                 disabled={isGenerating || missingCount === 0}
                 className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-                style={{ opacity: isGenerating || missingCount === 0 ? 0.55 : 1 }}
+                style={{
+                  opacity: isGenerating || missingCount === 0 ? 0.55 : 1,
+                }}
               >
                 {isGenerating ? (
                   <ActivityIndicator color="white" />
@@ -1897,35 +1936,45 @@ function MealDetailModal({
                   label="Swap meal"
                   icon="swap-horizontal"
                   busy={adjustingMealId === `${meal._id}:swap`}
-                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  disabled={
+                    busy || meal.status === "cooked" || !!adjustingMealId
+                  }
                   onPress={() => void onAdjustMeal(meal, "swap")}
                 />
                 <AdjustmentButton
                   label="Make faster"
                   icon="flash-outline"
                   busy={adjustingMealId === `${meal._id}:faster`}
-                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  disabled={
+                    busy || meal.status === "cooked" || !!adjustingMealId
+                  }
                   onPress={() => void onAdjustMeal(meal, "faster")}
                 />
                 <AdjustmentButton
                   label="Kid-friendly"
                   icon="happy-outline"
                   busy={adjustingMealId === `${meal._id}:kid_friendly`}
-                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  disabled={
+                    busy || meal.status === "cooked" || !!adjustingMealId
+                  }
                   onPress={() => void onAdjustMeal(meal, "kid_friendly")}
                 />
                 <AdjustmentButton
                   label="Use pantry"
                   icon="cube-outline"
                   busy={adjustingMealId === `${meal._id}:use_pantry`}
-                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  disabled={
+                    busy || meal.status === "cooked" || !!adjustingMealId
+                  }
                   onPress={() => void onAdjustMeal(meal, "use_pantry")}
                 />
                 <AdjustmentButton
                   label="Regenerate day"
                   icon="refresh-outline"
                   busy={adjustingMealId === `${meal._id}:regenerate_day`}
-                  disabled={busy || meal.status === "cooked" || !!adjustingMealId}
+                  disabled={
+                    busy || meal.status === "cooked" || !!adjustingMealId
+                  }
                   onPress={() => void onAdjustMeal(meal, "regenerate_day")}
                 />
               </View>
@@ -1971,7 +2020,10 @@ function MealDetailModal({
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => void onSaveAvoidPreference()}
-                    disabled={!canSaveAvoidPreference || savedAvoidText === avoidText.trim()}
+                    disabled={
+                      !canSaveAvoidPreference ||
+                      savedAvoidText === avoidText.trim()
+                    }
                     className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
                     style={{
                       opacity:
@@ -1982,7 +2034,9 @@ function MealDetailModal({
                     }}
                   >
                     <Text className="font-semibold text-primary">
-                      {savedAvoidText === avoidText.trim() ? "Saved" : "Save dislike"}
+                      {savedAvoidText === avoidText.trim()
+                        ? "Saved"
+                        : "Save dislike"}
                     </Text>
                   </TouchableOpacity>
                 </View>

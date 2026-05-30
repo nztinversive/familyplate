@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Pressable,
   ScrollView,
@@ -56,7 +57,9 @@ function getRecognitionErrorMessage(error: unknown) {
   if (/photo|image|base64|captur/i.test(message)) {
     return "That photo did not come through clearly. Retake it and keep the groceries in frame.";
   }
-  return message || "Couldn't identify groceries. Try again with better lighting.";
+  return (
+    message || "Couldn't identify groceries. Try again with better lighting."
+  );
 }
 
 function getConfidenceTone(confidence: RecognizedItem["confidence"]) {
@@ -74,9 +77,13 @@ function getConfidenceTone(confidence: RecognizedItem["confidence"]) {
 export function SnapGroceries({
   onClose,
   onAdd,
+  onManualAdd,
+  onScanBarcode,
 }: {
   onClose: () => void;
   onAdd: (items: SnapGroceryItem[]) => Promise<void>;
+  onManualAdd?: () => void;
+  onScanBarcode?: () => void;
 }) {
   const recognizeAction = useAction(
     api.actions.recognizeGroceries.recognizeFromPhoto,
@@ -84,37 +91,114 @@ export function SnapGroceries({
   const posthog = usePostHog();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
+  const cameraReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isCapturingRef = useRef(false);
 
   const [phase, setPhase] = useState<Phase>("camera");
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraSettled, setCameraSettled] = useState(false);
+  const [appIsActive, setAppIsActive] = useState(
+    AppState.currentState === "active",
+  );
   const [cameraError, setCameraError] = useState("");
   const [photoUri, setPhotoUri] = useState("");
   const [items, setItems] = useState<RecognizedItem[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      const isActive = state === "active";
+      setAppIsActive(isActive);
+      if (!isActive) {
+        if (cameraReadyTimerRef.current) {
+          clearTimeout(cameraReadyTimerRef.current);
+        }
+        setCameraReady(false);
+        setCameraSettled(false);
+        isCapturingRef.current = false;
+        setIsCapturing(false);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+      if (cameraReadyTimerRef.current) {
+        clearTimeout(cameraReadyTimerRef.current);
+      }
+    };
+  }, []);
+
+  const resetCameraSession = () => {
+    if (cameraReadyTimerRef.current) {
+      clearTimeout(cameraReadyTimerRef.current);
+    }
+    setCameraReady(false);
+    setCameraSettled(false);
+    cameraRef.current = null;
+  };
+
+  const markCameraReady = () => {
+    setCameraReady(true);
+    setCameraSettled(false);
+    setCameraError("");
+    if (cameraReadyTimerRef.current) {
+      clearTimeout(cameraReadyTimerRef.current);
+    }
+    cameraReadyTimerRef.current = setTimeout(() => {
+      setCameraSettled(true);
+    }, 900);
+  };
+
+  const handleCameraMountError = (event: unknown) => {
+    setCameraReady(false);
+    setCameraSettled(false);
+    setCameraError(getCameraErrorMessage(event));
+  };
+
   const handleCapture = async () => {
     const camera = cameraRef.current;
-    if (!camera || !cameraReady) return;
+    if (isCapturingRef.current) return;
+    if (!camera || !cameraReady || !cameraSettled || !appIsActive) {
+      setError("Camera is still getting ready. Hold steady and try again.");
+      return;
+    }
 
     const consented = await ensureAiConsent();
     if (!consented) {
-      setError("AI grocery recognition needs your permission before it can process grocery photos.");
+      setError(
+        "AI grocery recognition needs your permission before it can process grocery photos.",
+      );
       return;
     }
     track(posthog, "ai_consent_accepted", {
       feature: "snap_groceries",
     });
 
-    setPhase("analyzing");
+    const activeCamera = cameraRef.current;
+    if (
+      !activeCamera ||
+      !cameraReady ||
+      !cameraSettled ||
+      AppState.currentState !== "active"
+    ) {
+      setError("Camera is still getting ready. Hold steady and try again.");
+      return;
+    }
+
     setError("");
+    isCapturingRef.current = true;
+    setIsCapturing(true);
 
     try {
       track(posthog, "camera_scan_started", {
         source: "snap_groceries",
       });
-      const photo = await camera.takePictureAsync({
+      const photo = await activeCamera.takePictureAsync({
         base64: true,
         quality: 0.75,
         skipProcessing: false,
@@ -125,11 +209,13 @@ export function SnapGroceries({
       }
 
       setPhotoUri(photo.uri);
+      setPhase("analyzing");
+      resetCameraSession();
       const result = await recognizeAction({ imageBase64: photo.base64 });
       const recognizedItems = result.items.map((item) => ({
-          ...item,
-          category: normalizeCategory(item.category),
-        }));
+        ...item,
+        category: normalizeCategory(item.category),
+      }));
       setItems(recognizedItems);
       track(posthog, "camera_scan_completed", {
         source: "snap_groceries",
@@ -154,10 +240,14 @@ export function SnapGroceries({
       });
       setError(getRecognitionErrorMessage(err));
       setPhase("camera");
+    } finally {
+      isCapturingRef.current = false;
+      setIsCapturing(false);
     }
   };
 
   const handleRetake = () => {
+    resetCameraSession();
     setPhotoUri("");
     setItems([]);
     setEditingIndex(null);
@@ -197,7 +287,11 @@ export function SnapGroceries({
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "snap_groceries", action: "add_review_items", platform: "ios" },
+        tags: {
+          area: "snap_groceries",
+          action: "add_review_items",
+          platform: "ios",
+        },
       });
       setError(err instanceof Error ? err.message : "Couldn't add groceries.");
     } finally {
@@ -254,14 +348,19 @@ export function SnapGroceries({
         <CameraPhase
           cameraRef={cameraRef}
           cameraReady={cameraReady}
+          cameraSettled={cameraSettled}
           cameraError={cameraError}
           error={error}
+          isCapturing={isCapturing}
+          appIsActive={appIsActive}
           hasPermission={hasPermission}
           permissionReady={permissionReady}
-          onCameraReady={() => setCameraReady(true)}
+          onCameraReady={markCameraReady}
           onCapture={() => void handleCapture()}
-          onMountError={(event) => setCameraError(getCameraErrorMessage(event))}
+          onMountError={handleCameraMountError}
+          onManualAdd={onManualAdd}
           onRequestPermission={() => void requestPermission()}
+          onScanBarcode={onScanBarcode}
         />
       ) : null}
 
@@ -299,25 +398,35 @@ export function SnapGroceries({
 function CameraPhase({
   cameraRef,
   cameraReady,
+  cameraSettled,
   cameraError,
   error,
+  isCapturing,
+  appIsActive,
   hasPermission,
   permissionReady,
   onCameraReady,
   onCapture,
   onMountError,
+  onManualAdd,
   onRequestPermission,
+  onScanBarcode,
 }: {
   cameraRef: React.MutableRefObject<CameraView | null>;
   cameraReady: boolean;
+  cameraSettled: boolean;
   cameraError: string;
   error: string;
+  isCapturing: boolean;
+  appIsActive: boolean;
   hasPermission: boolean | undefined;
   permissionReady: boolean;
   onCameraReady: () => void;
   onCapture: () => void;
   onMountError: (event: unknown) => void;
+  onManualAdd?: () => void;
   onRequestPermission: () => void;
+  onScanBarcode?: () => void;
 }) {
   return (
     <View className="flex-1 p-4">
@@ -340,6 +449,7 @@ function CameraPhase({
               style={{ flex: 1 }}
               facing="back"
               mode="picture"
+              active={appIsActive}
               onCameraReady={onCameraReady}
               onMountError={onMountError}
             />
@@ -363,28 +473,105 @@ function CameraPhase({
                   <Text className="font-semibold text-white">Continue</Text>
                 </TouchableOpacity>
               ) : null}
+              <View className="mt-4 w-full">
+                <CameraFallbackActions
+                  onManualAdd={onManualAdd}
+                  onScanBarcode={onScanBarcode}
+                />
+              </View>
             </View>
           )}
+
+          {isCapturing ? (
+            <View className="absolute inset-0 items-center justify-center bg-black/25">
+              <View className="rounded-2xl bg-white/95 px-4 py-3">
+                <ActivityIndicator color="#248f58" />
+                <Text className="mt-2 text-sm font-semibold text-foreground">
+                  Capturing photo...
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       </View>
 
       {error ? (
         <View className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3">
           <Text className="text-sm text-red-700">{error}</Text>
+          <View className="mt-3">
+            <CameraFallbackActions
+              onManualAdd={onManualAdd}
+              onScanBarcode={onScanBarcode}
+            />
+          </View>
         </View>
       ) : null}
 
       <TouchableOpacity
         onPress={onCapture}
-        disabled={!cameraReady || !hasPermission || !!cameraError}
+        disabled={
+          isCapturing ||
+          !cameraReady ||
+          !cameraSettled ||
+          !hasPermission ||
+          !!cameraError
+        }
         className="mt-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3.5"
         style={{
-          opacity: cameraReady && hasPermission && !cameraError ? 1 : 0.45,
+          opacity:
+            !isCapturing &&
+            cameraReady &&
+            cameraSettled &&
+            hasPermission &&
+            !cameraError
+              ? 1
+              : 0.45,
         }}
       >
         <Ionicons name="camera" size={20} color="white" />
         <Text className="text-base font-semibold text-white">Take Photo</Text>
       </TouchableOpacity>
+    </View>
+  );
+}
+
+function CameraFallbackActions({
+  onManualAdd,
+  onScanBarcode,
+}: {
+  onManualAdd?: () => void;
+  onScanBarcode?: () => void;
+}) {
+  if (!onManualAdd && !onScanBarcode) return null;
+
+  return (
+    <View className="w-full gap-2">
+      {onScanBarcode ? (
+        <TouchableOpacity
+          onPress={onScanBarcode}
+          className="flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Scan barcode instead"
+        >
+          <Ionicons name="barcode-outline" size={17} color="#248f58" />
+          <Text className="font-semibold text-primary">
+            Scan Barcode Instead
+          </Text>
+        </TouchableOpacity>
+      ) : null}
+      {onManualAdd ? (
+        <TouchableOpacity
+          onPress={onManualAdd}
+          className="flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Add pantry item manually"
+        >
+          <Ionicons name="create-outline" size={17} color="#248f58" />
+          <Text className="font-semibold text-primary">
+            Add Manually Instead
+          </Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

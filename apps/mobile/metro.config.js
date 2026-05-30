@@ -1,4 +1,5 @@
 const { getDefaultConfig } = require("expo/metro-config");
+const { withSentryConfig } = require("@sentry/react-native/metro");
 const { withNativeWind } = require("nativewind/metro");
 const path = require("node:path");
 
@@ -22,11 +23,11 @@ config.resolver.extraNodeModules = {
   "react-native": path.resolve(projectRoot, "node_modules/react-native"),
   "react-native-css-interop": path.resolve(
     projectRoot,
-    "node_modules/react-native-css-interop"
+    "node_modules/react-native-css-interop",
   ),
   "@react-native/virtualized-lists": path.resolve(
     projectRoot,
-    "node_modules/react-native/node_modules/@react-native/virtualized-lists"
+    "node_modules/react-native/node_modules/@react-native/virtualized-lists",
   ),
 };
 
@@ -34,4 +35,6 @@ config.resolver.extraNodeModules = {
 // keeps workspace package resolution predictable.
 config.resolver.disableHierarchicalLookup = true;
 
-module.exports = withNativeWind(config, { input: "./global.css" });
+module.exports = withSentryConfig(
+  withNativeWind(config, { input: "./global.css" }),
+);

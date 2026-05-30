@@ -25,7 +25,7 @@ const recipeValidator = v.object({
   effortLevel: v.union(
     v.literal("easy"),
     v.literal("medium"),
-    v.literal("hard")
+    v.literal("hard"),
   ),
   estimatedTime: v.number(),
   servings: v.number(),
@@ -34,9 +34,14 @@ const recipeValidator = v.object({
   usedPantryItems: v.optional(v.array(v.string())),
 });
 
-function assertRecipeHasIngredients(recipeName: string, ingredients: Array<{ name: string }>) {
+function assertRecipeHasIngredients(
+  recipeName: string,
+  ingredients: Array<{ name: string }>,
+) {
   if (ingredients.length === 0) {
-    throw new Error(`Recipe "${recipeName}" must include at least one ingredient.`);
+    throw new Error(
+      `Recipe "${recipeName}" must include at least one ingredient.`,
+    );
   }
 }
 
@@ -63,11 +68,15 @@ export const getHouseholdGenerationContext = internalQuery({
     const [pantryItems, profiles] = await Promise.all([
       ctx.db
         .query("pantryItems")
-        .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", args.householdId),
+        )
         .collect(),
       ctx.db
         .query("userProfiles")
-        .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", args.householdId),
+        )
         .collect(),
     ]);
 
@@ -99,27 +108,36 @@ export const getMealSwapContext = internalQuery({
       throw new Error("Meal not found.");
     }
 
+    if (meal.status === "cooked") {
+      throw new Error("Cooked meals cannot be refreshed.");
+    }
+
     const plan = await ctx.db.get(meal.mealPlanId);
     if (!plan || plan.householdId !== membership.householdId) {
       throw new Error("Meal does not belong to your household.");
     }
 
-    const [household, recipe, pantryItems, profiles, planMeals] = await Promise.all([
-      ctx.db.get(plan.householdId),
-      ctx.db.get(meal.recipeId),
-      ctx.db
-        .query("pantryItems")
-        .withIndex("by_householdId", (q) => q.eq("householdId", plan.householdId))
-        .collect(),
-      ctx.db
-        .query("userProfiles")
-        .withIndex("by_householdId", (q) => q.eq("householdId", plan.householdId))
-        .collect(),
-      ctx.db
-        .query("plannedMeals")
-        .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", plan._id))
-        .collect(),
-    ]);
+    const [household, recipe, pantryItems, profiles, planMeals] =
+      await Promise.all([
+        ctx.db.get(plan.householdId),
+        ctx.db.get(meal.recipeId),
+        ctx.db
+          .query("pantryItems")
+          .withIndex("by_householdId", (q) =>
+            q.eq("householdId", plan.householdId),
+          )
+          .collect(),
+        ctx.db
+          .query("userProfiles")
+          .withIndex("by_householdId", (q) =>
+            q.eq("householdId", plan.householdId),
+          )
+          .collect(),
+        ctx.db
+          .query("plannedMeals")
+          .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", plan._id))
+          .collect(),
+      ]);
 
     if (!household) {
       throw new Error("Household not found.");
@@ -137,7 +155,7 @@ export const getMealSwapContext = internalQuery({
           recipeTitle: planRecipe?.title ?? null,
           recipeTags: planRecipe?.tags ?? [],
         };
-      })
+      }),
     );
 
     return {
@@ -176,7 +194,9 @@ export const getMealPlanGroceryContext = internalQuery({
     if (!mealPlan) {
       const plans = await ctx.db
         .query("weeklyMealPlans")
-        .withIndex("by_householdId", (q) => q.eq("householdId", membership.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", membership.householdId),
+        )
         .collect();
 
       mealPlan =
@@ -192,7 +212,9 @@ export const getMealPlanGroceryContext = internalQuery({
     const [pantryItems, meals] = await Promise.all([
       ctx.db
         .query("pantryItems")
-        .withIndex("by_householdId", (q) => q.eq("householdId", mealPlan.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", mealPlan.householdId),
+        )
         .collect(),
       ctx.db
         .query("plannedMeals")
@@ -204,7 +226,7 @@ export const getMealPlanGroceryContext = internalQuery({
       meals.map(async (meal) => {
         const recipe = await ctx.db.get(meal.recipeId);
         return recipe ? { ...meal, recipe } : null;
-      })
+      }),
     );
 
     return {
@@ -224,7 +246,7 @@ export const saveGeneratedMealPlan = internalMutation({
         date: v.string(),
         primary: recipeValidator,
         alternatives: v.array(recipeValidator),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -436,7 +458,7 @@ export const saveGeneratedGroceryList = internalMutation({
         unit: v.string(),
         category: v.string(),
         checked: v.boolean(),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -475,11 +497,15 @@ export const getQuickDinnerContext = internalQuery({
     const [pantryItems, profiles] = await Promise.all([
       ctx.db
         .query("pantryItems")
-        .withIndex("by_householdId", (q) => q.eq("householdId", membership.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", membership.householdId),
+        )
         .collect(),
       ctx.db
         .query("userProfiles")
-        .withIndex("by_householdId", (q) => q.eq("householdId", membership.householdId))
+        .withIndex("by_householdId", (q) =>
+          q.eq("householdId", membership.householdId),
+        )
         .collect(),
     ]);
 
@@ -504,7 +530,11 @@ export const getQuickDinnerContext = internalQuery({
 const quickDinnerSuggestionValidator = v.object({
   name: v.string(),
   description: v.string(),
-  effortLevel: v.union(v.literal("easy"), v.literal("medium"), v.literal("hard")),
+  effortLevel: v.union(
+    v.literal("easy"),
+    v.literal("medium"),
+    v.literal("hard"),
+  ),
   estimatedTime: v.number(),
   servings: v.number(),
   ingredients: v.array(ingredientValidator),
@@ -526,7 +556,7 @@ export const saveQuickDinnerSuggestions = internalMutation({
       .collect();
 
     const oldQuickDinners = existing.filter((r) =>
-      r.tags.includes("quick-dinner")
+      r.tags.includes("quick-dinner"),
     );
 
     for (const old of oldQuickDinners) {
@@ -585,7 +615,8 @@ export const getHouseholdFeedbackSummary = internalQuery({
       .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
       .collect();
 
-    if (recipes.length === 0) return { summary: "", favorites: [], disliked: [] };
+    if (recipes.length === 0)
+      return { summary: "", favorites: [], disliked: [] };
 
     // Get all feedback for each recipe
     const allFeedback: Array<{
@@ -613,12 +644,20 @@ export const getHouseholdFeedbackSummary = internalQuery({
       }
     }
 
-    if (allFeedback.length === 0) return { summary: "", favorites: [], disliked: [] };
+    if (allFeedback.length === 0)
+      return { summary: "", favorites: [], disliked: [] };
 
     // Aggregate by recipe
     const recipeStats = new Map<
       string,
-      { totalRating: number; count: number; liked: number; disliked: number; tags: string[]; notes: string[] }
+      {
+        totalRating: number;
+        count: number;
+        liked: number;
+        disliked: number;
+        tags: string[];
+        notes: string[];
+      }
     >();
 
     for (const f of allFeedback) {
@@ -651,7 +690,7 @@ export const getHouseholdFeedbackSummary = internalQuery({
           stats.tags.reduce((acc, tag) => {
             acc.set(tag, (acc.get(tag) ?? 0) + 1);
             return acc;
-          }, new Map<string, number>())
+          }, new Map<string, number>()),
         )
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3)
@@ -669,9 +708,12 @@ export const getHouseholdFeedbackSummary = internalQuery({
     if (favorites.length > 0) {
       lines.push("HOUSEHOLD FAVORITES (make more meals like these):");
       for (const f of favorites) {
-        const tagStr = f.topTags.length > 0 ? ` [tags: ${f.topTags.join(", ")}]` : "";
+        const tagStr =
+          f.topTags.length > 0 ? ` [tags: ${f.topTags.join(", ")}]` : "";
         const noteStr = f.notes.length > 0 ? ` — "${f.notes[0]}"` : "";
-        lines.push(`- "${f.title}" (avg ${f.avgRating}/5, ${f.liked} liked)${tagStr}${noteStr}`);
+        lines.push(
+          `- "${f.title}" (avg ${f.avgRating}/5, ${f.liked} liked)${tagStr}${noteStr}`,
+        );
       }
     }
 
@@ -679,9 +721,12 @@ export const getHouseholdFeedbackSummary = internalQuery({
       lines.push("");
       lines.push("DISLIKED MEALS (avoid similar recipes):");
       for (const d of disliked) {
-        const tagStr = d.topTags.length > 0 ? ` [tags: ${d.topTags.join(", ")}]` : "";
+        const tagStr =
+          d.topTags.length > 0 ? ` [tags: ${d.topTags.join(", ")}]` : "";
         const noteStr = d.notes.length > 0 ? ` — "${d.notes[0]}"` : "";
-        lines.push(`- "${d.title}" (avg ${d.avgRating}/5, ${d.disliked} disliked)${tagStr}${noteStr}`);
+        lines.push(
+          `- "${d.title}" (avg ${d.avgRating}/5, ${d.disliked} disliked)${tagStr}${noteStr}`,
+        );
       }
     }
 

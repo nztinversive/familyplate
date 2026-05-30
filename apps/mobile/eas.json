@@ -13,7 +13,12 @@
     },
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "env": {
+        "SENTRY_ORG": "noah-yg",
+        "SENTRY_PROJECT": "familyplate-ios",
+        "EXPO_PUBLIC_APP_ENV": "production"
+      }
     }
   },
   "submit": {

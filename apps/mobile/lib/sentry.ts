@@ -2,6 +2,34 @@ import * as Sentry from "@sentry/react-native";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
+function eventText(event: Sentry.Event) {
+  const frameText =
+    event.exception?.values
+      ?.flatMap((value) => value.stacktrace?.frames ?? [])
+      .flatMap((frame) => [
+        frame.filename,
+        frame.abs_path,
+        frame.module,
+        frame.function,
+      ])
+      .filter(Boolean)
+      .join(" ") ?? "";
+
+  const exceptionText =
+    event.exception?.values
+      ?.flatMap((value) => [value.type, value.value])
+      .filter(Boolean)
+      .join(" ") ?? "";
+
+  return [event.message, exceptionText, frameText, event.request?.url]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isLocalDevelopmentNoise(event: Sentry.Event) {
+  return /localhost|127\.0\.0\.1|\/Users\/noahthies\//i.test(eventText(event));
+}
+
 if (dsn) {
   Sentry.init({
     dsn,
@@ -11,6 +39,9 @@ if (dsn) {
     beforeSend(event) {
       delete event.request?.cookies;
       delete event.request?.headers;
+      if (isLocalDevelopmentNoise(event)) {
+        return null;
+      }
       return event;
     },
   });
