@@ -372,6 +372,46 @@ export const removeItem = mutation({
   },
 });
 
+export const moveCheckedToPantry = mutation({
+  args: {
+    groceryListId: v.id("groceryLists"),
+  },
+  handler: async (ctx, args) => {
+    const profile = await getViewerProfile(ctx);
+    const groceryList = await ctx.db.get(args.groceryListId);
+    if (!groceryList || groceryList.householdId !== profile.householdId) {
+      throw new Error("Grocery list not found");
+    }
+
+    const checkedItems = groceryList.items.filter((item) => item.checked);
+    if (checkedItems.length === 0) {
+      throw new Error("Check at least one grocery item first.");
+    }
+
+    const now = Date.now();
+    for (const item of checkedItems) {
+      await ctx.db.insert("pantryItems", {
+        householdId: profile.householdId,
+        name: requireNonEmptyString(item.name, "Name"),
+        quantity: validateQuantity(item.quantity),
+        unit: requireNonEmptyString(item.unit, "Unit"),
+        category: requireNonEmptyString(item.category, "Category"),
+        storageLocation: "pantry",
+        addedBy: profile._id,
+        addedAt: now,
+      });
+    }
+
+    const remainingItems = groceryList.items.filter((item) => !item.checked);
+    await ctx.db.patch(args.groceryListId, { items: remainingItems });
+
+    return {
+      movedCount: checkedItems.length,
+      remainingCount: remainingItems.length,
+    };
+  },
+});
+
 export const clearAll = mutation({
   args: {
     groceryListId: v.id("groceryLists"),

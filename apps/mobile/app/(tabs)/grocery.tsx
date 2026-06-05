@@ -46,6 +46,9 @@ export default function GroceryScreen() {
   const addCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const toggleItem = useMutation(api.mutations.grocery.toggleItem);
   const removeItem = useMutation(api.mutations.grocery.removeItem);
+  const moveCheckedToPantry = useMutation(
+    api.mutations.grocery.moveCheckedToPantry,
+  );
   const clearAll = useMutation(api.mutations.grocery.clearAll);
   const addToPantry = useMutation(api.mutations.pantry.addItem);
 
@@ -54,6 +57,8 @@ export default function GroceryScreen() {
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [isMovingCheckedToPantry, setIsMovingCheckedToPantry] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
   const visibleItems = useMemo(() => {
@@ -93,6 +98,7 @@ export default function GroceryScreen() {
   const handleGenerateFromPlan = async () => {
     setIsGenerating(true);
     setError("");
+    setNotice("");
     try {
       await generateFromPlan({});
       track(posthog, "grocery_list_generated", {
@@ -117,6 +123,7 @@ export default function GroceryScreen() {
     if (!groceryList) return;
     setBusyIndex(item.originalIndex);
     setError("");
+    setNotice("");
     try {
       await toggleItem({
         groceryListId: groceryList._id,
@@ -137,6 +144,7 @@ export default function GroceryScreen() {
     if (!groceryList) return;
     setBusyIndex(item.originalIndex);
     setError("");
+    setNotice("");
     try {
       await removeItem({
         groceryListId: groceryList._id,
@@ -156,6 +164,7 @@ export default function GroceryScreen() {
     if (!groceryList || !householdId) return;
     setBusyIndex(item.originalIndex);
     setError("");
+    setNotice("");
     try {
       await addToPantry({
         householdId,
@@ -183,6 +192,38 @@ export default function GroceryScreen() {
     }
   };
 
+  const handleMoveCheckedToPantry = async () => {
+    if (!groceryList || checkedCount === 0) return;
+
+    setIsMovingCheckedToPantry(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const result = await moveCheckedToPantry({
+        groceryListId: groceryList._id,
+      });
+      track(posthog, "grocery_items_moved_to_pantry", {
+        count: result.movedCount,
+        remaining_count: result.remainingCount,
+        source: "grocery_tab_batch",
+      });
+      setActiveTab(result.remainingCount > 0 ? "remaining" : "all");
+      setNotice(
+        `Moved ${result.movedCount} checked item${
+          result.movedCount === 1 ? "" : "s"
+        } to Pantry.`,
+      );
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "move_checked_to_pantry", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setIsMovingCheckedToPantry(false);
+    }
+  };
+
   const handleClearAll = () => {
     if (!groceryList) return;
     Alert.alert("Clear grocery list?", "This removes every item in the list.", [
@@ -193,6 +234,7 @@ export default function GroceryScreen() {
         onPress: () => {
           setIsClearing(true);
           setError("");
+          setNotice("");
           void clearAll({ groceryListId: groceryList._id })
             .catch((err) => setError(getErrorMessage(err)))
             .finally(() => setIsClearing(false));
@@ -208,6 +250,7 @@ export default function GroceryScreen() {
     category: string;
   }) => {
     setError("");
+    setNotice("");
     await addCustomItem(values);
     track(posthog, "grocery_item_added", {
       source: "manual_form",
@@ -291,6 +334,15 @@ export default function GroceryScreen() {
         </View>
       ) : null}
 
+      {notice ? (
+        <View className="mb-4 flex-row items-start gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
+          <Ionicons name="checkmark-circle" size={18} color="#15803d" />
+          <Text className="flex-1 text-sm leading-5 text-green-700">
+            {notice}
+          </Text>
+        </View>
+      ) : null}
+
       {groceryList === undefined || currentUser === undefined ? (
         <LoadingCard
           icon="cart-outline"
@@ -322,6 +374,41 @@ export default function GroceryScreen() {
               </Text>
             </View>
           </View>
+
+          {checkedCount > 0 ? (
+            <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-3">
+              <View className="flex-row items-center gap-3">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-card">
+                  <Ionicons name="cube" size={18} color="#248f58" />
+                </View>
+                <View className="min-w-0 flex-1">
+                  <Text className="text-sm font-semibold text-foreground">
+                    {checkedCount} checked item{checkedCount === 1 ? "" : "s"}
+                  </Text>
+                  <Text className="mt-0.5 text-xs leading-4 text-muted-foreground">
+                    Move purchased groceries into Pantry and remove them from
+                    this list.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => void handleMoveCheckedToPantry()}
+                  disabled={isMovingCheckedToPantry}
+                  className="rounded-xl bg-primary px-3 py-2.5"
+                  style={{ opacity: isMovingCheckedToPantry ? 0.65 : 1 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Move checked grocery items to pantry"
+                >
+                  {isMovingCheckedToPantry ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-xs font-bold text-white">
+                      Move All
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
 
           <View className="mb-4 flex-row rounded-xl bg-muted p-1">
             {FILTER_TABS.map((tab) => {

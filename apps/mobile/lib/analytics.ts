@@ -1,4 +1,5 @@
 import type { PostHog } from "posthog-react-native";
+import * as Application from "expo-application";
 
 export type AnalyticsEvent =
   | "auth_started"
@@ -30,6 +31,7 @@ export type AnalyticsEvent =
   | "grocery_item_added"
   | "grocery_item_checked"
   | "grocery_item_removed"
+  | "grocery_items_moved_to_pantry"
   | "grocery_list_generated"
   | "grocery_list_generation_failed"
   | "recipe_saved"
@@ -76,6 +78,9 @@ export function track(
       ...payload,
       app: "familyplate",
       platform: "ios",
+      app_version: Application.nativeApplicationVersion ?? "development",
+      app_build: Application.nativeBuildVersion ?? "development",
+      app_env: process.env.EXPO_PUBLIC_APP_ENV ?? "development",
     });
   } catch {
     // Analytics should never block a meal-planning flow.

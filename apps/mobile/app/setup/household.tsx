@@ -123,8 +123,9 @@ export default function HouseholdSetupScreen() {
           !!dislikes.trim() ||
           !!goals.trim(),
         added_child_profile: !!childName,
+        next_step: "pantry",
       });
-      router.replace("/plan");
+      router.replace("/");
     } catch (err) {
       track(posthog, "onboarding_failed", {
         reason: err instanceof Error ? err.message : "unknown",
@@ -157,7 +158,8 @@ export default function HouseholdSetupScreen() {
           </Text>
           <Text className="mt-2 text-base leading-6 text-muted-foreground">
             A few details help FamilyPlate plan around the people actually
-            eating dinner.
+            eating dinner. Next, add a few staples so Tonight and Weekly Plan
+            can start from what you already have.
           </Text>
         </View>
 
@@ -269,7 +271,7 @@ export default function HouseholdSetupScreen() {
             <Ionicons name="checkmark-circle-outline" size={19} color="white" />
           )}
           <Text className="text-base font-bold text-white">
-            {isSubmitting ? "Creating household..." : "Start Planning"}
+            {isSubmitting ? "Creating household..." : "Add Pantry Staples"}
           </Text>
         </TouchableOpacity>
       </ScrollView>

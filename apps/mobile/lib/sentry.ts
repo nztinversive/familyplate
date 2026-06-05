@@ -1,6 +1,9 @@
 import * as Sentry from "@sentry/react-native";
+import * as Application from "expo-application";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const appVersion = Application.nativeApplicationVersion ?? "development";
+const appBuild = Application.nativeBuildVersion ?? "development";
 
 function eventText(event: Sentry.Event) {
   const frameText =
@@ -34,6 +37,8 @@ if (dsn) {
   Sentry.init({
     dsn,
     environment: process.env.EXPO_PUBLIC_APP_ENV ?? process.env.NODE_ENV,
+    release: `familyplate-mobile@${appVersion}`,
+    dist: appBuild,
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
     enableAutoSessionTracking: true,
     beforeSend(event) {

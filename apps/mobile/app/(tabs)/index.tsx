@@ -638,7 +638,7 @@ function EmptyState({
       <Text className="mb-6 max-w-xs text-center text-sm text-muted-foreground">
         {location
           ? `Add items to track what's in your ${location}.`
-          : "Add what you have at home — the AI will use these ingredients first when planning meals."}
+          : "Start with five staples from your kitchen. FamilyPlate will use these first for Tonight, Weekly Plan, and the grocery list."}
       </Text>
       {!location ? (
         <View className="mb-5 w-full gap-2">
