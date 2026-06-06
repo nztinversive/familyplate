@@ -5,6 +5,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   Text,
   TextInput,
   TouchableOpacity,
@@ -142,6 +143,20 @@ function getPantryMatch(recipe: Recipe) {
     total,
     label: total > 0 ? `${available}/${total} in pantry` : "No ingredients",
   };
+}
+
+function buildRecipeShareText(recipe: Recipe) {
+  const ingredients = recipe.ingredients
+    .map(
+      (ingredient) =>
+        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
+    )
+    .join("\n");
+  const instructions = recipe.instructions
+    .map((step, index) => `${index + 1}. ${step}`)
+    .join("\n");
+
+  return `${recipe.title}\n\n${recipe.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
 }
 
 function inferGroceryCategory(name: string) {
@@ -666,6 +681,24 @@ export default function PlanScreen() {
     }
   };
 
+  const handleShareRecipe = async (recipe: Recipe, source: string) => {
+    try {
+      await Share.share({
+        title: recipe.title,
+        message: buildRecipeShareText(recipe),
+      });
+      track(posthog, "recipe_shared", {
+        source,
+        recipe_id: recipe._id,
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "plan", action: "share_recipe", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    }
+  };
+
   const handleSwapMeal = async (
     meal: PlannedMeal,
     recipeId: Id<"recipeSuggestions">,
@@ -1064,6 +1097,7 @@ export default function PlanScreen() {
         onSwapMeal={handleSwapMeal}
         onAdjustMeal={handleMealAdjustment}
         onToggleSavedRecipe={handleToggleSavedRecipe}
+        onShareRecipe={(recipe) => void handleShareRecipe(recipe, "plan_detail")}
         onStartCookMode={handleStartCookMode}
         adjustingMealId={adjustingMealId}
         avoidText={avoidText}
@@ -1839,6 +1873,7 @@ function MealDetailModal({
   onSwapMeal,
   onAdjustMeal,
   onToggleSavedRecipe,
+  onShareRecipe,
   onStartCookMode,
   adjustingMealId,
   avoidText,
@@ -1863,6 +1898,7 @@ function MealDetailModal({
     adjustmentType: AdjustmentType,
   ) => Promise<void>;
   onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
+  onShareRecipe: (recipe: Recipe) => void;
   onStartCookMode: (meal: PlannedMeal) => void;
   adjustingMealId: string | null;
   avoidText: string;
@@ -2173,6 +2209,14 @@ function MealDetailModal({
                 <Text className="font-semibold text-primary">
                   {saving ? "Saving..." : saved ? "Saved" : "Save"}
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => onShareRecipe(recipe)}
+                className="h-12 w-12 items-center justify-center rounded-xl border border-border bg-card"
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${recipe.title}`}
+              >
+                <Ionicons name="share-outline" size={18} color="#248f58" />
               </TouchableOpacity>
             </View>
 

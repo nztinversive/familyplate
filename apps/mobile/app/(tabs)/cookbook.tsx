@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -41,6 +42,24 @@ function getSourceLabel(source: Recipe["source"]) {
   if (source === "custom") return "Custom";
   if (source === "curated") return "Curated";
   return "AI";
+}
+
+function scaleQuantity(quantity: number, scaleFactor: number) {
+  return Math.round(quantity * scaleFactor * 100) / 100;
+}
+
+function buildRecipeShareText(recipe: Recipe) {
+  const ingredients = recipe.ingredients
+    .map(
+      (ingredient) =>
+        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
+    )
+    .join("\n");
+  const instructions = recipe.instructions
+    .map((step, index) => `${index + 1}. ${step}`)
+    .join("\n");
+
+  return `${recipe.title}\n\n${recipe.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
 }
 
 export default function CookbookScreen() {
@@ -99,12 +118,13 @@ export default function CookbookScreen() {
     );
   };
 
-  const addMissingToGrocery = async (recipe: Recipe) => {
+  const addMissingToGrocery = async (recipe: Recipe, targetServings: number) => {
     const missing = recipe.ingredients.filter(
       (ingredient) => !isIngredientAvailable(ingredient),
     );
     if (missing.length === 0) return;
 
+    const scaleFactor = targetServings / recipe.servings;
     setAddingMissingId(recipe._id);
     setNotice("");
     setError("");
@@ -113,7 +133,7 @@ export default function CookbookScreen() {
       for (const ingredient of missing) {
         await addGroceryItem({
           name: ingredient.name,
-          quantity: ingredient.quantity,
+          quantity: scaleQuantity(ingredient.quantity, scaleFactor),
           unit: ingredient.unit,
           category: inferCategory(ingredient.name),
         });
@@ -125,9 +145,14 @@ export default function CookbookScreen() {
       track(posthog, "missing_ingredients_added_to_grocery", {
         source: "cookbook",
         count: missing.length,
+        target_servings: targetServings,
       });
       setNotice(
-        `Added ${missing.length} missing item${missing.length === 1 ? "" : "s"} to Grocery List.`,
+        `Added ${missing.length} missing item${
+          missing.length === 1 ? "" : "s"
+        } for ${targetServings} serving${
+          targetServings === 1 ? "" : "s"
+        } to Grocery List.`,
       );
     } catch (err) {
       Sentry.captureException(err, {
@@ -151,6 +176,29 @@ export default function CookbookScreen() {
       source: "cookbook",
       recipe_id: recipe._id,
     });
+  };
+
+  const shareRecipe = async (recipe: Recipe) => {
+    setNotice("");
+    setError("");
+
+    try {
+      await Share.share({
+        title: recipe.title,
+        message: buildRecipeShareText(recipe),
+      });
+      track(posthog, "recipe_shared", {
+        source: "cookbook",
+        recipe_id: recipe._id,
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "cookbook", action: "share_recipe", platform: "ios" },
+      });
+      setError(
+        err instanceof Error ? err.message : "Couldn't share this recipe.",
+      );
+    }
   };
 
   const finishCookMode = async (leftoverNote?: string) => {
@@ -255,10 +303,11 @@ export default function CookbookScreen() {
                       : savedRecipe.recipe._id,
                   )
                 }
-                onAddMissing={() =>
-                  void addMissingToGrocery(savedRecipe.recipe)
+                onAddMissing={(targetServings) =>
+                  void addMissingToGrocery(savedRecipe.recipe, targetServings)
                 }
                 onStartCookMode={() => startCookMode(savedRecipe.recipe)}
+                onShare={() => void shareRecipe(savedRecipe.recipe)}
                 onRemove={() => removeRecipe(savedRecipe.recipe)}
               />
             ))}
@@ -340,6 +389,7 @@ function RecipeCard({
   onToggleExpanded,
   onAddMissing,
   onStartCookMode,
+  onShare,
   onRemove,
 }: {
   recipe: Recipe;
@@ -348,10 +398,12 @@ function RecipeCard({
   removing: boolean;
   addingMissing: boolean;
   onToggleExpanded: () => void;
-  onAddMissing: () => void;
+  onAddMissing: (targetServings: number) => void;
   onStartCookMode: () => void;
+  onShare: () => void;
   onRemove: () => void;
 }) {
+  const [targetServings, setTargetServings] = useState(recipe.servings);
   const pantryCount = recipe.ingredients.filter((ingredient) =>
     isIngredientAvailable(ingredient),
   ).length;
@@ -479,20 +531,34 @@ function RecipeCard({
             adding={addingMissing}
             disabled={removing}
             missingIngredients={missingIngredients}
-            onAddMissing={onAddMissing}
+            originalServings={recipe.servings}
+            targetServings={targetServings}
+            onChangeServings={setTargetServings}
+            onAddMissing={() => onAddMissing(targetServings)}
           />
 
-          <TouchableOpacity
-            onPress={onStartCookMode}
-            disabled={removing}
-            className="mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-            style={{ opacity: removing ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel="Start Cook Mode"
-          >
-            <Ionicons name="restaurant-outline" size={17} color="white" />
-            <Text className="font-semibold text-white">Start Cook Mode</Text>
-          </TouchableOpacity>
+          <View className="mb-4 flex-row gap-2">
+            <TouchableOpacity
+              onPress={onStartCookMode}
+              disabled={removing}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+              style={{ opacity: removing ? 0.55 : 1 }}
+              accessibilityRole="button"
+              accessibilityLabel="Start Cook Mode"
+            >
+              <Ionicons name="restaurant-outline" size={17} color="white" />
+              <Text className="font-semibold text-white">Start Cook Mode</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onShare}
+              disabled={removing}
+              className="h-12 w-12 items-center justify-center rounded-xl border border-border bg-card"
+              accessibilityRole="button"
+              accessibilityLabel={`Share ${recipe.title}`}
+            >
+              <Ionicons name="share-outline" size={19} color="#248f58" />
+            </TouchableOpacity>
+          </View>
 
           <RecipeFeedback recipeId={recipe._id as Id<"recipeSuggestions">} />
 
@@ -547,11 +613,17 @@ function MissingIngredientsAction({
   adding,
   disabled,
   missingIngredients,
+  originalServings,
+  targetServings,
+  onChangeServings,
   onAddMissing,
 }: {
   adding: boolean;
   disabled: boolean;
   missingIngredients: RecipeIngredient[];
+  originalServings: number;
+  targetServings: number;
+  onChangeServings: (servings: number) => void;
   onAddMissing: () => void;
 }) {
   if (missingIngredients.length === 0) {
@@ -565,27 +637,71 @@ function MissingIngredientsAction({
     );
   }
 
+  const scaleLabel =
+    targetServings === originalServings
+      ? "Original recipe"
+      : `${targetServings} serving${targetServings === 1 ? "" : "s"}`;
+
   return (
-    <TouchableOpacity
-      onPress={onAddMissing}
-      disabled={adding || disabled}
-      className="mb-4 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
-      style={{ opacity: adding || disabled ? 0.55 : 1 }}
-      accessibilityRole="button"
-      accessibilityLabel={`Add ${missingIngredients.length} missing ingredients to Grocery`}
-      accessibilityHint="Adds the missing recipe ingredients to your grocery list."
-    >
-      {adding ? (
-        <ActivityIndicator color="#248f58" />
-      ) : (
-        <Ionicons name="cart-outline" size={17} color="#248f58" />
-      )}
-      <Text className="font-semibold text-primary">
-        {adding
-          ? "Adding..."
-          : `Add ${missingIngredients.length} missing to Grocery`}
-      </Text>
-    </TouchableOpacity>
+    <View className="mb-4 rounded-2xl border border-border bg-card p-3">
+      <View className="mb-3 flex-row items-center justify-between gap-3">
+        <View className="flex-1">
+          <Text className="text-sm font-bold text-foreground">
+            Scale grocery quantities
+          </Text>
+          <Text className="mt-0.5 text-xs leading-4 text-muted-foreground">
+            {scaleLabel}. Missing items will be adjusted before they are added.
+          </Text>
+        </View>
+        <View className="flex-row items-center rounded-full border border-border bg-muted">
+          <TouchableOpacity
+            onPress={() => onChangeServings(Math.max(1, targetServings - 1))}
+            disabled={adding || disabled || targetServings <= 1}
+            className="h-9 w-9 items-center justify-center"
+            style={{
+              opacity: adding || disabled || targetServings <= 1 ? 0.4 : 1,
+            }}
+            accessibilityLabel="Decrease servings"
+          >
+            <Ionicons name="remove" size={15} color="#374151" />
+          </TouchableOpacity>
+          <Text className="min-w-8 text-center text-sm font-bold text-foreground tabular-nums">
+            {targetServings}
+          </Text>
+          <TouchableOpacity
+            onPress={() => onChangeServings(Math.min(16, targetServings + 1))}
+            disabled={adding || disabled || targetServings >= 16}
+            className="h-9 w-9 items-center justify-center"
+            style={{
+              opacity: adding || disabled || targetServings >= 16 ? 0.4 : 1,
+            }}
+            accessibilityLabel="Increase servings"
+          >
+            <Ionicons name="add" size={15} color="#374151" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      <TouchableOpacity
+        onPress={onAddMissing}
+        disabled={adding || disabled}
+        className="flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+        style={{ opacity: adding || disabled ? 0.55 : 1 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Add ${missingIngredients.length} missing ingredients to Grocery`}
+        accessibilityHint="Adds the missing recipe ingredients to your grocery list."
+      >
+        {adding ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Ionicons name="cart-outline" size={17} color="white" />
+        )}
+        <Text className="font-semibold text-white">
+          {adding
+            ? "Adding..."
+            : `Add ${missingIngredients.length} missing to Grocery`}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 

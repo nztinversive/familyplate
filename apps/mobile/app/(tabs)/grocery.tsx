@@ -5,6 +5,7 @@ import {
   Modal,
   Pressable,
   ScrollView,
+  Share,
   Text,
   TextInput,
   TouchableOpacity,
@@ -58,19 +59,25 @@ export default function GroceryScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isMovingCheckedToPantry, setIsMovingCheckedToPantry] = useState(false);
+  const [storeMode, setStoreMode] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const visibleItems = useMemo(() => {
+  const allItems = useMemo(() => {
     return (groceryList?.items ?? [])
       .map((item, originalIndex) => ({ ...item, originalIndex }))
-      .filter((item) => !isAlwaysAvailableIngredient(item.name))
-      .filter((item) => {
-        if (activeTab === "remaining") return !item.checked;
-        if (activeTab === "checked") return item.checked;
-        return true;
-      });
-  }, [activeTab, groceryList?.items]);
+      .filter((item) => !isAlwaysAvailableIngredient(item.name));
+  }, [groceryList?.items]);
+
+  const visibleItems = useMemo(() => {
+    if (storeMode) return allItems.filter((item) => !item.checked);
+
+    return allItems.filter((item) => {
+      if (activeTab === "remaining") return !item.checked;
+      if (activeTab === "checked") return item.checked;
+      return true;
+    });
+  }, [activeTab, allItems, storeMode]);
 
   const groupedItems = useMemo(() => {
     const groups = new Map<string, GroceryItem[]>();
@@ -82,14 +89,9 @@ export default function GroceryScreen() {
     return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [visibleItems]);
 
-  const allItems = useMemo(() => {
-    return (groceryList?.items ?? [])
-      .map((item, originalIndex) => ({ ...item, originalIndex }))
-      .filter((item) => !isAlwaysAvailableIngredient(item.name));
-  }, [groceryList?.items]);
-
   const checkedCount = allItems.filter((item) => item.checked).length;
   const totalCount = allItems.length;
+  const remainingCount = totalCount - checkedCount;
   const progressPct =
     totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
   const hasPlan = !!mealPlan;
@@ -214,6 +216,7 @@ export default function GroceryScreen() {
           result.movedCount === 1 ? "" : "s"
         } to Pantry.`,
       );
+      if (result.remainingCount === 0) setStoreMode(false);
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "grocery", action: "move_checked_to_pantry", platform: "ios" },
@@ -260,6 +263,68 @@ export default function GroceryScreen() {
     setActiveTab("all");
   };
 
+  const handleStartStoreMode = () => {
+    setStoreMode(true);
+    setActiveTab("remaining");
+    setNotice("");
+    track(posthog, "grocery_store_mode_started", {
+      total_count: totalCount,
+      remaining_count: remainingCount,
+    });
+  };
+
+  const handleFinishStoreMode = async () => {
+    track(posthog, "grocery_store_mode_finished", {
+      checked_count: checkedCount,
+      remaining_count: remainingCount,
+    });
+
+    if (checkedCount > 0) {
+      await handleMoveCheckedToPantry();
+      return;
+    }
+
+    setStoreMode(false);
+    setNotice("Store Mode closed. Nothing was checked yet.");
+  };
+
+  const handleShareGroceryList = async () => {
+    if (totalCount === 0) return;
+
+    const groups = new Map<string, GroceryItem[]>();
+    for (const item of allItems) {
+      const category = item.category || "Other";
+      if (!groups.has(category)) groups.set(category, []);
+      groups.get(category)!.push(item);
+    }
+
+    const lines = Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .flatMap(([category, items]) => [
+      category,
+      ...items.map(
+        (item) =>
+          `${item.checked ? "[x]" : "[ ]"} ${item.quantity} ${item.unit} ${item.name}`,
+      ),
+    ]);
+
+    try {
+      await Share.share({
+        title: "FamilyPlate Grocery List",
+        message: `FamilyPlate Grocery List\n\n${lines.join("\n")}`,
+      });
+      track(posthog, "grocery_list_shared", {
+        item_count: totalCount,
+        source: storeMode ? "store_mode" : "grocery_tab",
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "share_list", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    }
+  };
+
   return (
     <ScreenShell
       title="Grocery List"
@@ -269,29 +334,69 @@ export default function GroceryScreen() {
           : "Shop by category."
       }
     >
-      <View className="mb-4 flex-row gap-2">
-        <TouchableOpacity
-          onPress={() => setShowAddForm(true)}
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-        >
-          <Ionicons name="add" size={18} color="white" />
-          <Text className="font-semibold text-white">Add Item</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => void handleGenerateFromPlan()}
-          disabled={isGenerating || !hasPlan}
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
-          style={{ opacity: isGenerating || !hasPlan ? 0.55 : 1 }}
-        >
-          {isGenerating ? (
-            <ActivityIndicator color="#248f58" />
-          ) : (
-            <Ionicons name="list" size={18} color="#248f58" />
-          )}
-          <Text className="font-semibold text-primary">
-            {isGenerating ? "Generating..." : "From Plan"}
-          </Text>
-        </TouchableOpacity>
+      <View className="mb-4 gap-2">
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() => setShowAddForm(true)}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+          >
+            <Ionicons name="add" size={18} color="white" />
+            <Text className="font-semibold text-white">Add Item</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void handleGenerateFromPlan()}
+            disabled={isGenerating || !hasPlan}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+            style={{ opacity: isGenerating || !hasPlan ? 0.55 : 1 }}
+          >
+            {isGenerating ? (
+              <ActivityIndicator color="#248f58" />
+            ) : (
+              <Ionicons name="list" size={18} color="#248f58" />
+            )}
+            <Text className="font-semibold text-primary">
+              {isGenerating ? "Generating..." : "From Plan"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View className="flex-row gap-2">
+          <TouchableOpacity
+            onPress={() =>
+              storeMode ? setStoreMode(false) : handleStartStoreMode()
+            }
+            disabled={totalCount === 0}
+            className={`flex-1 flex-row items-center justify-center gap-2 rounded-xl py-3 ${
+              storeMode ? "bg-primary" : "border border-border bg-card"
+            }`}
+            style={{ opacity: totalCount === 0 ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel={storeMode ? "Close Store Mode" : "Open Store Mode"}
+          >
+            <Ionicons
+              name="storefront-outline"
+              size={18}
+              color={storeMode ? "white" : "#248f58"}
+            />
+            <Text
+              className={`font-semibold ${
+                storeMode ? "text-white" : "text-primary"
+              }`}
+            >
+              {storeMode ? "Shopping" : "Store Mode"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => void handleShareGroceryList()}
+            disabled={totalCount === 0}
+            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+            style={{ opacity: totalCount === 0 ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Share grocery list"
+          >
+            <Ionicons name="share-outline" size={18} color="#248f58" />
+            <Text className="font-semibold text-primary">Share</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {error ? (
@@ -375,6 +480,57 @@ export default function GroceryScreen() {
             </View>
           </View>
 
+          {storeMode ? (
+            <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-4">
+              <View className="flex-row items-start gap-3">
+                <View className="h-11 w-11 items-center justify-center rounded-xl bg-card">
+                  <Ionicons name="storefront" size={20} color="#248f58" />
+                </View>
+                <View className="min-w-0 flex-1">
+                  <Text className="text-base font-bold text-foreground">
+                    Store Mode
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                    Checked items hide while you shop. Finish the trip to move
+                    purchased items into Pantry.
+                  </Text>
+                  <View className="mt-3 flex-row gap-2">
+                    <TouchableOpacity
+                      onPress={() => void handleFinishStoreMode()}
+                      disabled={isMovingCheckedToPantry}
+                      className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+                      style={{
+                        opacity: isMovingCheckedToPantry ? 0.65 : 1,
+                      }}
+                    >
+                      {isMovingCheckedToPantry ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
+                        <Ionicons name="checkmark-circle" size={17} color="white" />
+                      )}
+                      <Text className="font-semibold text-white">
+                        {checkedCount > 0 ? "Finish Trip" : "Close"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => void handleShareGroceryList()}
+                      className="h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-card"
+                      accessibilityRole="button"
+                      accessibilityLabel="Share grocery list"
+                    >
+                      <Ionicons name="share-outline" size={19} color="#248f58" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+              <View className="mt-3 flex-row gap-2">
+                <StoreStat label="To buy" value={remainingCount} />
+                <StoreStat label="Checked" value={checkedCount} />
+                <StoreStat label="Done" value={`${progressPct}%`} />
+              </View>
+            </View>
+          ) : null}
+
           {checkedCount > 0 ? (
             <View className="mb-4 rounded-2xl border border-primary/20 bg-primary/10 p-3">
               <View className="flex-row items-center gap-3">
@@ -410,28 +566,30 @@ export default function GroceryScreen() {
             </View>
           ) : null}
 
-          <View className="mb-4 flex-row rounded-xl bg-muted p-1">
-            {FILTER_TABS.map((tab) => {
-              const active = activeTab === tab.key;
-              return (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
-                  className={`flex-1 rounded-lg py-2 ${active ? "bg-card" : ""}`}
-                >
-                  <Text
-                    className={`text-center text-sm ${
-                      active
-                        ? "font-semibold text-foreground"
-                        : "text-muted-foreground"
-                    }`}
+          {!storeMode ? (
+            <View className="mb-4 flex-row rounded-xl bg-muted p-1">
+              {FILTER_TABS.map((tab) => {
+                const active = activeTab === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => setActiveTab(tab.key)}
+                    className={`flex-1 rounded-lg py-2 ${active ? "bg-card" : ""}`}
                   >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+                    <Text
+                      className={`text-center text-sm ${
+                        active
+                          ? "font-semibold text-foreground"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {tab.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
 
           <TouchableOpacity
             onPress={handleClearAll}
@@ -471,6 +629,7 @@ export default function GroceryScreen() {
                         item={item}
                         busy={busyIndex === item.originalIndex}
                         canMoveToPantry={!!householdId}
+                        storeMode={storeMode}
                         onToggle={() => void handleToggle(item)}
                         onRemove={() => void handleRemove(item)}
                         onMoveToPantry={() => void handleMoveToPantry(item)}
@@ -499,10 +658,24 @@ export default function GroceryScreen() {
   );
 }
 
+function StoreStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <View className="flex-1 rounded-xl bg-card p-3">
+      <Text className="text-lg font-bold text-foreground tabular-nums">
+        {value}
+      </Text>
+      <Text className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 function GroceryItemRow({
   item,
   busy,
   canMoveToPantry,
+  storeMode,
   onToggle,
   onRemove,
   onMoveToPantry,
@@ -510,31 +683,34 @@ function GroceryItemRow({
   item: GroceryItem;
   busy: boolean;
   canMoveToPantry: boolean;
+  storeMode: boolean;
   onToggle: () => void;
   onRemove: () => void;
   onMoveToPantry: () => void;
 }) {
   return (
     <View
-      className="rounded-2xl border border-border bg-card p-3"
+      className={`rounded-2xl border border-border bg-card ${
+        storeMode ? "p-4" : "p-3"
+      }`}
       style={{ opacity: item.checked ? 0.65 : 1 }}
     >
       <View className="flex-row items-center gap-3">
         <TouchableOpacity
           onPress={onToggle}
           disabled={busy}
-          className={`h-7 w-7 items-center justify-center rounded-full border-2 ${
+          className={`${storeMode ? "h-11 w-11" : "h-7 w-7"} items-center justify-center rounded-full border-2 ${
             item.checked ? "border-primary bg-primary" : "border-border bg-card"
           }`}
         >
           {item.checked ? (
-            <Ionicons name="checkmark" size={16} color="white" />
+            <Ionicons name="checkmark" size={storeMode ? 22 : 16} color="white" />
           ) : null}
         </TouchableOpacity>
 
         <View className="min-w-0 flex-1">
           <Text
-            className={`text-base font-semibold ${
+            className={`${storeMode ? "text-lg" : "text-base"} font-semibold ${
               item.checked
                 ? "text-muted-foreground line-through"
                 : "text-foreground"
@@ -566,7 +742,7 @@ function GroceryItemRow({
         <TouchableOpacity
           onPress={onRemove}
           disabled={busy}
-          className="h-8 w-8 items-center justify-center"
+          className={`${storeMode ? "h-11 w-11" : "h-8 w-8"} items-center justify-center`}
           accessibilityLabel={`Remove ${item.name}`}
         >
           <Ionicons name="trash-outline" size={17} color="#dc2626" />

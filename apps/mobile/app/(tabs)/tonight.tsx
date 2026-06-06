@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  Share,
   Text,
   TextInput,
   TouchableOpacity,
@@ -11,11 +12,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
-import type { Id } from "@familyplate/convex/_generated/dataModel";
+import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { formatExpirationLabel } from "@/lib/pantry";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
@@ -35,6 +37,7 @@ type Suggestion = {
   instructions: string[];
   missingItems: string[];
 };
+type PantryItem = Doc<"pantryItems">;
 
 const CRAVING_CHIPS = [
   "Chicken",
@@ -58,6 +61,30 @@ function getErrorMessage(err: unknown) {
   return "Unable to generate dinner suggestions right now. Please try again.";
 }
 
+function getExpiringSoonItems(items: PantryItem[]) {
+  const now = Date.now();
+  const fourDays = 4 * 24 * 60 * 60 * 1000;
+
+  return items
+    .filter((item) => item.expirationDate && item.expirationDate <= now + fourDays)
+    .sort((a, b) => (a.expirationDate ?? 0) - (b.expirationDate ?? 0))
+    .slice(0, 4);
+}
+
+function buildRecipeShareText(suggestion: Suggestion) {
+  const ingredients = suggestion.ingredients
+    .map(
+      (ingredient) =>
+        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
+    )
+    .join("\n");
+  const instructions = suggestion.instructions
+    .map((step, index) => `${index + 1}. ${step}`)
+    .join("\n");
+
+  return `${suggestion.name}\n\n${suggestion.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
+}
+
 export default function TonightScreen() {
   const router = useRouter();
   const posthog = usePostHog();
@@ -70,6 +97,7 @@ export default function TonightScreen() {
   );
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
 
@@ -110,6 +138,11 @@ export default function TonightScreen() {
   const savedRecipeIds = useMemo(() => {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
+
+  const expiringSoonItems = useMemo(
+    () => getExpiringSoonItems(pantryItems ?? []),
+    [pantryItems],
+  );
 
   useEffect(() => {
     if (trackedSuccessNudge.current) return;
@@ -222,6 +255,24 @@ export default function TonightScreen() {
     }
   };
 
+  const handleShareSuggestion = async (suggestion: Suggestion) => {
+    try {
+      await Share.share({
+        title: suggestion.name,
+        message: buildRecipeShareText(suggestion),
+      });
+      track(posthog, "recipe_shared", {
+        source: "tonight",
+        has_recipe_id: !!suggestion._id,
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "tonight", action: "share_recipe", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    }
+  };
+
   return (
     <ScreenShell
       title="Tonight"
@@ -319,6 +370,47 @@ export default function TonightScreen() {
         </Text>
       </TouchableOpacity>
 
+      {expiringSoonItems.length > 0 ? (
+        <View className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <View className="mb-3 flex-row items-start gap-3">
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-white">
+              <Ionicons name="time-outline" size={20} color="#b45309" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-bold text-foreground">
+                Cook these first
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                These pantry items are expiring soon. Tap one to ask for dinner
+                ideas that use it.
+              </Text>
+            </View>
+          </View>
+          <View className="gap-2">
+            {expiringSoonItems.map((item) => (
+              <TouchableOpacity
+                key={item._id}
+                onPress={() => void handleGenerate(`use ${item.name}`)}
+                disabled={isGenerating}
+                className="flex-row items-center justify-between gap-3 rounded-xl bg-white px-3 py-3"
+                accessibilityRole="button"
+                accessibilityLabel={`Suggest dinners using ${item.name}`}
+              >
+                <View className="min-w-0 flex-1">
+                  <Text className="font-semibold text-foreground" numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {formatExpirationLabel(item.expirationDate)}
+                  </Text>
+                </View>
+                <Ionicons name="sparkles" size={17} color="#248f58" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {activeCraving && suggestions.length > 0 ? (
         <View className="mb-4 flex-row justify-center">
           <View className="flex-row items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5">
@@ -394,6 +486,7 @@ export default function TonightScreen() {
             onToggleSave={() => {
               if (suggestion._id) void handleToggleSave(suggestion._id);
             }}
+            onShare={() => void handleShareSuggestion(suggestion)}
           />
         ))}
       </View>
@@ -461,6 +554,7 @@ function SuggestionCard({
   saving,
   onToggleExpanded,
   onToggleSave,
+  onShare,
 }: {
   suggestion: Suggestion;
   expanded: boolean;
@@ -468,6 +562,7 @@ function SuggestionCard({
   saving: boolean;
   onToggleExpanded: () => void;
   onToggleSave: () => void;
+  onShare: () => void;
 }) {
   const pantryCount = suggestion.ingredients.filter((ingredient) =>
     isIngredientAvailable(ingredient),
@@ -569,6 +664,17 @@ function SuggestionCard({
               </Text>
             </TouchableOpacity>
           ) : null}
+          <TouchableOpacity
+            onPress={onShare}
+            className="flex-row items-center gap-1 rounded-lg px-2 py-1"
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${suggestion.name}`}
+          >
+            <Ionicons name="share-outline" size={16} color="#6f756f" />
+            <Text className="text-xs font-semibold text-muted-foreground">
+              Share
+            </Text>
+          </TouchableOpacity>
         </View>
       </Pressable>
 

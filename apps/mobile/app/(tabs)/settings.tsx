@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Share,
   Text,
   TextInput,
   TouchableOpacity,
@@ -50,6 +51,7 @@ const PRIVACY_URL = "https://familyplate.co/privacy";
 const TERMS_URL = "https://familyplate.co/terms";
 const SUPPORT_URL = "https://familyplate.co/support";
 const APP_STORE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
+const APP_URL = "https://familyplate.co";
 
 function parseCommaSeparatedList(value: string) {
   return Array.from(
@@ -113,6 +115,11 @@ function getUniqueValues(values: string[]) {
   return Array.from(
     new Set(values.map((value) => value.trim()).filter(Boolean)),
   );
+}
+
+function buildInviteShareText(householdName: string, inviteCode: string) {
+  const inviteUrl = `${APP_URL}/join/${inviteCode}`;
+  return `Join ${householdName} on FamilyPlate.\n\nInvite code: ${inviteCode}\n${inviteUrl}`;
 }
 
 export default function SettingsScreen() {
@@ -190,6 +197,26 @@ export default function SettingsScreen() {
     currentUser === undefined ||
     profile === undefined ||
     household === undefined;
+
+  const shareHouseholdInvite = async () => {
+    if (!household?.inviteCode) return;
+
+    try {
+      await Share.share({
+        title: `Join ${household.name} on FamilyPlate`,
+        message: buildInviteShareText(household.name, household.inviteCode),
+      });
+      track(posthog, "household_invite_shared", {
+        household_id: household._id,
+        member_count: members?.length ?? 0,
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "share_invite", platform: "ios" },
+      });
+      setError(err instanceof Error ? err.message : "Couldn't share invite.");
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -513,7 +540,11 @@ export default function SettingsScreen() {
         <>
           <ProfileCard currentUser={currentUser} profile={profile} />
 
-          <HouseholdCard household={household} members={members ?? []} />
+          <HouseholdCard
+            household={household}
+            members={members ?? []}
+            onShareInvite={() => void shareHouseholdInvite()}
+          />
 
           <EaterProfilesCard
             members={members ?? []}
@@ -853,9 +884,11 @@ function ProfileStat({
 function HouseholdCard({
   household,
   members,
+  onShareInvite,
 }: {
   household: Doc<"households"> | null;
   members: Profile[];
+  onShareInvite: () => void;
 }) {
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-4">
@@ -882,6 +915,20 @@ function HouseholdCard({
           </View>
         ) : null}
       </View>
+
+      {household?.inviteCode ? (
+        <TouchableOpacity
+          onPress={onShareInvite}
+          className="mb-3 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 py-3"
+          accessibilityRole="button"
+          accessibilityLabel="Share household invite"
+        >
+          <Ionicons name="share-outline" size={17} color="#248f58" />
+          <Text className="font-semibold text-primary">
+            Share Household Invite
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <View className="mb-3 flex-row gap-2">
         <View className="flex-1 rounded-xl bg-muted p-3">
