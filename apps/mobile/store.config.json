@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate 1.11.0 makes shopping, cooking, and sharing smoother on iPhone.\n\n- New Grocery Store Mode gives shoppers larger check-off controls, live progress, and a finish action that moves purchased items into Pantry.\n- Tonight now highlights pantry items expiring soon and can suggest dinners that use them first.\n- Cookbook recipes can scale servings before adding missing ingredients to Grocery.\n- Recipes, grocery lists, and household invites now support native iOS sharing.\n- Small polish updates make the pantry-to-plan-to-shopping loop clearer.",
+        "releaseNotes": "FamilyPlate now learns from the dinners you cook.\n\n- New dinner check-ins help future plans learn what your household liked, skipped, or wants less often.\n- Settings now shows learned meal memory, including family favorites, kid-approved meals, and avoid signals you can remove.\n- Cookbook now includes recently cooked dinners so repeat meals are easier to find.\n- Tonight and Weekly Plan now surface leftovers and expiring pantry items as use-this-first prompts.\n- Recipe details now show estimated per-serving nutrition when available.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",
