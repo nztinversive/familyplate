@@ -16,6 +16,13 @@ type QuickSuggestion = {
   ingredients: Array<{ name: string; quantity: number; unit: string; inPantry: boolean }>;
   instructions: string[];
   missingItems: string[];
+  nutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber?: number;
+  };
 };
 
 export const suggestFromPantry = action({
@@ -80,7 +87,7 @@ export const suggestFromPantry = action({
 
 CRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. This includes ALL derivatives and hidden forms of the allergen. There are no exceptions. Also completely avoid all listed dislikes.
 
-For each recipe, list ALL ingredients needed. Mark which ones are already in the pantry (inPantry: true) and which are missing (inPantry: false). Keep missing items to common staples (salt, pepper, oil, water) when possible.
+For each recipe, list ALL ingredients needed. Mark which ones are already in the pantry (inPantry: true) and which are missing (inPantry: false). Keep missing items to common staples (salt, pepper, oil, water) when possible. Include approximate per-serving nutrition: calories, protein, carbs, fat, and fiber.
 
 Return exactly 6 suggestions with varied effort levels and cuisines. More options means better filtering.`;
 
@@ -133,8 +140,20 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
                 type: "array" as const,
                 items: { type: "string" as const },
               },
+              nutrition: {
+                type: "object" as const,
+                properties: {
+                  calories: { type: "number" as const },
+                  protein: { type: "number" as const },
+                  carbs: { type: "number" as const },
+                  fat: { type: "number" as const },
+                  fiber: { type: "number" as const },
+                },
+                required: ["calories", "protein", "carbs", "fat", "fiber"],
+                additionalProperties: false,
+              },
             },
-            required: ["name", "description", "effortLevel", "estimatedTime", "servings", "ingredients", "instructions", "missingItems"],
+            required: ["name", "description", "effortLevel", "estimatedTime", "servings", "ingredients", "instructions", "missingItems", "nutrition"],
             additionalProperties: false,
           },
         },

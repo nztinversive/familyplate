@@ -46,6 +46,20 @@ type Subscription = {
   status?: string;
   endsAt?: string;
 };
+type LearningItem = {
+  label: string;
+  count: number;
+};
+type LearningSummary = {
+  favorites: LearningItem[];
+  avoiding: LearningItem[];
+  kidApproved: LearningItem[];
+  tooMuchPrep: LearningItem[];
+  tooSpicy: LearningItem[];
+  greatLeftovers: LearningItem[];
+  removableDislikes: string[];
+  feedbackCount: number;
+};
 
 const PRIVACY_URL = "https://familyplate.co/privacy";
 const TERMS_URL = "https://familyplate.co/terms";
@@ -128,6 +142,10 @@ export default function SettingsScreen() {
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
+  const learningSummary = useQuery(
+    api.queries.feedback.getMyHouseholdLearningSummary,
+    {},
+  );
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
@@ -152,6 +170,7 @@ export default function SettingsScreen() {
   const [eaterError, setEaterError] = useState("");
   const [eaterSaved, setEaterSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [removingDislike, setRemovingDislike] = useState<string | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -311,6 +330,41 @@ export default function SettingsScreen() {
     setDislikesInput((profile?.dislikes ?? []).join(", "));
     setError("");
     setSaved(false);
+  };
+
+  const handleRemoveLearnedDislike = async (item: string) => {
+    if (!profile?._id) return;
+
+    setRemovingDislike(item);
+    setError("");
+    setSaved(false);
+
+    try {
+      const nextDislikes = (profile.dislikes ?? []).filter(
+        (value) => value !== item,
+      );
+      await updateProfile({
+        profileId: profile._id,
+        dislikes: nextDislikes,
+      });
+      setDislikesInput(nextDislikes.join(", "));
+      setSaved(true);
+      track(posthog, "preference_saved_from_feedback", {
+        source: "settings_learning_summary",
+        preference_type: "remove_dislike",
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: {
+          area: "settings",
+          action: "remove_learned_dislike",
+          platform: "ios",
+        },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setRemovingDislike(null);
+    }
   };
 
   const resetEaterForm = () => {
@@ -594,6 +648,12 @@ export default function SettingsScreen() {
           <HouseholdSafetyCard
             allergies={householdAllergies}
             dislikes={householdDislikes}
+          />
+
+          <LearnedPreferencesCard
+            learning={learningSummary as LearningSummary | undefined}
+            removingDislike={removingDislike}
+            onRemoveDislike={(item) => void handleRemoveLearnedDislike(item)}
           />
 
           <PrivacyAccountCard
@@ -1597,6 +1657,181 @@ function HouseholdSafetyCard({
           </Text>
         </View>
       )}
+    </View>
+  );
+}
+
+function LearnedPreferencesCard({
+  learning,
+  removingDislike,
+  onRemoveDislike,
+}: {
+  learning?: LearningSummary;
+  removingDislike: string | null;
+  onRemoveDislike: (item: string) => void;
+}) {
+  const hasLearning =
+    learning &&
+    (learning.feedbackCount > 0 || learning.removableDislikes.length > 0);
+
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-4 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-xl bg-primary/10">
+          <Ionicons name="sparkles-outline" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-foreground">
+            Learned Meal Memory
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Feedback after cooking helps future plans choose dinners your
+            household is more likely to repeat.
+          </Text>
+        </View>
+      </View>
+
+      {!learning ? (
+        <View className="rounded-xl bg-muted p-3">
+          <Text className="text-sm text-muted-foreground">
+            Loading meal memory...
+          </Text>
+        </View>
+      ) : hasLearning ? (
+        <>
+          <LearningSection
+            icon="heart-outline"
+            label="Family favorites"
+            items={learning.favorites}
+          />
+          <LearningSection
+            icon="close-circle-outline"
+            label="Avoiding"
+            items={learning.avoiding}
+            removableItems={learning.removableDislikes}
+            removingItem={removingDislike}
+            onRemoveItem={onRemoveDislike}
+          />
+          <LearningSection
+            icon="happy-outline"
+            label="Kid-approved"
+            items={learning.kidApproved}
+          />
+          <LearningSection
+            icon="restaurant-outline"
+            label="Great leftovers"
+            items={learning.greatLeftovers}
+          />
+          <LearningSection
+            icon="flash-outline"
+            label="Too much prep"
+            items={learning.tooMuchPrep}
+          />
+          <LearningSection
+            icon="flame-outline"
+            label="Too spicy"
+            items={learning.tooSpicy}
+          />
+        </>
+      ) : (
+        <View className="flex-row items-start gap-2 rounded-xl bg-muted p-3">
+          <Ionicons name="restaurant-outline" size={18} color="#248f58" />
+          <Text className="flex-1 text-sm leading-5 text-muted-foreground">
+            Cook a dinner and complete the quick check-in to start building
+            household meal memory.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function LearningSection({
+  icon,
+  label,
+  items,
+  removableItems = [],
+  removingItem,
+  onRemoveItem,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  items: LearningItem[];
+  removableItems?: string[];
+  removingItem?: string | null;
+  onRemoveItem?: (item: string) => void;
+}) {
+  if (items.length === 0 && removableItems.length === 0) return null;
+
+  const removableSet = new Set(removableItems);
+
+  return (
+    <View className="mb-4">
+      <View className="mb-2 flex-row items-center gap-2">
+        <Ionicons name={icon} size={15} color="#248f58" />
+        <Text className="text-sm font-bold text-foreground">{label}</Text>
+      </View>
+      <View className="flex-row flex-wrap gap-2">
+        {items.map((item) => (
+          <LearningPill
+            key={item.label}
+            item={item.label}
+            count={item.count}
+            removable={removableSet.has(item.label)}
+            removing={removingItem === item.label}
+            onRemove={onRemoveItem}
+          />
+        ))}
+        {removableItems
+          .filter((item) => !items.some((learningItem) => learningItem.label === item))
+          .map((item) => (
+            <LearningPill
+              key={item}
+              item={item}
+              removable
+              removing={removingItem === item}
+              onRemove={onRemoveItem}
+            />
+          ))}
+      </View>
+    </View>
+  );
+}
+
+function LearningPill({
+  item,
+  count,
+  removable,
+  removing,
+  onRemove,
+}: {
+  item: string;
+  count?: number;
+  removable?: boolean;
+  removing?: boolean;
+  onRemove?: (item: string) => void;
+}) {
+  return (
+    <View className="flex-row items-center gap-1 rounded-full bg-muted px-3 py-1.5">
+      <Text className="text-sm font-semibold text-muted-foreground">
+        {item}
+        {count && count > 1 ? ` ${count}x` : ""}
+      </Text>
+      {removable && onRemove ? (
+        <TouchableOpacity
+          onPress={() => onRemove(item)}
+          disabled={removing}
+          className="ml-1 h-5 w-5 items-center justify-center rounded-full bg-card"
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${item} from learned dislikes`}
+        >
+          {removing ? (
+            <ActivityIndicator color="#248f58" />
+          ) : (
+            <Ionicons name="close" size={12} color="#686158" />
+          )}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }

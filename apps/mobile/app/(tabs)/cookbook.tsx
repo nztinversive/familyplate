@@ -15,6 +15,7 @@ import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { CookModeModal } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
+import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
@@ -24,6 +25,14 @@ import { Sentry } from "@/lib/sentry";
 
 type Recipe = Doc<"recipeSuggestions">;
 type RecipeIngredient = Recipe["ingredients"][number];
+type RecentlyCookedMeal = {
+  _id: string;
+  date: string;
+  recipe: Recipe;
+  feedbackCount: number;
+  averageRating: number | null;
+  topTags: string[];
+};
 
 function formatSavedDate(timestamp: number) {
   return new Date(timestamp).toLocaleDateString("en-US", {
@@ -65,6 +74,9 @@ function buildRecipeShareText(recipe: Recipe) {
 export default function CookbookScreen() {
   const posthog = usePostHog();
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const recentlyCooked = useQuery(api.queries.planner.getRecentlyCookedMeals, {
+    limit: 5,
+  });
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const addPantryItem = useMutation(api.mutations.pantry.addItem);
@@ -250,6 +262,10 @@ export default function CookbookScreen() {
       title="Cookbook"
       subtitle="Recipes you've saved from generated plans."
     >
+      {recentlyCooked && recentlyCooked.length > 0 ? (
+        <RecentlyCookedCard meals={recentlyCooked as RecentlyCookedMeal[]} />
+      ) : null}
+
       {savedRecipes === undefined ? (
         <LoadingCard
           icon="book-outline"
@@ -363,6 +379,68 @@ function EmptyCookbook() {
   );
 }
 
+function RecentlyCookedCard({ meals }: { meals: RecentlyCookedMeal[] }) {
+  return (
+    <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+      <View className="mb-3 flex-row items-start gap-3">
+        <View className="h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
+          <Ionicons name="restaurant-outline" size={22} color="#248f58" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-lg font-semibold text-foreground">
+            Recently Cooked
+          </Text>
+          <Text className="text-sm leading-5 text-muted-foreground">
+            Dinner history helps FamilyPlate remember what worked.
+          </Text>
+        </View>
+      </View>
+      <View className="gap-2">
+        {meals.map((meal) => (
+          <View key={meal._id} className="rounded-xl bg-muted p-3">
+            <View className="flex-row items-start justify-between gap-3">
+              <View className="min-w-0 flex-1">
+                <Text className="font-semibold text-foreground" numberOfLines={1}>
+                  {meal.recipe.title}
+                </Text>
+                <Text className="mt-1 text-xs text-muted-foreground">
+                  {new Date(`${meal.date}T12:00:00`).toLocaleDateString(
+                    undefined,
+                    {
+                      month: "short",
+                      day: "numeric",
+                    },
+                  )}
+                  {meal.averageRating
+                    ? ` · ${meal.averageRating}/5 average`
+                    : " · waiting for feedback"}
+                </Text>
+              </View>
+              <View className="rounded-full bg-card px-2 py-1">
+                <Text className="text-xs font-semibold text-primary">
+                  {meal.feedbackCount} check-in
+                  {meal.feedbackCount === 1 ? "" : "s"}
+                </Text>
+              </View>
+            </View>
+            {meal.topTags.length > 0 ? (
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                {meal.topTags.map((tag) => (
+                  <View key={tag} className="rounded-full bg-card px-2 py-1">
+                    <Text className="text-[11px] font-semibold text-muted-foreground">
+                      {tag}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function EmptyGuideRow({
   icon,
   label,
@@ -468,6 +546,12 @@ function RecipeCard({
           </View>
           <InfoPill icon="time-outline" label={`${recipe.estimatedTime}m`} />
           <InfoPill icon="people-outline" label={`Serves ${recipe.servings}`} />
+          {recipe.nutrition ? (
+            <InfoPill
+              icon="stats-chart-outline"
+              label={`${Math.round(recipe.nutrition.calories)} cal`}
+            />
+          ) : null}
           <InfoPill label={`${pantryCount}/${totalCount} in pantry`} />
         </View>
 
@@ -536,6 +620,12 @@ function RecipeCard({
             onChangeServings={setTargetServings}
             onAddMissing={() => onAddMissing(targetServings)}
           />
+
+          {recipe.nutrition ? (
+            <View className="mb-4">
+              <RecipeNutrition nutrition={recipe.nutrition} compact />
+            </View>
+          ) : null}
 
           <View className="mb-4 flex-row gap-2">
             <TouchableOpacity

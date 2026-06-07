@@ -117,7 +117,7 @@ const ADJUSTMENT_PROMPTS: Record<MealAdjustmentType, string> = {
   kid_friendly:
     "Prioritize kid-friendly dinners with familiar flavors, flexible toppings, and approachable textures while still respecting all allergies and dislikes.",
   use_pantry:
-    "Prioritize dinners that use the most pantry items, especially items close to expiration.",
+    "Prioritize dinners that use the most pantry items, especially leftovers and items close to expiration.",
   avoid:
     "Avoid the ingredient, dish style, or concern named by the user. Do not include close substitutes that would feel like the same issue.",
   regenerate_day:
@@ -252,7 +252,7 @@ export const swapMeal: ReturnType<typeof action> = action({
           `Serve ${householdSize} people.`,
           "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen.",
           "Also completely avoid all listed dislikes.",
-          "Use pantry items first, especially anything nearing expiration.",
+          "Use pantry items first, especially leftovers and anything nearing expiration.",
           "Do not repeat the current dinner or the other planned dinners this week.",
           "Keep the alternatives distinct from each other in cuisine or flavor profile.",
           "Most dinners should stay in the same general weeknight range as the current plan.",

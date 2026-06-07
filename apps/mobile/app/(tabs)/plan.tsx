@@ -19,6 +19,7 @@ import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { CookModeModal } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
+import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { ensureAiConsent } from "@/lib/aiConsent";
@@ -28,6 +29,7 @@ import { Sentry } from "@/lib/sentry";
 
 type Recipe = Doc<"recipeSuggestions">;
 type Profile = Doc<"userProfiles">;
+type PantryItem = Doc<"pantryItems">;
 type PlannedMeal = Doc<"plannedMeals"> & {
   recipe: Recipe;
   alternatives: Recipe[];
@@ -145,6 +147,49 @@ function getPantryMatch(recipe: Recipe) {
   };
 }
 
+function getUseFirstItems(items: PantryItem[]) {
+  const now = Date.now();
+  const fourDays = 4 * 24 * 60 * 60 * 1000;
+
+  return items
+    .filter((item) => {
+      const isLeftover =
+        item.category.toLowerCase() === "leftovers" ||
+        item.name.toLowerCase().includes("leftover");
+      const isExpiring =
+        item.expirationDate !== undefined && item.expirationDate <= now + fourDays;
+      return isLeftover || isExpiring;
+    })
+    .sort((a, b) => {
+      const aLeftover =
+        a.category.toLowerCase() === "leftovers" ||
+        a.name.toLowerCase().includes("leftover");
+      const bLeftover =
+        b.category.toLowerCase() === "leftovers" ||
+        b.name.toLowerCase().includes("leftover");
+      if (aLeftover !== bLeftover) return aLeftover ? -1 : 1;
+      return (a.expirationDate ?? Number.MAX_SAFE_INTEGER) -
+        (b.expirationDate ?? Number.MAX_SAFE_INTEGER);
+    })
+    .slice(0, 5);
+}
+
+function getUseFirstLabel(item: PantryItem) {
+  if (
+    item.category.toLowerCase() === "leftovers" ||
+    item.name.toLowerCase().includes("leftover")
+  ) {
+    return "Leftovers";
+  }
+
+  if (!item.expirationDate) return "Use soon";
+
+  return new Date(item.expirationDate).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function buildRecipeShareText(recipe: Recipe) {
   const ingredients = recipe.ingredients
     .map(
@@ -252,6 +297,7 @@ export default function PlanScreen() {
   );
   const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
+  const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
@@ -338,6 +384,10 @@ export default function PlanScreen() {
       pantryCovered,
     };
   }, [meals]);
+  const useFirstItems = useMemo(
+    () => getUseFirstItems(pantryItems ?? []),
+    [pantryItems],
+  );
   const audienceProfileIds = useMemo(() => {
     if (mealAudience === "whole") return undefined;
     if (mealAudience === "me") {
@@ -531,18 +581,18 @@ export default function PlanScreen() {
         mealId: meal._id as Id<"plannedMeals">,
         status,
       });
-      if (selectedMeal?._id === meal._id) {
-        setSelectedMeal({ ...meal, status });
-      }
       if (status === "cooked" && meal.status !== "cooked") {
+        setSelectedMeal({ ...meal, status });
         setNotice(
-          "Dinner marked cooked. Pantry updated, and feedback is ready in dinner details.",
+          "Dinner marked cooked. Add the quick check-in so future plans learn what worked.",
         );
         track(posthog, "recipe_cooked", {
           source: "weekly_plan",
           recipe_id: meal.recipe._id,
           meal_id: meal._id,
         });
+      } else if (selectedMeal?._id === meal._id) {
+        setSelectedMeal({ ...meal, status });
       }
       track(posthog, "meal_status_updated", {
         status,
@@ -1010,6 +1060,10 @@ export default function PlanScreen() {
         />
       ) : null}
 
+      {useFirstItems.length > 0 ? (
+        <UseFirstCard items={useFirstItems} />
+      ) : null}
+
       {notice ? (
         <View className="mb-4 flex-row items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3">
           <Ionicons name="checkmark-circle" size={18} color="#248f58" />
@@ -1178,6 +1232,39 @@ function PlanLimitNotice({ onUpgrade }: { onUpgrade: () => void }) {
             <Text className="font-semibold text-white">View Family Plan</Text>
           </TouchableOpacity>
         </View>
+      </View>
+    </View>
+  );
+}
+
+function UseFirstCard({ items }: { items: PantryItem[] }) {
+  return (
+    <View className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <View className="mb-3 flex-row items-start gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-xl bg-white">
+          <Ionicons name="time-outline" size={20} color="#b45309" />
+        </View>
+        <View className="flex-1">
+          <Text className="text-base font-bold text-foreground">
+            Use this first
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Weekly planning prioritizes leftovers and pantry items closest to
+            expiration.
+          </Text>
+        </View>
+      </View>
+      <View className="flex-row flex-wrap gap-2">
+        {items.map((item) => (
+          <View key={item._id} className="rounded-xl bg-white px-3 py-2">
+            <Text className="text-sm font-semibold text-foreground">
+              {item.name}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              {getUseFirstLabel(item)}
+            </Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -1507,6 +1594,12 @@ function MealCard({
           icon="people-outline"
           label={`${meal.recipe.servings} servings`}
         />
+        {meal.recipe.nutrition ? (
+          <InfoPill
+            icon="stats-chart-outline"
+            label={`${Math.round(meal.recipe.nutrition.calories)} cal`}
+          />
+        ) : null}
         <InfoPill icon="leaf-outline" label={pantry.label} />
       </View>
 
@@ -1962,6 +2055,12 @@ function MealDetailModal({
               />
               <InfoPill icon="leaf-outline" label={pantry.label} />
             </View>
+
+            {recipe.nutrition ? (
+              <View className="mb-5">
+                <RecipeNutrition nutrition={recipe.nutrition} />
+              </View>
+            ) : null}
 
             <Text className="mb-2 text-base font-bold text-foreground">
               Adjust This Dinner

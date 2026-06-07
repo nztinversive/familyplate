@@ -15,6 +15,7 @@ import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
+import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { formatExpirationLabel } from "@/lib/pantry";
@@ -36,6 +37,13 @@ type Suggestion = {
   }[];
   instructions: string[];
   missingItems: string[];
+  nutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber?: number;
+  };
 };
 type PantryItem = Doc<"pantryItems">;
 
@@ -61,14 +69,42 @@ function getErrorMessage(err: unknown) {
   return "Unable to generate dinner suggestions right now. Please try again.";
 }
 
-function getExpiringSoonItems(items: PantryItem[]) {
+function getUseFirstItems(items: PantryItem[]) {
   const now = Date.now();
   const fourDays = 4 * 24 * 60 * 60 * 1000;
 
   return items
-    .filter((item) => item.expirationDate && item.expirationDate <= now + fourDays)
-    .sort((a, b) => (a.expirationDate ?? 0) - (b.expirationDate ?? 0))
-    .slice(0, 4);
+    .filter((item) => {
+      const isLeftover =
+        item.category.toLowerCase() === "leftovers" ||
+        item.name.toLowerCase().includes("leftover");
+      const isExpiring =
+        item.expirationDate !== undefined && item.expirationDate <= now + fourDays;
+      return isLeftover || isExpiring;
+    })
+    .sort((a, b) => {
+      const aLeftover =
+        a.category.toLowerCase() === "leftovers" ||
+        a.name.toLowerCase().includes("leftover");
+      const bLeftover =
+        b.category.toLowerCase() === "leftovers" ||
+        b.name.toLowerCase().includes("leftover");
+      if (aLeftover !== bLeftover) return aLeftover ? -1 : 1;
+      return (a.expirationDate ?? Number.MAX_SAFE_INTEGER) -
+        (b.expirationDate ?? Number.MAX_SAFE_INTEGER);
+    })
+    .slice(0, 5);
+}
+
+function getUseFirstLabel(item: PantryItem) {
+  if (
+    item.category.toLowerCase() === "leftovers" ||
+    item.name.toLowerCase().includes("leftover")
+  ) {
+    return "Leftovers";
+  }
+
+  return formatExpirationLabel(item.expirationDate);
 }
 
 function buildRecipeShareText(suggestion: Suggestion) {
@@ -124,6 +160,7 @@ export default function TonightScreen() {
       servings: recipe.servings,
       ingredients: recipe.ingredients,
       instructions: recipe.instructions,
+      nutrition: recipe.nutrition,
       missingItems: recipe.ingredients
         .filter((ingredient) => !isIngredientAvailable(ingredient))
         .map((ingredient) => ingredient.name),
@@ -139,8 +176,8 @@ export default function TonightScreen() {
     return new Set(savedRecipes?.map((saved) => saved.recipe._id) ?? []);
   }, [savedRecipes]);
 
-  const expiringSoonItems = useMemo(
-    () => getExpiringSoonItems(pantryItems ?? []),
+  const useFirstItems = useMemo(
+    () => getUseFirstItems(pantryItems ?? []),
     [pantryItems],
   );
 
@@ -370,7 +407,7 @@ export default function TonightScreen() {
         </Text>
       </TouchableOpacity>
 
-      {expiringSoonItems.length > 0 ? (
+      {useFirstItems.length > 0 ? (
         <View className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <View className="mb-3 flex-row items-start gap-3">
             <View className="h-10 w-10 items-center justify-center rounded-xl bg-white">
@@ -378,16 +415,16 @@ export default function TonightScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-base font-bold text-foreground">
-                Cook these first
+                Use this first
               </Text>
               <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-                These pantry items are expiring soon. Tap one to ask for dinner
-                ideas that use it.
+                Leftovers and soon-expiring items can guide tonight's dinner.
+                Tap one to ask for ideas that use it.
               </Text>
             </View>
           </View>
           <View className="gap-2">
-            {expiringSoonItems.map((item) => (
+            {useFirstItems.map((item) => (
               <TouchableOpacity
                 key={item._id}
                 onPress={() => void handleGenerate(`use ${item.name}`)}
@@ -401,7 +438,7 @@ export default function TonightScreen() {
                     {item.name}
                   </Text>
                   <Text className="text-xs text-muted-foreground">
-                    {formatExpirationLabel(item.expirationDate)}
+                    {getUseFirstLabel(item)}
                   </Text>
                 </View>
                 <Ionicons name="sparkles" size={17} color="#248f58" />
@@ -697,6 +734,12 @@ function SuggestionCard({
                   </View>
                 ))}
               </View>
+            </View>
+          ) : null}
+
+          {suggestion.nutrition ? (
+            <View className="mb-4">
+              <RecipeNutrition nutrition={suggestion.nutrition} compact />
             </View>
           ) : null}
 

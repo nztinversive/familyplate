@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
+import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type Recipe = Doc<"recipeSuggestions">;
@@ -97,6 +98,12 @@ export function CookModeModal({
               {recipe.description}
             </Text>
           </View>
+
+          {recipe.nutrition ? (
+            <View className="mb-4">
+              <RecipeNutrition nutrition={recipe.nutrition} compact />
+            </View>
+          ) : null}
 
           <View className="mb-4 rounded-2xl border border-border bg-card p-4">
             <Text className="mb-3 text-sm font-bold uppercase tracking-widest text-muted-foreground">

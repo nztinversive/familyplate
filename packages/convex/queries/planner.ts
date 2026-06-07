@@ -288,3 +288,74 @@ export const getQuickDinnerSuggestions = query({
       .slice(0, 3);
   },
 });
+
+export const getRecentlyCookedMeals = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+
+    const authId = userId as string;
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", authId))
+      .first();
+    if (!profile) return [];
+
+    const plans = await ctx.db
+      .query("weeklyMealPlans")
+      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .collect();
+
+    const cookedMeals = [];
+    for (const plan of plans) {
+      const meals = await ctx.db
+        .query("plannedMeals")
+        .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", plan._id))
+        .collect();
+
+      for (const meal of meals) {
+        if (meal.status !== "cooked") continue;
+        const recipe = await ctx.db.get(meal.recipeId);
+        if (!recipe) continue;
+
+        const feedback = await ctx.db
+          .query("mealFeedback")
+          .withIndex("by_recipeId", (q) => q.eq("recipeId", recipe._id))
+          .collect();
+
+        cookedMeals.push({
+          _id: meal._id,
+          date: meal.date,
+          recipe,
+          feedbackCount: feedback.length,
+          averageRating:
+            feedback.length > 0
+              ? Math.round(
+                  (feedback.reduce((sum, entry) => sum + entry.rating, 0) /
+                    feedback.length) *
+                    10,
+                ) / 10
+              : null,
+          topTags: Array.from(
+            feedback
+              .flatMap((entry) => entry.tags)
+              .reduce((acc, tag) => {
+                acc.set(tag, (acc.get(tag) ?? 0) + 1);
+                return acc;
+              }, new Map<string, number>()),
+          )
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([tag]) => tag),
+        });
+      }
+    }
+
+    return cookedMeals
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, Math.max(1, Math.min(args.limit ?? 5, 12)));
+  },
+});

@@ -540,6 +540,7 @@ const quickDinnerSuggestionValidator = v.object({
   ingredients: v.array(ingredientValidator),
   instructions: v.array(v.string()),
   missingItems: v.array(v.string()),
+  nutrition: v.optional(nutritionValidator),
 });
 
 export const saveQuickDinnerSuggestions = internalMutation({
@@ -587,6 +588,7 @@ export const saveQuickDinnerSuggestions = internalMutation({
         estimatedTime: s.estimatedTime,
         servings: s.servings,
         tags: ["quick-dinner"],
+        nutrition: s.nutrition,
         usedPantryItems: s.ingredients
           .filter((ing) => ing.inPantry)
           .map((ing) => ing.name),

@@ -20,6 +20,7 @@ const FEEDBACK_TAGS = [
   "not again",
   "too spicy",
   "too hard",
+  "too much prep",
   "kid liked it",
   "kid disliked it",
   "great leftovers",
@@ -29,7 +30,7 @@ function shouldLearnPreference(liked: boolean, tags: string[]) {
   return (
     !liked ||
     tags.some((tag) =>
-      ["not again", "too spicy", "too hard", "kid disliked it"].includes(tag),
+      ["not again", "too spicy", "too hard", "too much prep", "kid disliked it"].includes(tag),
     )
   );
 }
@@ -142,7 +143,7 @@ export function RecipeFeedback({
       <View className="mb-3 flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text className="text-base font-semibold text-foreground">
-            Cooked this?
+            Dinner check-in
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
             Rate dinner so future plans learn what your family likes and avoids.

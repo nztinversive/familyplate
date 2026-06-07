@@ -256,7 +256,7 @@ export const generateMealPlan: ReturnType<typeof action> = action({
             ? `This plan is specifically for: ${mealProfiles.map((profile) => profile.name).join(", ")}. Use only these selected eaters' preferences, allergies, and dislikes.`
             : "This plan is for the whole household. Use every household member's preferences, allergies, and dislikes.",
           `Plan for ${householdSize} servings by default unless a recipe clearly needs a different whole-number serving count.`,
-          "Use pantry items first, especially items closest to expiration.",
+          "Use pantry items first, especially leftovers and items closest to expiration.",
           "CRITICAL: NEVER use any ingredient that ANY household member is allergic to. This includes all derivatives and hidden forms of the allergen. Allergies are life-threatening.",
           `CRITICAL: NEVER include any disliked ingredients or their derivatives. ${allDislikes.length > 0 ? `The following are DISLIKED and must NOT appear in ANY recipe (primary or alternative): ${allDislikes.join(", ")}. This means no ${allDislikes.map((d) => `${d} or any ${d}-based ingredients`).join(", no ")}. If someone dislikes beef, do NOT use ground beef, steak, meatballs, beef broth, or ANY beef product.` : ""}`,
           "Vary cuisine, main protein, cooking method, and flavor profile across the week.",
