@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
-import { Check, CheckCircle2, ListChecks, Package, PartyPopper, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { Check, CheckCircle2, EyeOff, ListChecks, Package, PartyPopper, Plus, Share2, ShoppingCart, Store, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
 import { track } from "@/lib/analytics";
+import { shareOrCopy } from "@/lib/share";
 import * as Sentry from "@sentry/nextjs";
 
 const CATEGORIES = [
@@ -45,14 +46,18 @@ export default function GroceryPage() {
   const addMyCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const removeItem = useMutation(api.mutations.grocery.removeItem);
   const clearAllItems = useMutation(api.mutations.grocery.clearAll);
+  const moveCheckedToPantry = useMutation(api.mutations.grocery.moveCheckedToPantry);
   const addToPantry = useMutation(api.mutations.pantry.addItem);
 
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
+  const [isFinishingTrip, setIsFinishingTrip] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "remaining" | "checked">("all");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isShoppingMode, setIsShoppingMode] = useState(false);
+  const [hideCheckedInShopping, setHideCheckedInShopping] = useState(true);
 
   // Preserve the original DB index when filtering out always-available items
   // (like water), since Convex mutations like toggleItem/removeItem operate
@@ -66,12 +71,14 @@ export default function GroceryPage() {
   );
   const checkedCount = items.filter((item) => item.checked).length;
   const totalCount = items.length;
+  const remainingCount = totalCount - checkedCount;
   const progressPct = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
   const groupedItems = useMemo(() => {
     const filteredItems = items
       .map((item) => ({ ...item, index: item.originalIndex }))
       .filter((item) => {
+        if (isShoppingMode && hideCheckedInShopping && item.checked) return false;
         if (activeTab === "remaining") return !item.checked;
         if (activeTab === "checked") return item.checked;
         return true;
@@ -82,7 +89,50 @@ export default function GroceryPage() {
       category,
       items: filteredItems.filter((item) => item.category === category),
     }));
-  }, [activeTab, items]);
+  }, [activeTab, hideCheckedInShopping, isShoppingMode, items]);
+
+  const handleToggleShoppingMode = () => {
+    const nextValue = !isShoppingMode;
+    setIsShoppingMode(nextValue);
+    if (nextValue) {
+      setActiveTab("all");
+      setHideCheckedInShopping(true);
+      track("grocery_store_mode_started", {
+        item_count: totalCount,
+        remaining_count: remainingCount,
+      });
+    }
+  };
+
+  const handleShareList = async () => {
+    const visibleItems = items.filter((item) => !item.checked);
+    if (visibleItems.length === 0) {
+      toast("No remaining grocery items to share.", "info");
+      return;
+    }
+
+    const text = [
+      "FamilyPlate grocery list",
+      "",
+      ...visibleItems.map((item) => `- ${item.quantity} ${item.unit} ${item.name}`),
+    ].join("\n");
+
+    try {
+      const method = await shareOrCopy({
+        title: "FamilyPlate grocery list",
+        text,
+        url: typeof window !== "undefined" ? window.location.href : undefined,
+      });
+      if (method === "canceled") return;
+      track("grocery_list_shared", {
+        method,
+        item_count: visibleItems.length,
+      });
+      if (method === "clipboard") toast("Grocery list copied.", "success");
+    } catch {
+      toast("Unable to share grocery list", "error");
+    }
+  };
 
   const handleGenerate = async () => {
     setIsGenerating(true);
@@ -118,6 +168,34 @@ export default function GroceryPage() {
       toast("Failed to clear list", "error");
     }
     setShowClearConfirm(false);
+  };
+
+  const handleFinishTrip = async () => {
+    if (!groceryList || checkedCount === 0) {
+      toast("Check off items before finishing the trip.", "info");
+      return;
+    }
+
+    setIsFinishingTrip(true);
+    try {
+      const result = await moveCheckedToPantry({ groceryListId: groceryList._id });
+      track("grocery_store_mode_finished", {
+        moved_count: result.movedCount,
+        remaining_count: result.remainingCount,
+      });
+      setIsShoppingMode(false);
+      toast(
+        `Moved ${result.movedCount} item${result.movedCount === 1 ? "" : "s"} to pantry.`,
+        "success",
+      );
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "grocery", action: "finish_trip", platform: "web" },
+      });
+      toast("Failed to finish trip", "error");
+    } finally {
+      setIsFinishingTrip(false);
+    }
   };
 
   const handleToggle = async (groceryListId: Id<"groceryLists">, itemIndex: number) => {
@@ -215,6 +293,15 @@ export default function GroceryPage() {
           }
           action={
             <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => void handleShareList()}
+                disabled={totalCount === 0}
+                aria-label="Share grocery list"
+              >
+                <Share2 className="h-5 w-5" />
+              </Button>
               <Button variant="outline" size="icon" onClick={() => setShowAddDialog(true)}>
                 <Plus className="h-5 w-5" />
               </Button>
@@ -265,6 +352,57 @@ export default function GroceryPage() {
             </div>
           </div>
         ) : null}
+
+        {totalCount > 0 && (
+          <div className="rounded-xl border bg-card p-3 animate-fade-in">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Store className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">Shopping Mode</p>
+                  <p className="text-xs text-muted-foreground">
+                    {remainingCount} remaining • {checkedCount} checked
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant={isShoppingMode ? "default" : "outline"}
+                size="sm"
+                className="shrink-0 rounded-xl"
+                onClick={handleToggleShoppingMode}
+              >
+                {isShoppingMode ? "On" : "Store"}
+              </Button>
+            </div>
+            {isShoppingMode && (
+              <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+                <Button
+                  type="button"
+                  variant={hideCheckedInShopping ? "secondary" : "outline"}
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-lg text-xs"
+                  onClick={() => setHideCheckedInShopping((value) => !value)}
+                >
+                  <EyeOff className="h-3.5 w-3.5" />
+                  {hideCheckedInShopping ? "Hiding checked" : "Show checked"}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-lg text-xs"
+                  disabled={checkedCount === 0 || isFinishingTrip}
+                  onClick={() => void handleFinishTrip()}
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  {isFinishingTrip ? "Finishing..." : "Finish Trip"}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {groceryList === undefined ? (
           <div className="space-y-2">
@@ -335,7 +473,9 @@ export default function GroceryPage() {
                         <CardContent className="flex items-center gap-3 p-3">
                           <button
                             type="button"
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                            className={`flex shrink-0 items-center justify-center rounded-full border-2 transition-all duration-200 ${
+                              isShoppingMode ? "h-10 w-10" : "h-6 w-6"
+                            } ${
                               item.checked
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-muted-foreground/25 hover:border-primary/50"
@@ -343,7 +483,9 @@ export default function GroceryPage() {
                             disabled={busyIndex === item.index}
                             onClick={() => groceryList && void handleToggle(groceryList._id, item.index)}
                           >
-                            {item.checked && <Check className="h-3 w-3 animate-check-bounce" />}
+                            {item.checked && (
+                              <Check className={`${isShoppingMode ? "h-5 w-5" : "h-3 w-3"} animate-check-bounce`} />
+                            )}
                           </button>
                           <div className="min-w-0 flex-1">
                             <p

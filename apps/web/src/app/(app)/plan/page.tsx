@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "@familyplate/convex/_generated/api";
@@ -44,6 +44,7 @@ import { CookModeDialog } from "@/components/plan/CookModeDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogClose,
@@ -56,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { track } from "@/lib/analytics";
+import { shareOrCopy } from "@/lib/share";
 import * as Sentry from "@sentry/nextjs";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
@@ -131,6 +133,10 @@ function isToday(dateStr: string) {
 
 function formatIngredientAmount(quantity: number, unit: string) {
   return `${quantity} ${unit}`;
+}
+
+function roundIngredientQuantity(quantity: number) {
+  return Math.round(quantity * 100) / 100;
 }
 
 function formatNutritionValue(value: number, suffix: string) {
@@ -345,6 +351,7 @@ export default function PlanPage() {
   const [cookingRecipe, setCookingRecipe] = useState<RecipeDoc | null>(null);
   const [isFinishingCookMode, setIsFinishingCookMode] = useState(false);
   const [addingToGrocery, setAddingToGrocery] = useState(false);
+  const [servingInput, setServingInput] = useState("4");
   const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
   const [selectedProfileIds, setSelectedProfileIds] = useState<
     Id<"userProfiles">[]
@@ -437,6 +444,18 @@ export default function PlanPage() {
   ]);
   const movingMeal =
     displayPlan?.meals.find((meal) => meal._id === movingMealId) ?? null;
+
+  useEffect(() => {
+    if (!selectedRecipe) return;
+    setServingInput(`${selectedRecipe.servings}`);
+  }, [selectedRecipe]);
+
+  const targetServings = selectedRecipe
+    ? Math.max(1, Number.parseFloat(servingInput) || selectedRecipe.servings || 1)
+    : 1;
+  const servingScale = selectedRecipe
+    ? targetServings / Math.max(1, selectedRecipe.servings || 1)
+    : 1;
   const audienceProfileIds = useMemo(() => {
     if (mealAudience === "whole") return undefined;
     if (mealAudience === "me") {
@@ -672,6 +691,42 @@ export default function PlanPage() {
     }
   };
 
+  const handleShareRecipe = async (recipe: RecipeDoc) => {
+    const text = [
+      recipe.title,
+      recipe.description,
+      "",
+      `Serves ${recipe.servings} • ${recipe.estimatedTime} min`,
+      "",
+      "Ingredients:",
+      ...recipe.ingredients.map(
+        (ingredient) =>
+          `- ${formatIngredientAmount(ingredient.quantity, ingredient.unit)} ${ingredient.name}`,
+      ),
+      "",
+      "Instructions:",
+      ...recipe.instructions.map((step, index) => `${index + 1}. ${step}`),
+      "",
+      "Shared from FamilyPlate",
+    ].join("\n");
+
+    try {
+      const method = await shareOrCopy({
+        title: recipe.title,
+        text,
+        url: typeof window !== "undefined" ? window.location.href : undefined,
+      });
+      if (method === "canceled") return;
+      track("recipe_shared", {
+        method,
+        recipe_id: recipe._id,
+      });
+      if (method === "clipboard") toast("Recipe copied.", "success");
+    } catch {
+      toast("Unable to share recipe", "error");
+    }
+  };
+
   const handleToggleSavedRecipe = async (recipeId: Id<"recipeSuggestions">) => {
     setSavingRecipeId(recipeId);
     try {
@@ -746,6 +801,11 @@ export default function PlanPage() {
       unit: string;
       inPantry: boolean;
     }>,
+    options?: {
+      scale?: number;
+      targetServings?: number;
+      baseServings?: number;
+    },
   ) => {
     const missing = ingredients.filter((ing) => !isIngredientAvailable(ing));
     if (missing.length === 0) return;
@@ -754,9 +814,9 @@ export default function PlanPage() {
       for (const ing of missing) {
         await addGroceryItem({
           name: ing.name,
-          quantity: ing.quantity,
+          quantity: roundIngredientQuantity(ing.quantity * (options?.scale ?? 1)),
           unit: ing.unit,
-          category: "Other",
+          category: inferGroceryCategory(ing.name),
         });
       }
       track("grocery_item_added", {
@@ -766,6 +826,8 @@ export default function PlanPage() {
       track("missing_ingredients_added_to_grocery", {
         source: "weekly_plan",
         count: missing.length,
+        target_servings: options?.targetServings,
+        base_servings: options?.baseServings,
       });
       toast(
         `Added ${missing.length} item${missing.length > 1 ? "s" : ""} to grocery list`,
@@ -1666,28 +1728,40 @@ export default function PlanPage() {
                       {selectedRecipe.description}
                     </DialogDescription>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl"
-                    disabled={
-                      savingRecipeId === selectedRecipe._id ||
-                      isSelectedRecipeSaved === undefined
-                    }
-                    onClick={() =>
-                      void handleToggleSavedRecipe(selectedRecipe._id)
-                    }
-                    aria-label={
-                      isSelectedRecipeSaved
-                        ? "Remove from cookbook"
-                        : "Save to cookbook"
-                    }
-                  >
-                    <Heart
-                      className={`h-5 w-5 ${isSelectedRecipeSaved ? "fill-current text-primary" : "text-muted-foreground"}`}
-                    />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-xl"
+                      onClick={() => void handleShareRecipe(selectedRecipe)}
+                      aria-label="Share recipe"
+                    >
+                      <Share2 className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-xl"
+                      disabled={
+                        savingRecipeId === selectedRecipe._id ||
+                        isSelectedRecipeSaved === undefined
+                      }
+                      onClick={() =>
+                        void handleToggleSavedRecipe(selectedRecipe._id)
+                      }
+                      aria-label={
+                        isSelectedRecipeSaved
+                          ? "Remove from cookbook"
+                          : "Save to cookbook"
+                      }
+                    >
+                      <Heart
+                        className={`h-5 w-5 ${isSelectedRecipeSaved ? "fill-current text-primary" : "text-muted-foreground"}`}
+                      />
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2 pt-3">
                   <Badge variant="outline">
@@ -1779,12 +1853,56 @@ export default function PlanPage() {
                 )}
 
                 <section className="space-y-3">
-                  <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                    Ingredients
-                  </h4>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                        Ingredients
+                      </h4>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Grocery adds scale to target servings; the recipe stays unchanged.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 rounded-xl border bg-background p-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg"
+                        disabled={targetServings <= 1}
+                        onClick={() =>
+                          setServingInput(`${Math.max(1, targetServings - 1)}`)
+                        }
+                        aria-label="Decrease servings"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </Button>
+                      <Input
+                        aria-label="Target servings"
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={servingInput}
+                        onChange={(event) => setServingInput(event.target.value)}
+                        className="h-7 w-14 border-0 bg-transparent p-0 text-center text-xs font-semibold shadow-none focus-visible:ring-0"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 rounded-lg"
+                        onClick={() => setServingInput(`${targetServings + 1}`)}
+                        aria-label="Increase servings"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     {selectedRecipe.ingredients.map((ingredient) => {
                       const isAvailable = isIngredientAvailable(ingredient);
+                      const scaledQuantity = roundIngredientQuantity(
+                        ingredient.quantity * servingScale,
+                      );
 
                       return (
                         <div
@@ -1805,9 +1923,12 @@ export default function PlanPage() {
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {formatIngredientAmount(
-                                  ingredient.quantity,
+                                  scaledQuantity,
                                   ingredient.unit,
                                 )}
+                                {servingScale !== 1 ? (
+                                  <span> for {targetServings} servings</span>
+                                ) : null}
                               </p>
                             </div>
                           </div>
@@ -1835,6 +1956,11 @@ export default function PlanPage() {
                       onClick={() =>
                         void handleAddMissingToGrocery(
                           selectedRecipe.ingredients,
+                          {
+                            scale: servingScale,
+                            targetServings,
+                            baseServings: selectedRecipe.servings,
+                          },
                         )
                       }
                     >

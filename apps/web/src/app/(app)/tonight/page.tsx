@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "@familyplate/convex/_generated/api";
@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { CookTheseFirst } from "@/components/pantry/CookTheseFirst";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { track } from "@/lib/analytics";
 import * as Sentry from "@sentry/nextjs";
@@ -73,6 +74,14 @@ export default function TonightPage() {
   const [activeCraving, setActiveCraving] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ingredient = params.get("ingredient")?.trim();
+    if (!ingredient) return;
+    setCraving("");
+    setCustomCraving(ingredient);
+  }, []);
 
   // Map persisted DB suggestions to the local Suggestion shape
   const initialSuggestions = useMemo<Suggestion[]>(() => {
@@ -214,6 +223,10 @@ export default function TonightPage() {
         {/* Craving selector — always visible unless loading */}
         {!isLoading && (
           <div className="animate-fade-in">
+            <div className="mb-4">
+              <CookTheseFirst onCook={(ingredient) => void handleGenerate(ingredient)} />
+            </div>
+
             {/* Craving chips */}
             <div className="mb-3">
               <p className="text-xs font-medium text-muted-foreground mb-2 text-center">I&apos;m in the mood for...</p>

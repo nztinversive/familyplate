@@ -23,6 +23,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
+import { CookTheseFirst } from "@/components/pantry/CookTheseFirst";
 import { PendingPantryBanner } from "@/components/pantry/PendingPantryBanner";
 import { BarcodeScanner, type BarcodeScannerResult } from "@/components/pantry/BarcodeScanner";
 import { SnapGroceries } from "@/components/pantry/SnapGroceries";
@@ -293,6 +294,7 @@ export default function PantryPage() {
     >
       <div className="space-y-4 px-4 py-4 page-transition">
         <PendingPantryBanner />
+        <CookTheseFirst />
         <ExpirationAlerts />
 
         <div className="relative">

@@ -5,7 +5,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
-import { Copy, LogOut, Mail, Moon, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { Copy, LogOut, Mail, Moon, Share2, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/analytics";
+import { shareOrCopy } from "@/lib/share";
 import * as Sentry from "@sentry/nextjs";
 
 function renderList(values?: string[]) {
@@ -192,6 +193,34 @@ export default function SettingsPage() {
     }
   };
 
+  const handleShareInvite = async () => {
+    if (!household?.inviteCode) return;
+
+    const inviteUrl = `${window.location.origin}/join/${household.inviteCode}`;
+    const text = [
+      `Join ${household.name ?? "my household"} on FamilyPlate.`,
+      `Invite code: ${household.inviteCode}`,
+    ].join("\n");
+
+    try {
+      const method = await shareOrCopy({
+        title: "FamilyPlate household invite",
+        text,
+        url: inviteUrl,
+      });
+      if (method === "canceled") return;
+      track("household_invite_shared", {
+        method,
+      });
+      if (method === "clipboard") {
+        setCopiedInvite(true);
+        setTimeout(() => setCopiedInvite(false), 2000);
+      }
+    } catch {
+      setCopiedInvite(false);
+    }
+  };
+
   const handleSignOut = async () => {
     track("cta_clicked", {
       location: "settings",
@@ -344,17 +373,29 @@ export default function SettingsPage() {
                     </h2>
                   </div>
                   {household?.inviteCode && (
-                    <button
-                      onClick={handleCopyInvite}
-                      className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                        copiedInvite
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "hover:bg-muted"
-                      }`}
-                    >
-                      <Copy className="h-3 w-3" />
-                      {copiedInvite ? "Copied!" : household.inviteCode}
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        onClick={handleCopyInvite}
+                        className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                          copiedInvite
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <Copy className="h-3 w-3" />
+                        {copiedInvite ? "Copied!" : household.inviteCode}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-xl"
+                        onClick={() => void handleShareInvite()}
+                        aria-label="Share household invite"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   )}
                 </div>
 
