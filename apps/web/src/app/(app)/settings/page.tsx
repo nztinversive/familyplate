@@ -45,6 +45,29 @@ function parseCommaSeparatedList(value: string) {
     .filter(Boolean);
 }
 
+function formatDateTime(value: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatScopeLabel(scope: string) {
+  const labels: Record<string, string> = {
+    "read:profile": "Profile",
+    "read:pantry": "Pantry",
+    "read:grocery": "Grocery",
+    "read:plan": "Meal plan",
+    "read:recipes": "Recipes",
+    "write:grocery": "Grocery writes",
+  };
+
+  return labels[scope] ?? scope;
+}
+
 const MONTHLY_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
 const ANNUAL_CHECKOUT_URL =
@@ -733,35 +756,64 @@ export default function SettingsPage() {
                   ) : agentConnections.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No agents connected yet.</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {agentConnections.map((connection) => {
                         const revoked = connection.revokedAt !== null;
                         return (
                           <div
                             key={connection._id}
-                            className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3"
+                            className="space-y-3 rounded-xl border bg-background p-3"
                           >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium">{connection.name}</p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {revoked
-                                  ? "Revoked"
-                                  : connection.lastUsedAt
-                                    ? `Last used ${new Date(connection.lastUsedAt).toLocaleDateString()}`
-                                    : `Created ${new Date(connection.createdAt).toLocaleDateString()}`}
-                              </p>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="truncate text-sm font-medium">{connection.name}</p>
+                                  <Badge variant={revoked ? "secondary" : "default"} className="text-[10px]">
+                                    {revoked ? "Revoked" : "Active"}
+                                  </Badge>
+                                </div>
+                                <p className="mt-1 text-[11px] text-muted-foreground">
+                                  Created {formatDateTime(connection.createdAt)}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {revoked
+                                    ? `Revoked ${formatDateTime(connection.revokedAt ?? connection.createdAt)}`
+                                    : connection.lastUsedAt
+                                      ? `Last used ${formatDateTime(connection.lastUsedAt)}`
+                                      : "Not used yet"}
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                disabled={revoked}
+                                onClick={() => void handleRevokeAgentConnection(connection._id)}
+                                className="h-8 w-8 shrink-0 rounded-xl"
+                                aria-label={`Revoke ${connection.name}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              disabled={revoked}
-                              onClick={() => void handleRevokeAgentConnection(connection._id)}
-                              className="h-8 w-8 shrink-0 rounded-xl"
-                              aria-label={`Revoke ${connection.name}`}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex flex-wrap gap-1.5">
+                              {connection.scopes.map((scope) => (
+                                <Badge
+                                  key={scope}
+                                  variant={scope.startsWith("write:") ? "default" : "outline"}
+                                  className="text-[10px]"
+                                >
+                                  {formatScopeLabel(scope)}
+                                </Badge>
+                              ))}
+                            </div>
+                            {!revoked && (
+                              <div className="space-y-1 rounded-lg bg-muted/30 p-2">
+                                <p className="text-[11px] font-medium">Setup command shape</p>
+                                <code className="block overflow-x-auto text-[10px] text-muted-foreground">
+                                  familyplate connect --api-url {agentApiUrl} --token &lt;shown once&gt;
+                                </code>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

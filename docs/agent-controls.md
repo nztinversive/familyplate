@@ -69,6 +69,20 @@ FAMILYPLATE_AGENT_TOKEN=fp_agent_... \
 npm run agent:smoke
 ```
 
+Agents should run diagnostics before doing useful work:
+
+```bash
+npm run familyplate -- doctor --pretty
+```
+
+Agents can print a self-contained quickstart with command examples and tool
+JSON shapes:
+
+```bash
+npm run familyplate -- instructions
+npm run familyplate -- instructions --json --pretty
+```
+
 Grocery writes require an explicit confirmation flag:
 
 ```bash
@@ -171,5 +185,7 @@ Successful response:
 - Tokens are stored hashed in Convex.
 - Tokens can be revoked from Settings.
 - The token is only shown once.
+- Settings shows connection scopes, active/revoked state, created time, and last
+  used time.
 - Each request checks the token, profile, household, and required scope.
 - Writes are designed to support dry-run and explicit confirmation.

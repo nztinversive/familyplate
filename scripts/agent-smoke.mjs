@@ -90,6 +90,24 @@ assert(
 );
 pass("CLI lists shared tools");
 
+const cliInstructions = await run("node", [
+  "apps/cli/bin/familyplate.mjs",
+  "instructions",
+  "--json",
+  "--pretty",
+]);
+assert(cliInstructions.code === 0, `CLI instructions failed: ${cliInstructions.stderr}`);
+const instructionsPayload = JSON.parse(cliInstructions.stdout);
+assert(
+  instructionsPayload.tools.some((tool) => tool.name === "listPantry"),
+  "CLI instructions output is missing tool JSON shapes"
+);
+assert(
+  instructionsPayload.safetyRules.some((rule) => rule.includes("--dry-run")),
+  "CLI instructions output is missing dry-run safety guidance"
+);
+pass("CLI prints agent instructions");
+
 const noConfirm = await run("node", [
   "apps/cli/bin/familyplate.mjs",
   "grocery",
@@ -125,6 +143,20 @@ if (token) {
       JSON.parse(result.stdout);
     }
     pass("live token read commands pass");
+
+    const doctor = await run(
+      "node",
+      ["apps/cli/bin/familyplate.mjs", "doctor", "--pretty"],
+      { env }
+    );
+    assert(doctor.code === 0, `live CLI doctor failed: ${doctor.stderr}`);
+    const doctorPayload = JSON.parse(doctor.stdout);
+    assert(doctorPayload.ok === true, "doctor should pass with a live token");
+    assert(
+      doctorPayload.checks.some((check) => check.name === "token is valid" && check.ok),
+      "doctor output should validate token"
+    );
+    pass("live token doctor passes");
 
     const dryRun = await run(
       "node",
