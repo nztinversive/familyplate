@@ -22,14 +22,14 @@
       "type": "markdown",
       "description": "Add, update, or remove items in the household's pantry. Supports bulk natural-language input like '2 lbs chicken, milk, 3 onions'.",
       "url": "https://familyplate.co/.well-known/agent-skills/manage-pantry.md",
-      "sha256": "fa3c25c1bee63e07302bd9c974171904b39acd8b9d68da07a5c45e0893ab6094"
+      "sha256": "1603988c42b55c6381deb31fd46b2eac6b2d2a3e83a5644216320575933103cb"
     },
     {
       "name": "familyplate-agent-cli",
       "type": "markdown",
       "description": "Set up scoped FamilyPlate CLI access for trusted coding and terminal agents. Includes install commands, scopes, safety rules, and available tools.",
       "url": "https://familyplate.co/.well-known/agent-skills/familyplate-agent-cli.md",
-      "sha256": "70905a8084c7ff8fe5d8782018693a7a6d53738bf29da56140a467244dfbbb7e"
+      "sha256": "afd1cf3a7a39b8db2d0cf24e3d55143eb18a572381f98d9d5390fa506a2f6571"
     }
   ]
 }

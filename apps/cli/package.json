@@ -1,6 +1,6 @@
 {
   "name": "@familyplate/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Command line tools for trusted FamilyPlate agent connections.",
   "license": "MIT",
   "type": "module",
@@ -19,7 +19,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@familyplate/agent-tools": "^0.1.0"
+    "@familyplate/agent-tools": "^0.2.0"
   },
   "engines": {
     "node": ">=22"

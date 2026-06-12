@@ -63,10 +63,21 @@ function formatScopeLabel(scope: string) {
     "read:plan": "Meal plan",
     "read:recipes": "Recipes",
     "write:grocery": "Grocery writes",
+    "write:pantry": "Pantry writes",
+    "write:plan": "Meal plan writes",
+    "write:recipes": "Recipe writes",
   };
 
   return labels[scope] ?? scope;
 }
+
+const AGENT_DOCS_URL = "https://familyplate.co/agents";
+const AGENT_EXPIRATION_OPTIONS = [
+  { value: "3600000", label: "1 hour", expiresInMs: 60 * 60 * 1000 },
+  { value: "86400000", label: "24 hours", expiresInMs: 24 * 60 * 60 * 1000 },
+  { value: "604800000", label: "7 days", expiresInMs: 7 * 24 * 60 * 60 * 1000 },
+  { value: "none", label: "No expiration", expiresInMs: undefined },
+] as const;
 
 const MONTHLY_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/0562ec79-aef1-4422-b8b5-882e7ce96694";
@@ -114,7 +125,12 @@ export default function SettingsPage() {
   const [agentConnectionError, setAgentConnectionError] = useState("");
   const [agentTokenCommand, setAgentTokenCommand] = useState<string | null>(null);
   const [copiedAgentCommand, setCopiedAgentCommand] = useState(false);
+  const [copiedAgentDocs, setCopiedAgentDocs] = useState(false);
+  const [agentExpiration, setAgentExpiration] = useState<(typeof AGENT_EXPIRATION_OPTIONS)[number]["value"]>("86400000");
   const [allowAgentGroceryWrites, setAllowAgentGroceryWrites] = useState(false);
+  const [allowAgentPantryWrites, setAllowAgentPantryWrites] = useState(false);
+  const [allowAgentPlanWrites, setAllowAgentPlanWrites] = useState(false);
+  const [allowAgentRecipeWrites, setAllowAgentRecipeWrites] = useState(false);
   const profileAllergiesValue = (profile?.allergies ?? []).join(", ");
   const profileDislikesValue = (profile?.dislikes ?? []).join(", ");
   const canManageMembers = profile?.role === "admin";
@@ -311,13 +327,21 @@ export default function SettingsPage() {
     setIsCreatingAgentConnection(true);
     setAgentConnectionError("");
     setAgentTokenCommand(null);
+    setCopiedAgentCommand(false);
 
     try {
+      const scopes = [...DEFAULT_AGENT_SCOPES];
+      if (allowAgentGroceryWrites) scopes.push("write:grocery");
+      if (allowAgentPantryWrites) scopes.push("write:pantry");
+      if (allowAgentPlanWrites) scopes.push("write:plan");
+      if (allowAgentRecipeWrites) scopes.push("write:recipes");
+      const expirationOption = AGENT_EXPIRATION_OPTIONS.find(
+        (option) => option.value === agentExpiration
+      );
       const result = await createAgentConnection({
         name: agentName.trim() || "FamilyPlate agent",
-        scopes: allowAgentGroceryWrites
-          ? [...DEFAULT_AGENT_SCOPES, "write:grocery"]
-          : DEFAULT_AGENT_SCOPES,
+        scopes,
+        expiresInMs: expirationOption?.expiresInMs,
       });
       const command = `familyplate connect --api-url ${agentApiUrl} --token ${result.token}`;
       setAgentTokenCommand(command);
@@ -342,6 +366,12 @@ export default function SettingsPage() {
     await navigator.clipboard.writeText(agentTokenCommand);
     setCopiedAgentCommand(true);
     setTimeout(() => setCopiedAgentCommand(false), 2000);
+  };
+
+  const handleCopyAgentDocs = async () => {
+    await navigator.clipboard.writeText(AGENT_DOCS_URL);
+    setCopiedAgentDocs(true);
+    setTimeout(() => setCopiedAgentDocs(false), 2000);
   };
 
   const handleRevokeAgentConnection = async (connectionId: Id<"agentConnections">) => {
@@ -665,6 +695,16 @@ export default function SettingsPage() {
                       Connect Codex, Claude, Cursor, or terminal agents without sharing your password.
                     </p>
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleCopyAgentDocs()}
+                    className="shrink-0 gap-1.5 rounded-xl"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    {copiedAgentDocs ? "Copied" : "Docs URL"}
+                  </Button>
                 </div>
 
                 <div className="space-y-2">
@@ -688,32 +728,85 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    New connections start read-only. Revoke access when the agent is done.
+                    New connections start read-only unless you enable write scopes below. Revoke access when the agent is done.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-3 rounded-xl border bg-muted/20 p-3">
-                  <div className="flex-1">
-                    <Label htmlFor="agent-grocery-writes">Allow grocery writes</Label>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Lets this agent add or check grocery items. The CLI still requires --confirm.
-                    </p>
+                <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
+                  <Label>Token expiration</Label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {AGENT_EXPIRATION_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setAgentExpiration(option.value)}
+                        className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                          agentExpiration === option.value
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "bg-background hover:bg-muted"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
-                  <button
-                    id="agent-grocery-writes"
-                    type="button"
-                    onClick={() => setAllowAgentGroceryWrites((value) => !value)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                      allowAgentGroceryWrites ? "bg-primary" : "bg-muted"
-                    }`}
-                    aria-pressed={allowAgentGroceryWrites}
-                  >
-                    <span
-                      className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${
-                        allowAgentGroceryWrites ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+                    {
+                      id: "agent-grocery-writes",
+                      label: "Allow grocery writes",
+                      description: "Add, update, or check grocery items.",
+                      enabled: allowAgentGroceryWrites,
+                      setEnabled: setAllowAgentGroceryWrites,
+                    },
+                    {
+                      id: "agent-pantry-writes",
+                      label: "Allow pantry writes",
+                      description: "Add, update, or remove pantry, fridge, and freezer items.",
+                      enabled: allowAgentPantryWrites,
+                      setEnabled: setAllowAgentPantryWrites,
+                    },
+                    {
+                      id: "agent-plan-writes",
+                      label: "Allow meal plan writes",
+                      description: "Add or remove planned dinners.",
+                      enabled: allowAgentPlanWrites,
+                      setEnabled: setAllowAgentPlanWrites,
+                    },
+                    {
+                      id: "agent-recipe-writes",
+                      label: "Allow recipe writes",
+                      description: "Create saved cookbook recipes.",
+                      enabled: allowAgentRecipeWrites,
+                      setEnabled: setAllowAgentRecipeWrites,
+                    },
+                  ].map((option) => (
+                    <div key={option.id} className="flex items-center gap-3 rounded-xl border bg-muted/20 p-3">
+                      <div className="flex-1">
+                        <Label htmlFor={option.id}>{option.label}</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {option.description} The CLI still requires --confirm.
+                        </p>
+                      </div>
+                      <button
+                        id={option.id}
+                        type="button"
+                        onClick={() => option.setEnabled((value) => !value)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                          option.enabled ? "bg-primary" : "bg-muted"
+                        }`}
+                        aria-pressed={option.enabled}
+                      >
+                        <span
+                          className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${
+                            option.enabled ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  ))}
                 </div>
 
                 {agentTokenCommand && (
@@ -725,9 +818,12 @@ export default function SettingsPage() {
                     <code className="block overflow-x-auto rounded-lg bg-background px-3 py-2 text-xs">
                       {agentTokenCommand}
                     </code>
+                    <code className="block overflow-x-auto rounded-lg bg-background px-3 py-2 text-xs">
+                      familyplate doctor --pretty
+                    </code>
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
-                        Paste this into the agent terminal now. The token is only shown once.
+                        Paste both commands into the agent terminal now. The token is only shown once.
                       </p>
                       <Button
                         type="button"
@@ -759,6 +855,9 @@ export default function SettingsPage() {
                     <div className="space-y-2">
                       {agentConnections.map((connection) => {
                         const revoked = connection.revokedAt !== null;
+                        const expired =
+                          connection.expiresAt !== null &&
+                          connection.expiresAt <= Date.now();
                         return (
                           <div
                             key={connection._id}
@@ -768,12 +867,17 @@ export default function SettingsPage() {
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="truncate text-sm font-medium">{connection.name}</p>
-                                  <Badge variant={revoked ? "secondary" : "default"} className="text-[10px]">
-                                    {revoked ? "Revoked" : "Active"}
+                                  <Badge variant={revoked || expired ? "secondary" : "default"} className="text-[10px]">
+                                    {revoked ? "Revoked" : expired ? "Expired" : "Active"}
                                   </Badge>
                                 </div>
                                 <p className="mt-1 text-[11px] text-muted-foreground">
                                   Created {formatDateTime(connection.createdAt)}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {connection.expiresAt
+                                    ? `Expires ${formatDateTime(connection.expiresAt)}`
+                                    : "No expiration"}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground">
                                   {revoked

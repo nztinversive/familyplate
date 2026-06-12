@@ -1077,7 +1077,12 @@ export default function LandingPage() {
             </div>
             <span className="text-sm font-semibold">FamilyPlate</span>
           </div>
-          <p className="text-xs text-muted-foreground">&copy; 2026 FamilyPlate. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+            <p>&copy; 2026 FamilyPlate. All rights reserved.</p>
+            <a href="/agents" className="hover:text-foreground">
+              For agents
+            </a>
+          </div>
         </div>
       </footer>
     </div>

@@ -23,8 +23,15 @@ const readCommands = [
 const writeCommands = [
   'familyplate grocery add "olive oil" --quantity 1 --unit bottle --category Pantry --dry-run --pretty',
   'familyplate grocery add "olive oil" --quantity 1 --unit bottle --category Pantry --confirm --pretty',
+  'familyplate grocery update "olive oil" --quantity 2 --category Condiments --dry-run --pretty',
   'familyplate grocery check "Tomatoes" --dry-run --pretty',
   'familyplate grocery check "Tomatoes" --confirm --pretty',
+  'familyplate pantry add "Chicken thighs" --quantity 2 --unit lb --category Meat --location fridge --dry-run --pretty',
+  "familyplate pantry update --item-id <pantry_item_id> --quantity 1 --dry-run --pretty",
+  "familyplate pantry remove --item-id <pantry_item_id> --dry-run --pretty",
+  "familyplate plan add --recipe-id <recipe_id> --date 2026-06-15 --dry-run --pretty",
+  "familyplate plan remove --meal-id <planned_meal_id> --dry-run --pretty",
+  'familyplate recipes create --input \'{"title":"Black Bean Tacos","ingredients":[{"name":"Black beans","quantity":1,"unit":"can"}],"instructions":["Warm beans and tortillas."],"effortLevel":"easy","estimatedTime":15,"servings":4}\' --dry-run --pretty',
 ];
 
 const tools = [
@@ -34,7 +41,14 @@ const tools = [
   ["listMealPlan", "Read the active 7-night dinner plan."],
   ["listSavedRecipes", "Read saved cookbook recipes."],
   ["addGroceryItem", "Add one grocery item with write scope and confirmation."],
+  ["updateGroceryItem", "Update grocery quantity, unit, category, or checked state."],
   ["checkGroceryItem", "Check off one grocery item with write scope and confirmation."],
+  ["addPantryItem", "Add one pantry, fridge, or freezer item."],
+  ["updatePantryItem", "Update a pantry item by id."],
+  ["removePantryItem", "Remove a pantry item by id."],
+  ["addMealToPlan", "Add or replace a planned dinner."],
+  ["removeMealFromPlan", "Remove a planned dinner."],
+  ["createSavedRecipe", "Create a saved cookbook recipe."],
 ];
 
 export default function AgentsPage() {
@@ -55,7 +69,8 @@ export default function AgentsPage() {
           <p className="mt-4 max-w-3xl leading-7 text-muted-foreground">
             FamilyPlate lets users connect Codex, Claude, Cursor, and terminal
             agents with scoped CLI access. Agents can read household food
-            context and, when explicitly allowed, help manage grocery items
+            context and, when explicitly allowed, help manage grocery,
+            pantry, meal plan, and saved recipe items
             without using the user&apos;s password or browser session.
           </p>
         </div>
@@ -106,9 +121,8 @@ export default function AgentsPage() {
         <section className="space-y-4 border-t border-border pt-6">
           <h2 className="text-2xl font-bold">Confirmed Writes</h2>
           <p className="leading-7 text-muted-foreground">
-            Grocery writes require the optional write scope and explicit
-            confirmation. Agents should use dry runs first when the target item
-            is ambiguous.
+            Writes require optional write scopes and explicit confirmation.
+            Agents should use dry runs first when the target item is ambiguous.
           </p>
           <CommandBlock commands={writeCommands} />
         </section>
@@ -157,6 +171,7 @@ export default function AgentsPage() {
             <li>Agent tokens are separate from household invite codes.</li>
             <li>Agents should never ask for the user&apos;s FamilyPlate password.</li>
             <li>Tokens are shown once, stored hashed, and revocable from Settings.</li>
+            <li>Users can choose 1 hour, 24 hours, 7 days, or no expiration.</li>
             <li>Each request checks the token, household, profile, and required scope.</li>
             <li>Agents should not provide diagnosis, treatment, or medical nutrition advice.</li>
           </ul>

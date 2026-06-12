@@ -85,7 +85,9 @@ http.route({
       const lowerMessage = message.toLowerCase();
       const status = lowerMessage.includes("scope")
         ? 403
-        : lowerMessage.includes("invalid") || lowerMessage.includes("revoked")
+        : lowerMessage.includes("invalid") ||
+            lowerMessage.includes("revoked") ||
+            lowerMessage.includes("expired")
           ? 401
           : 400;
       return jsonResponse({ error: message }, { status });

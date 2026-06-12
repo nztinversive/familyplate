@@ -4,7 +4,10 @@ export type FamilyPlateAgentScope =
   | "read:grocery"
   | "read:plan"
   | "read:recipes"
-  | "write:grocery";
+  | "write:grocery"
+  | "write:pantry"
+  | "write:plan"
+  | "write:recipes";
 
 export type FamilyPlateAgentTool = {
   name: string;

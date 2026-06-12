@@ -1,6 +1,6 @@
 {
   "name": "FamilyPlate Agent Access",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "homepage": "https://familyplate.co",
   "documentation": "https://familyplate.co/agents",
   "skillsIndex": "https://familyplate.co/.well-known/agent-skills/index.json",
@@ -18,6 +18,7 @@
     "signInUrl": "https://familyplate.co",
     "settingsUrl": "https://familyplate.co/settings",
     "tokenDelivery": "one-time terminal command",
+    "expirationOptions": ["1 hour", "24 hours", "7 days", "no expiration"],
     "agentRules": [
       "Do not ask for the user's FamilyPlate password.",
       "Do not automate browser sign-in unless the user explicitly asks for a browser walkthrough.",
@@ -49,8 +50,16 @@
   "writeCommands": [
     "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --dry-run --pretty",
     "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --confirm --pretty",
+    "familyplate grocery update \"olive oil\" --quantity 2 --category Condiments --dry-run --pretty",
+    "familyplate grocery update \"olive oil\" --quantity 2 --category Condiments --confirm --pretty",
     "familyplate grocery check \"Tomatoes\" --dry-run --pretty",
-    "familyplate grocery check \"Tomatoes\" --confirm --pretty"
+    "familyplate grocery check \"Tomatoes\" --confirm --pretty",
+    "familyplate pantry add \"Chicken thighs\" --quantity 2 --unit lb --category Meat --location fridge --dry-run --pretty",
+    "familyplate pantry update --item-id <pantry_item_id> --quantity 1 --dry-run --pretty",
+    "familyplate pantry remove --item-id <pantry_item_id> --dry-run --pretty",
+    "familyplate plan add --recipe-id <recipe_id> --date 2026-06-15 --dry-run --pretty",
+    "familyplate plan remove --meal-id <planned_meal_id> --dry-run --pretty",
+    "familyplate recipes create --input '{\"title\":\"Black Bean Tacos\",\"ingredients\":[{\"name\":\"Black beans\",\"quantity\":1,\"unit\":\"can\"}],\"instructions\":[\"Warm beans and tortillas.\"],\"effortLevel\":\"easy\",\"estimatedTime\":15,\"servings\":4}' --dry-run --pretty"
   ],
   "scopes": {
     "default": [
@@ -61,7 +70,10 @@
       "read:recipes"
     ],
     "optional": [
-      "write:grocery"
+      "write:grocery",
+      "write:pantry",
+      "write:plan",
+      "write:recipes"
     ]
   },
   "safetyRules": [
@@ -69,7 +81,7 @@
     "Never ask for or store the user's FamilyPlate password.",
     "Use read commands freely for the connected household context.",
     "Never perform writes unless the user explicitly asks for that action.",
-    "Run grocery writes with --dry-run first when the target item is ambiguous.",
+    "Run writes with --dry-run first when the target item is ambiguous.",
     "Use --confirm only after the user confirms the exact change.",
     "Do not provide diagnosis, treatment, or medical nutrition advice.",
     "Tell the user to revoke the connection in FamilyPlate Settings when done."
@@ -113,11 +125,60 @@
       "description": "Add one custom item to the household grocery list. Supports dry runs before writing."
     },
     {
+      "name": "updateGroceryItem",
+      "scope": "write:grocery",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Update one grocery list item by exact item name. Supports quantity, unit, category, and checked edits."
+    },
+    {
       "name": "checkGroceryItem",
       "scope": "write:grocery",
       "kind": "mutation",
       "requiresConfirmation": true,
       "description": "Mark one grocery list item checked by exact item name. Use dry run first when unsure."
+    },
+    {
+      "name": "addPantryItem",
+      "scope": "write:pantry",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Add one item to the household pantry, fridge, or freezer. Supports dry runs before writing."
+    },
+    {
+      "name": "updatePantryItem",
+      "scope": "write:pantry",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Update one pantry item by Convex item id. Supports dry runs before writing."
+    },
+    {
+      "name": "removePantryItem",
+      "scope": "write:pantry",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Remove one pantry item by Convex item id. Supports dry runs before writing."
+    },
+    {
+      "name": "addMealToPlan",
+      "scope": "write:plan",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Add or replace a planned dinner on a YYYY-MM-DD date using a saved recipe id."
+    },
+    {
+      "name": "removeMealFromPlan",
+      "scope": "write:plan",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Remove one planned dinner by planned meal id. Cooked meals cannot be removed."
+    },
+    {
+      "name": "createSavedRecipe",
+      "scope": "write:recipes",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Create a custom saved recipe in the household cookbook. Supports dry runs before writing."
     }
   ]
 }

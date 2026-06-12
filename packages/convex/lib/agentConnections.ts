@@ -18,6 +18,7 @@ export function serializeAgentConnection(connection: Doc<"agentConnections">) {
     name: connection.name,
     scopes: connection.scopes,
     createdAt: connection.createdAt,
+    expiresAt: connection.expiresAt ?? null,
     lastUsedAt: connection.lastUsedAt ?? null,
     revokedAt: connection.revokedAt ?? null,
   };

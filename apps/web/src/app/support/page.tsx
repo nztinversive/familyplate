@@ -57,6 +57,12 @@ export default function SupportPage() {
           >
             Delete Account
           </Link>
+          <Link
+            href="/agents"
+            className="rounded-xl border border-border bg-card p-4 font-semibold"
+          >
+            For agents
+          </Link>
         </div>
       </section>
     </main>

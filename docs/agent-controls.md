@@ -90,11 +90,18 @@ npm run familyplate -- status --pretty
 npm run familyplate -- tools --pretty
 npm run familyplate -- pantry list --pretty
 npm run familyplate -- pantry list --location fridge --pretty
+npm run familyplate -- pantry add "Chicken thighs" --quantity 2 --unit lb --category Meat --location fridge --dry-run --pretty
+npm run familyplate -- pantry update --item-id <pantry_item_id> --quantity 1 --dry-run --pretty
+npm run familyplate -- pantry remove --item-id <pantry_item_id> --dry-run --pretty
 npm run familyplate -- grocery list --pretty
 npm run familyplate -- grocery check "Tomatoes" --dry-run --pretty
 npm run familyplate -- grocery check "Tomatoes" --confirm --pretty
+npm run familyplate -- grocery update "Tomatoes" --quantity 6 --category Produce --dry-run --pretty
 npm run familyplate -- plan list --pretty
+npm run familyplate -- plan add --recipe-id <recipe_id> --date 2026-06-15 --dry-run --pretty
+npm run familyplate -- plan remove --meal-id <planned_meal_id> --dry-run --pretty
 npm run familyplate -- recipes list --pretty
+npm run familyplate -- recipes create --input '{"title":"Black Bean Tacos","ingredients":[{"name":"Black beans","quantity":1,"unit":"can"}],"instructions":["Warm beans and tortillas."],"effortLevel":"easy","estimatedTime":15,"servings":4}' --dry-run --pretty
 ```
 
 The repository includes a smoke check for the public agent API and local CLI:
@@ -137,6 +144,7 @@ Agents can use the lower-level runner for exact JSON input:
 ```bash
 npm run familyplate -- run listPantry --input '{"storageLocation":"pantry"}' --pretty
 npm run familyplate -- run addGroceryItem --input '{"name":"bananas","quantity":6,"unit":"count","category":"Produce"}' --dry-run --pretty
+npm run familyplate -- run updateGroceryItem --input '{"name":"bananas","quantity":8,"category":"Produce"}' --dry-run --pretty
 npm run familyplate -- run checkGroceryItem --input '{"name":"Tomatoes"}' --dry-run --pretty
 ```
 
@@ -183,9 +191,17 @@ Connections are scoped. New connections start read-only:
 - `read:plan`
 - `read:recipes`
 
-Settings can also grant `write:grocery` when the user enables Allow grocery
-writes during connection creation. The CLI still requires `--confirm` or
-`--dry-run` for grocery writes.
+Settings can also grant write scopes during connection creation:
+
+- `write:grocery`
+- `write:pantry`
+- `write:plan`
+- `write:recipes`
+
+The CLI still requires `--confirm` or `--dry-run` for writes.
+
+Agent connections can expire after 1 hour, 24 hours, 7 days, or never. The
+default in Settings is 24 hours.
 
 ## HTTP Contract
 
@@ -227,6 +243,7 @@ Successful response:
 - Tokens are stored hashed in Convex.
 - Tokens can be revoked from Settings.
 - The token is only shown once.
+- Tokens can be created with an expiration window.
 - Settings shows connection scopes, active/revoked state, created time, and last
   used time.
 - Each request checks the token, profile, household, and required scope.

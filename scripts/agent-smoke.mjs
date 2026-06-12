@@ -85,8 +85,8 @@ const cliTools = await run("node", ["apps/cli/bin/familyplate.mjs", "tools", "--
 assert(cliTools.code === 0, `CLI tools failed: ${cliTools.stderr}`);
 const cliToolsPayload = JSON.parse(cliTools.stdout);
 assert(
-  cliToolsPayload.tools.some((tool) => tool.name === "checkGroceryItem"),
-  "CLI tools output is missing checkGroceryItem"
+  cliToolsPayload.tools.some((tool) => tool.name === "createSavedRecipe"),
+  "CLI tools output is missing createSavedRecipe"
 );
 pass("CLI lists shared tools");
 
@@ -161,6 +161,20 @@ assert(
   "no-confirm error should mention --confirm"
 );
 pass("CLI blocks grocery check without --confirm");
+
+const pantryNoConfirm = await run("node", [
+  "apps/cli/bin/familyplate.mjs",
+  "pantry",
+  "remove",
+  "--item-id",
+  "placeholder",
+]);
+assert(pantryNoConfirm.code === 1, "pantry remove without --confirm should fail");
+assert(
+  pantryNoConfirm.stderr.includes("Writes require --confirm"),
+  "pantry no-confirm error should mention --confirm"
+);
+pass("CLI blocks pantry remove without --confirm");
 
 if (token) {
   const tempHome = await mkdtemp(join(tmpdir(), "familyplate-agent-smoke-"));

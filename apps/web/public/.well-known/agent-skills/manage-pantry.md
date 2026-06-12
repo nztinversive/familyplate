@@ -26,5 +26,5 @@ Use when the user asks things like:
 
 `https://familyplate.co/pantry`
 
-Also available as WebMCP tools: `addPantryItem`, `adjustPantryQuantity`,
-`removePantryItem`, `listPantry`.
+Also available through Agent CLI tools: `listPantry`, `addPantryItem`,
+`updatePantryItem`, and `removePantryItem`.

@@ -23,11 +23,18 @@ Usage:
   familyplate tools [--pretty]
   familyplate run <tool> [--input '{"key":"value"}'] [--dry-run] [--pretty]
   familyplate pantry list [--location pantry|fridge|freezer] [--pretty]
+  familyplate pantry add <name> --quantity <n> --unit <unit> --category <category> --location pantry|fridge|freezer --confirm [--pretty]
+  familyplate pantry update --item-id <id> [--name <name>] [--quantity <n>] [--unit <unit>] [--category <category>] [--location pantry|fridge|freezer] --confirm [--pretty]
+  familyplate pantry remove --item-id <id> --confirm [--pretty]
   familyplate grocery list [--pretty]
   familyplate grocery add <name> --quantity <n> --unit <unit> --category <category> --confirm [--pretty]
+  familyplate grocery update <name> [--quantity <n>] [--unit <unit>] [--category <category>] [--checked true|false] --confirm [--pretty]
   familyplate grocery check <name> --confirm [--pretty]
   familyplate plan list [--pretty]
+  familyplate plan add --recipe-id <id> --date YYYY-MM-DD --confirm [--pretty]
+  familyplate plan remove --meal-id <id> --confirm [--pretty]
   familyplate recipes list [--pretty]
+  familyplate recipes create --input '{"title":"..."}' --confirm [--pretty]
 
 Environment overrides:
   FAMILYPLATE_AGENT_API_URL
@@ -107,6 +114,31 @@ function parseJsonInput(value) {
   } catch (error) {
     throw new Error(`Invalid --input JSON: ${error.message}`);
   }
+}
+
+function requireWriteConfirmation(args) {
+  if (!args.confirm && !args["dry-run"]) {
+    throw new Error("Writes require --confirm, or use --dry-run to preview.");
+  }
+}
+
+function parseBoolean(value, field) {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (String(value).toLowerCase() === "true") return true;
+  if (String(value).toLowerCase() === "false") return false;
+  throw new Error(`${field} must be true or false.`);
+}
+
+function parseExpirationDate(value) {
+  if (!value) return undefined;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  const parsed = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("--expiration-date must be YYYY-MM-DD or a timestamp in milliseconds.");
+  }
+  return parsed.getTime();
 }
 
 function print(value, pretty) {
@@ -256,6 +288,69 @@ async function doctor(pretty) {
         )
       );
     }
+
+    if (connection.scopes.includes("write:pantry")) {
+      try {
+        await runTool("addPantryItem", {
+          name: "FamilyPlate doctor test",
+          quantity: 1,
+          unit: "item",
+          category: "Other",
+          storageLocation: "pantry",
+        }, { dryRun: true });
+        checks.push(checkPass("pantry write dry-run", "write:pantry is enabled"));
+      } catch (error) {
+        checks.push(checkFail("pantry write dry-run", error.message));
+      }
+    } else {
+      checks.push(
+        checkPass(
+          "pantry write scope",
+          "not enabled; writes should be rejected for this connection"
+        )
+      );
+    }
+
+    if (connection.scopes.includes("write:recipes")) {
+      try {
+        await runTool("createSavedRecipe", {
+          title: "FamilyPlate doctor recipe",
+          description: "Dry-run recipe used to verify agent access.",
+          ingredients: [{ name: "Test ingredient", quantity: 1, unit: "item" }],
+          instructions: ["Dry run only."],
+          effortLevel: "easy",
+          estimatedTime: 5,
+          servings: 1,
+          tags: ["doctor"],
+        }, { dryRun: true });
+        checks.push(checkPass("recipe write dry-run", "write:recipes is enabled"));
+      } catch (error) {
+        checks.push(checkFail("recipe write dry-run", error.message));
+      }
+    } else {
+      checks.push(
+        checkPass(
+          "recipe write scope",
+          "not enabled; writes should be rejected for this connection"
+        )
+      );
+    }
+
+    if (connection.scopes.includes("write:plan")) {
+      checks.push(
+        checkPass(
+          "meal plan write scope",
+          "enabled; use familyplate plan add/remove with a real recipe or meal id"
+        )
+      );
+    } else {
+      checks.push(
+        checkPass(
+          "meal plan write scope",
+          "not enabled; writes should be rejected for this connection"
+        )
+      );
+    }
   }
 
   const ok = checks.every((check) => check.ok);
@@ -314,8 +409,16 @@ function getInstructionsPayload() {
       writes: [
         "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --dry-run --pretty",
         "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --confirm --pretty",
+        "familyplate grocery update \"olive oil\" --quantity 2 --category Condiments --dry-run --pretty",
+        "familyplate grocery update \"olive oil\" --quantity 2 --category Condiments --confirm --pretty",
         "familyplate grocery check \"Tomatoes\" --dry-run --pretty",
         "familyplate grocery check \"Tomatoes\" --confirm --pretty",
+        "familyplate pantry add \"Chicken thighs\" --quantity 2 --unit lb --category Meat --location fridge --dry-run --pretty",
+        "familyplate pantry update --item-id <pantry_item_id> --quantity 1 --dry-run --pretty",
+        "familyplate pantry remove --item-id <pantry_item_id> --dry-run --pretty",
+        "familyplate plan add --recipe-id <recipe_id> --date 2026-06-15 --dry-run --pretty",
+        "familyplate plan remove --meal-id <planned_meal_id> --dry-run --pretty",
+        "familyplate recipes create --input '{\"title\":\"Black Bean Tacos\",\"ingredients\":[{\"name\":\"Black beans\",\"quantity\":1,\"unit\":\"can\"}],\"instructions\":[\"Warm beans and tortillas.\"],\"effortLevel\":\"easy\",\"estimatedTime\":15,\"servings\":4}' --dry-run --pretty",
       ],
     },
     tools: FAMILYPLATE_AGENT_TOOLS,
@@ -485,6 +588,62 @@ async function main() {
     return;
   }
 
+  if (command === "pantry" && subcommand === "add") {
+    const name = rest.join(" ").trim();
+    if (!name) throw new Error("pantry add requires an item name.");
+    if (!args.quantity || !args.unit || !args.category || !args.location) {
+      throw new Error("pantry add requires --quantity, --unit, --category, and --location.");
+    }
+    requireWriteConfirmation(args);
+
+    const input = {
+      name,
+      quantity: Number(args.quantity),
+      unit: String(args.unit),
+      category: String(args.category),
+      storageLocation: String(args.location),
+      ...(args["expiration-date"]
+        ? { expirationDate: parseExpirationDate(args["expiration-date"]) }
+        : {}),
+    };
+    print(await runTool("addPantryItem", input, { dryRun: args["dry-run"] }), args.pretty);
+    return;
+  }
+
+  if (command === "pantry" && subcommand === "update") {
+    if (!args["item-id"]) throw new Error("pantry update requires --item-id.");
+    requireWriteConfirmation(args);
+
+    const input = {
+      itemId: String(args["item-id"]),
+      ...(args.name ? { name: String(args.name) } : {}),
+      ...(args.quantity ? { quantity: Number(args.quantity) } : {}),
+      ...(args.unit ? { unit: String(args.unit) } : {}),
+      ...(args.category ? { category: String(args.category) } : {}),
+      ...(args.location ? { storageLocation: String(args.location) } : {}),
+      ...(args["expiration-date"]
+        ? { expirationDate: parseExpirationDate(args["expiration-date"]) }
+        : {}),
+      ...(args["clear-expiration"] ? { clearExpirationDate: true } : {}),
+    };
+    print(await runTool("updatePantryItem", input, { dryRun: args["dry-run"] }), args.pretty);
+    return;
+  }
+
+  if (command === "pantry" && subcommand === "remove") {
+    if (!args["item-id"]) throw new Error("pantry remove requires --item-id.");
+    requireWriteConfirmation(args);
+    print(
+      await runTool(
+        "removePantryItem",
+        { itemId: String(args["item-id"]) },
+        { dryRun: args["dry-run"] }
+      ),
+      args.pretty
+    );
+    return;
+  }
+
   if (command === "grocery" && subcommand === "list") {
     print(await runTool("listGroceryList", {}), args.pretty);
     return;
@@ -496,9 +655,7 @@ async function main() {
     if (!args.quantity || !args.unit || !args.category) {
       throw new Error("grocery add requires --quantity, --unit, and --category.");
     }
-    if (!args.confirm && !args["dry-run"]) {
-      throw new Error("Writes require --confirm, or use --dry-run to preview.");
-    }
+    requireWriteConfirmation(args);
 
     print(
       await runTool(
@@ -516,12 +673,28 @@ async function main() {
     return;
   }
 
+  if (command === "grocery" && subcommand === "update") {
+    const name = rest.join(" ").trim();
+    if (!name) throw new Error("grocery update requires an item name.");
+    requireWriteConfirmation(args);
+
+    const input = {
+      name,
+      ...(args.quantity ? { quantity: Number(args.quantity) } : {}),
+      ...(args.unit ? { unit: String(args.unit) } : {}),
+      ...(args.category ? { category: String(args.category) } : {}),
+      ...(args.checked !== undefined
+        ? { checked: parseBoolean(args.checked, "--checked") }
+        : {}),
+    };
+    print(await runTool("updateGroceryItem", input, { dryRun: args["dry-run"] }), args.pretty);
+    return;
+  }
+
   if (command === "grocery" && subcommand === "check") {
     const name = rest.join(" ").trim();
     if (!name) throw new Error("grocery check requires an item name.");
-    if (!args.confirm && !args["dry-run"]) {
-      throw new Error("Writes require --confirm, or use --dry-run to preview.");
-    }
+    requireWriteConfirmation(args);
 
     print(
       await runTool(
@@ -539,8 +712,52 @@ async function main() {
     return;
   }
 
+  if (command === "plan" && subcommand === "add") {
+    if (!args["recipe-id"] || !args.date) {
+      throw new Error("plan add requires --recipe-id and --date.");
+    }
+    requireWriteConfirmation(args);
+    print(
+      await runTool(
+        "addMealToPlan",
+        { recipeId: String(args["recipe-id"]), date: String(args.date) },
+        { dryRun: args["dry-run"] }
+      ),
+      args.pretty
+    );
+    return;
+  }
+
+  if (command === "plan" && subcommand === "remove") {
+    if (!args["meal-id"]) throw new Error("plan remove requires --meal-id.");
+    requireWriteConfirmation(args);
+    print(
+      await runTool(
+        "removeMealFromPlan",
+        { mealId: String(args["meal-id"]) },
+        { dryRun: args["dry-run"] }
+      ),
+      args.pretty
+    );
+    return;
+  }
+
   if (command === "recipes" && subcommand === "list") {
     print(await runTool("listSavedRecipes", {}), args.pretty);
+    return;
+  }
+
+  if (command === "recipes" && subcommand === "create") {
+    if (!args.input) throw new Error("recipes create requires --input JSON.");
+    requireWriteConfirmation(args);
+    print(
+      await runTool(
+        "createSavedRecipe",
+        parseJsonInput(args.input),
+        { dryRun: args["dry-run"] }
+      ),
+      args.pretty
+    );
     return;
   }
 

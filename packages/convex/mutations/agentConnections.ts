@@ -46,10 +46,25 @@ function normalizeScopes(scopes?: string[]) {
   return normalized;
 }
 
+const ALLOWED_EXPIRATION_MS = new Set([
+  60 * 60 * 1000,
+  24 * 60 * 60 * 1000,
+  7 * 24 * 60 * 60 * 1000,
+]);
+
+function normalizeExpiresAt(expiresInMs: number | undefined, now: number) {
+  if (expiresInMs === undefined) return undefined;
+  if (!ALLOWED_EXPIRATION_MS.has(expiresInMs)) {
+    throw new ConvexError("Unsupported agent token expiration.");
+  }
+  return now + expiresInMs;
+}
+
 export const createAgentConnection = mutation({
   args: {
     name: v.string(),
     scopes: v.optional(v.array(v.string())),
+    expiresInMs: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const profile = await getViewerProfile(ctx);
@@ -62,6 +77,7 @@ export const createAgentConnection = mutation({
     const token = createToken();
     const tokenHash = await sha256Hex(token);
     const now = Date.now();
+    const expiresAt = normalizeExpiresAt(args.expiresInMs, now);
 
     const connectionId = await ctx.db.insert("agentConnections", {
       householdId: profile.householdId,
@@ -70,6 +86,7 @@ export const createAgentConnection = mutation({
       tokenHash,
       scopes,
       createdAt: now,
+      expiresAt,
     });
 
     const connection = await ctx.db.get(connectionId);
