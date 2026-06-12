@@ -17,7 +17,10 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
-import { CookModeModal } from "@/components/CookModeModal";
+import {
+  CookModeModal,
+  type CookModeLeftover,
+} from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ScreenShell } from "@/components/ScreenShell";
@@ -625,7 +628,7 @@ export default function PlanScreen() {
     openCookMode();
   };
 
-  const handleFinishCookMode = async (leftoverNote?: string) => {
+  const handleFinishCookMode = async (leftover?: CookModeLeftover) => {
     if (!cookingMeal) return;
 
     setFinishingCookMode(true);
@@ -637,18 +640,23 @@ export default function PlanScreen() {
         await updateStatus(cookingMeal, "cooked");
       }
 
-      if (leftoverNote && currentUser?.householdId) {
+      if (leftover && currentUser?.householdId) {
         await addPantryItem({
           householdId: currentUser.householdId as Id<"households">,
-          name: leftoverNote,
-          quantity: 1,
-          unit: "container",
+          name: leftover.name,
+          quantity: leftover.quantity,
+          unit: leftover.unit,
           category: "Leftovers",
-          storageLocation: "fridge",
+          storageLocation: leftover.storageLocation,
+          ...(leftover.expirationDate
+            ? { expirationDate: leftover.expirationDate }
+            : {}),
         });
         track(posthog, "leftovers_saved", {
           source: "cook_mode",
           recipe_id: cookingMeal.recipe._id,
+          storage_location: leftover.storageLocation,
+          has_expiration: !!leftover.expirationDate,
         });
       }
 

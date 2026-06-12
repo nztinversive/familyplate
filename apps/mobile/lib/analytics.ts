@@ -39,6 +39,8 @@ export type AnalyticsEvent =
   | "grocery_store_mode_started"
   | "grocery_store_mode_finished"
   | "recipe_saved"
+  | "custom_recipe_created"
+  | "recipe_added_to_plan"
   | "recipe_shared"
   | "recipe_unsaved"
   | "missing_ingredients_added_to_grocery"

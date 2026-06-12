@@ -15,6 +15,13 @@ import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 
 type Recipe = Doc<"recipeSuggestions">;
+export type CookModeLeftover = {
+  name: string;
+  quantity: number;
+  unit: string;
+  storageLocation: "fridge" | "freezer";
+  expirationDate?: number;
+};
 
 export function CookModeModal({
   visible,
@@ -29,10 +36,15 @@ export function CookModeModal({
   isFinishing: boolean;
   onClose: () => void;
   onStepViewed?: (stepIndex: number) => void;
-  onFinishCooking: (leftoverNote?: string) => Promise<void>;
+  onFinishCooking: (leftover?: CookModeLeftover) => Promise<void>;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [leftoverNote, setLeftoverNote] = useState("");
+  const [leftoverName, setLeftoverName] = useState("");
+  const [leftoverQuantity, setLeftoverQuantity] = useState("1");
+  const [leftoverUnit, setLeftoverUnit] = useState("container");
+  const [leftoverStorage, setLeftoverStorage] =
+    useState<CookModeLeftover["storageLocation"]>("fridge");
+  const [leftoverDays, setLeftoverDays] = useState(3);
   const lastTrackedStep = useRef<number | null>(null);
 
   const steps = recipe?.instructions ?? [];
@@ -46,7 +58,11 @@ export function CookModeModal({
   useEffect(() => {
     if (!visible) return;
     setStepIndex(0);
-    setLeftoverNote("");
+    setLeftoverName("");
+    setLeftoverQuantity("1");
+    setLeftoverUnit("container");
+    setLeftoverStorage("fridge");
+    setLeftoverDays(3);
     lastTrackedStep.current = null;
   }, [visible, recipe?._id]);
 
@@ -150,16 +166,57 @@ export function CookModeModal({
                   Save leftovers?
                 </Text>
                 <Text className="mt-1 text-xs leading-4 text-muted-foreground">
-                  Optional. This adds a fridge pantry item so tomorrow's planning can see it.
+                  Optional. This adds a pantry item so future planning can see it.
                 </Text>
                 <TextInput
-                  value={leftoverNote}
-                  onChangeText={setLeftoverNote}
+                  value={leftoverName}
+                  onChangeText={setLeftoverName}
                   editable={!isFinishing}
                   placeholder={`Example: 2 servings of ${recipe.title}`}
                   placeholderTextColor="#9a9489"
                   className="mt-3 rounded-xl border border-border bg-background px-3 py-3 text-foreground"
                 />
+                <View className="mt-3 flex-row gap-2">
+                  <TextInput
+                    value={leftoverQuantity}
+                    onChangeText={setLeftoverQuantity}
+                    editable={!isFinishing}
+                    keyboardType="decimal-pad"
+                    placeholder="1"
+                    placeholderTextColor="#9a9489"
+                    className="w-20 rounded-xl border border-border bg-background px-3 py-3 text-center text-foreground"
+                  />
+                  <TextInput
+                    value={leftoverUnit}
+                    onChangeText={setLeftoverUnit}
+                    editable={!isFinishing}
+                    placeholder="container"
+                    placeholderTextColor="#9a9489"
+                    className="flex-1 rounded-xl border border-border bg-background px-3 py-3 text-foreground"
+                  />
+                </View>
+                <View className="mt-3 flex-row gap-2">
+                  <LeftoverOption
+                    label="Fridge"
+                    active={leftoverStorage === "fridge"}
+                    onPress={() => setLeftoverStorage("fridge")}
+                  />
+                  <LeftoverOption
+                    label="Freezer"
+                    active={leftoverStorage === "freezer"}
+                    onPress={() => setLeftoverStorage("freezer")}
+                  />
+                </View>
+                <View className="mt-3 flex-row gap-2">
+                  {[2, 3, 5].map((days) => (
+                    <LeftoverOption
+                      key={days}
+                      label={`${days}d`}
+                      active={leftoverDays === days}
+                      onPress={() => setLeftoverDays(days)}
+                    />
+                  ))}
+                </View>
               </View>
             ) : null}
           </View>
@@ -177,7 +234,30 @@ export function CookModeModal({
             </TouchableOpacity>
             {isFinalStep ? (
               <TouchableOpacity
-                onPress={() => void onFinishCooking(leftoverNote.trim() || undefined)}
+                onPress={() => {
+                  const name = leftoverName.trim();
+                  const unit = leftoverUnit.trim() || "container";
+                  const quantity = Number(leftoverQuantity);
+                  const expirationDate =
+                    leftoverStorage === "fridge"
+                      ? Date.now() + leftoverDays * 24 * 60 * 60 * 1000
+                      : undefined;
+
+                  void onFinishCooking(
+                    name
+                      ? {
+                          name,
+                          quantity:
+                            Number.isFinite(quantity) && quantity > 0
+                              ? quantity
+                              : 1,
+                          unit,
+                          storageLocation: leftoverStorage,
+                          expirationDate,
+                        }
+                      : undefined,
+                  );
+                }}
                 disabled={isFinishing}
                 className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
                 style={{ opacity: isFinishing ? 0.55 : 1 }}
@@ -207,6 +287,35 @@ export function CookModeModal({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function LeftoverOption({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`flex-1 items-center rounded-xl border py-2.5 ${
+        active ? "border-primary bg-primary/10" : "border-border bg-background"
+      }`}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Text
+        className={`text-sm font-semibold ${
+          active ? "text-primary" : "text-muted-foreground"
+        }`}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 

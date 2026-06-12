@@ -178,6 +178,14 @@ function formatDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function parseDate(date: string) {
+  const parsed = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Choose a valid dinner date.");
+  }
+  return parsed;
+}
+
 export const generatePlaceholderPlan = mutation({
   args: {},
   handler: async (ctx) => {
@@ -452,6 +460,111 @@ export const swapMeal = mutation({
     });
 
     return args.mealId;
+  },
+});
+
+export const addRecipeToPlan = mutation({
+  args: {
+    recipeId: v.id("recipeSuggestions"),
+    date: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", userId as string))
+      .first();
+    if (!profile) throw new Error("No profile found");
+
+    const householdId = profile.householdId;
+    const recipe = await ctx.db.get(args.recipeId);
+    if (!recipe || recipe.householdId !== householdId) {
+      throw new Error("Recipe does not belong to your household");
+    }
+
+    const targetDate = parseDate(args.date);
+    const weekStartDate = formatDate(getStartOfWeek(targetDate));
+    const plans = await ctx.db
+      .query("weeklyMealPlans")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+
+    const matchingPlans = plans
+      .filter((plan) => plan.weekStartDate === weekStartDate)
+      .sort((a, b) => b.createdAt - a.createdAt);
+    let plan = matchingPlans[0] ?? null;
+    let planId = plan?._id ?? null;
+
+    for (const existingPlan of plans) {
+      if (existingPlan._id === plan?._id) continue;
+      if (existingPlan.status === "active") {
+        await ctx.db.patch(existingPlan._id, { status: "completed" });
+      }
+    }
+
+    if (!plan) {
+      planId = await ctx.db.insert("weeklyMealPlans", {
+        householdId,
+        weekStartDate,
+        status: "active",
+        createdAt: Date.now(),
+      });
+    } else if (plan.status !== "active") {
+      await ctx.db.patch(plan._id, { status: "active" });
+    }
+
+    if (!planId) throw new Error("Unable to create weekly plan");
+
+    const sameDayMeals = await ctx.db
+      .query("plannedMeals")
+      .withIndex("by_mealPlanId_date", (q) =>
+        q.eq("mealPlanId", planId).eq("date", args.date),
+      )
+      .collect();
+    const cookedMeal = sameDayMeals.find((meal) => meal.status === "cooked");
+    if (cookedMeal) {
+      throw new Error("That date already has a cooked dinner.");
+    }
+
+    const existingMeal = sameDayMeals[0] ?? null;
+    if (existingMeal) {
+      await ctx.db.patch(existingMeal._id, {
+        recipeId: args.recipeId,
+        alternativeRecipeIds: [],
+        status: "planned",
+        pantryDeductedAt: undefined,
+      });
+
+      for (const extraMeal of sameDayMeals.slice(1)) {
+        await ctx.db.delete(extraMeal._id);
+      }
+
+      return {
+        mealId: existingMeal._id,
+        mealPlanId: planId,
+        date: args.date,
+        replaced: true,
+      };
+    }
+
+    const mealId = await ctx.db.insert("plannedMeals", {
+      mealPlanId: planId,
+      recipeId: args.recipeId,
+      alternativeRecipeIds: [],
+      date: args.date,
+      mealType: "dinner",
+      status: "planned",
+      pantryDeductedAt: undefined,
+    });
+
+    return {
+      mealId,
+      mealPlanId: planId,
+      date: args.date,
+      replaced: false,
+    };
   },
 });
 

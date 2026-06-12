@@ -11,7 +11,7 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate now learns from the dinners you cook. This update adds a post-dinner check-in, learned meal memory in Settings, recently cooked dinners in Cookbook, better leftover and expiring-food prompts, and estimated per-serving nutrition on recipe details.
+- What's New: FamilyPlate now lets you save your own household recipes. Add family favorites to Cookbook, plan them for the week, cook from step-by-step Cook Mode, and send missing ingredients to your grocery list.
 
 ## App Preview
 
@@ -31,7 +31,7 @@ Use a reviewer-only account that stays active through review.
 - Demo password: use the password for that dedicated test account
 - Notes:
 
-FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking, grocery list management, Cookbook, Tonight suggestions, Weekly Plan, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, and barcode scanning.
+FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Tonight suggestions, Weekly Plan, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, and barcode scanning.
 
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
 
@@ -84,7 +84,9 @@ Recommended age rating answers:
 2. Open Pantry and add a pantry item manually.
 3. Use Snap Groceries to test camera/photo recognition and barcode scanning.
 4. Open Tonight and generate dinner suggestions.
-5. Save or open a recipe from Cookbook, then start Cook Mode and finish it.
-6. Complete the dinner check-in, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
-7. Add missing recipe ingredients to Grocery List.
-8. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+5. Open Cookbook, add a custom family recipe, and confirm it appears as a saved recipe.
+6. Add that custom recipe to this week's plan or send missing ingredients to Grocery List.
+7. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
+8. Complete the dinner check-in, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
+9. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+10. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
