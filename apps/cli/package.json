@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "familyplate": "./bin/familyplate.mjs"
+    "familyplate": "bin/familyplate.mjs"
   },
   "files": [
     "bin"
