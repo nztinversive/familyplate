@@ -13,6 +13,19 @@
     "npx": "npx @familyplate/cli@latest instructions",
     "global": "npm install -g @familyplate/cli"
   },
+  "authentication": {
+    "model": "user-mediated scoped agent token",
+    "signInUrl": "https://familyplate.co",
+    "settingsUrl": "https://familyplate.co/settings",
+    "tokenDelivery": "one-time terminal command",
+    "agentRules": [
+      "Do not ask for the user's FamilyPlate password.",
+      "Do not automate browser sign-in unless the user explicitly asks for a browser walkthrough.",
+      "Ask the user to sign in and create an Agent Access connection from Settings.",
+      "Use the generated familyplate connect command for CLI access.",
+      "Ask the user to revoke the connection in Settings when done."
+    ]
+  },
   "setup": [
     "Ask the user to sign in at https://familyplate.co.",
     "Ask the user to open Settings and create an Agent Access connection.",
@@ -53,6 +66,7 @@
   },
   "safetyRules": [
     "Never ask the user to paste an agent token into chat when a local terminal command is available.",
+    "Never ask for or store the user's FamilyPlate password.",
     "Use read commands freely for the connected household context.",
     "Never perform writes unless the user explicitly asks for that action.",
     "Run grocery writes with --dry-run first when the target item is ambiguous.",

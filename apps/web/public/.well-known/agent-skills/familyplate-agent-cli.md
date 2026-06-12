@@ -29,6 +29,18 @@ medical or nutrition advice, or anything the user did not explicitly authorize.
 6. Run the command in the terminal where the agent operates.
 7. Run `familyplate doctor --pretty` before doing useful work.
 
+## Sign-in rules
+
+- Do not ask for the user's FamilyPlate password.
+- Do not automate the user's browser login unless the user explicitly asks for a
+  browser walkthrough.
+- The user owns sign-in. The agent owns CLI setup after the user provides the
+  generated terminal command.
+- If the user is not signed in, send them to `https://familyplate.co` and ask
+  them to open Settings after sign-in.
+- If the token is missing, expired, revoked, or has the wrong scope, ask the user
+  to create a new Agent Access connection in Settings.
+
 ## Install
 
 Use the published CLI:
@@ -133,6 +145,7 @@ Current tools:
 ## Safety rules
 
 - Use read commands freely to understand the user's household food context.
+- Never ask for or store the user's FamilyPlate password.
 - Never perform writes unless the user explicitly asks for that action.
 - Prefer `--dry-run` before grocery writes when the item is ambiguous.
 - Use `--confirm` only after the user confirms the exact change.

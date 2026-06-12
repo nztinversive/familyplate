@@ -61,6 +61,28 @@ export default function AgentsPage() {
         </div>
 
         <section className="space-y-4 border-t border-border pt-6">
+          <h2 className="text-2xl font-bold">Sign In Model</h2>
+          <p className="leading-7 text-muted-foreground">
+            Agents should not ask for or automate a user&apos;s FamilyPlate password.
+            The user signs in, opens Settings, creates an Agent Access
+            connection, and gives the agent the one-time terminal command. After
+            that, the agent uses the CLI token instead of a browser session.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ResourceLink
+              href="/settings"
+              title="User Settings"
+              description="Signed-in users create and revoke Agent Access connections here."
+            />
+            <ResourceLink
+              href="/agents"
+              title="Agent Setup"
+              description="Public setup guide agents can read before asking the user for access."
+            />
+          </div>
+        </section>
+
+        <section className="space-y-4 border-t border-border pt-6">
           <h2 className="text-2xl font-bold">Setup Flow</h2>
           <ol className="space-y-3 leading-7 text-muted-foreground">
             <li>1. The user signs in at FamilyPlate and opens Settings.</li>
@@ -133,6 +155,7 @@ export default function AgentsPage() {
           <h2 className="text-2xl font-bold">Safety Model</h2>
           <ul className="space-y-2 leading-7 text-muted-foreground">
             <li>Agent tokens are separate from household invite codes.</li>
+            <li>Agents should never ask for the user&apos;s FamilyPlate password.</li>
             <li>Tokens are shown once, stored hashed, and revocable from Settings.</li>
             <li>Each request checks the token, household, profile, and required scope.</li>
             <li>Agents should not provide diagnosis, treatment, or medical nutrition advice.</li>

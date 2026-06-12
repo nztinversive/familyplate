@@ -29,7 +29,7 @@
       "type": "markdown",
       "description": "Set up scoped FamilyPlate CLI access for trusted coding and terminal agents. Includes install commands, scopes, safety rules, and available tools.",
       "url": "https://familyplate.co/.well-known/agent-skills/familyplate-agent-cli.md",
-      "sha256": "8c5a27563c46156ec80d0a51c59e4836c83e2ff0ebd4b702232d3483106cd31e"
+      "sha256": "70905a8084c7ff8fe5d8782018693a7a6d53738bf29da56140a467244dfbbb7e"
     }
   ]
 }
