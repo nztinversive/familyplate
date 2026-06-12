@@ -662,7 +662,7 @@ export default function SettingsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">Agent Access</p>
                     <p className="text-xs text-muted-foreground">
-                      Connect a trusted agent to read pantry, grocery, meal plan, and cookbook data.
+                      Connect Codex, Claude, Cursor, or terminal agents without sharing your password.
                     </p>
                   </div>
                 </div>
@@ -688,7 +688,7 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    New connections start read-only unless you allow grocery writes.
+                    New connections start read-only. Revoke access when the agent is done.
                   </p>
                 </div>
 
@@ -696,7 +696,7 @@ export default function SettingsPage() {
                   <div className="flex-1">
                     <Label htmlFor="agent-grocery-writes">Allow grocery writes</Label>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Lets this agent add grocery items. The CLI still requires --confirm.
+                      Lets this agent add or check grocery items. The CLI still requires --confirm.
                     </p>
                   </div>
                   <button
@@ -727,7 +727,7 @@ export default function SettingsPage() {
                     </code>
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground">
-                        Copy it now. The token is only shown once.
+                        Paste this into the agent terminal now. The token is only shown once.
                       </p>
                       <Button
                         type="button"
@@ -808,7 +808,7 @@ export default function SettingsPage() {
                             </div>
                             {!revoked && (
                               <div className="space-y-1 rounded-lg bg-muted/30 p-2">
-                                <p className="text-[11px] font-medium">Setup command shape</p>
+                                <p className="text-[11px] font-medium">Install the CLI, then run</p>
                                 <code className="block overflow-x-auto text-[10px] text-muted-foreground">
                                   familyplate connect --api-url {agentApiUrl} --token &lt;shown once&gt;
                                 </code>
