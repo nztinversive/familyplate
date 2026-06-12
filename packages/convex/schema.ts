@@ -176,6 +176,9 @@ export default defineSchema({
         unit: v.string(),
         category: v.string(),
         checked: v.boolean(),
+        source: v.optional(
+          v.union(v.literal("plan"), v.literal("custom"))
+        ),
       })
     ),
     createdAt: v.number(),

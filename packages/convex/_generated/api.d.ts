@@ -23,6 +23,7 @@ import type * as internal_planner from "../internal/planner.js";
 import type * as internal_publicDinner from "../internal/publicDinner.js";
 import type * as lib_agentConnections from "../lib/agentConnections.js";
 import type * as lib_allergenCheck from "../lib/allergenCheck.js";
+import type * as lib_grocery from "../lib/grocery.js";
 import type * as lib_mealPlanning from "../lib/mealPlanning.js";
 import type * as lib_openaiMealPlanner from "../lib/openaiMealPlanner.js";
 import type * as lib_recipeSafety from "../lib/recipeSafety.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "internal/publicDinner": typeof internal_publicDinner;
   "lib/agentConnections": typeof lib_agentConnections;
   "lib/allergenCheck": typeof lib_allergenCheck;
+  "lib/grocery": typeof lib_grocery;
   "lib/mealPlanning": typeof lib_mealPlanning;
   "lib/openaiMealPlanner": typeof lib_openaiMealPlanner;
   "lib/recipeSafety": typeof lib_recipeSafety;

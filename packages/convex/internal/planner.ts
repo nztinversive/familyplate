@@ -1,5 +1,10 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
+import {
+  buildGeneratedGroceryItems,
+  getPreservedCustomItems,
+  sortGroceryItems,
+} from "../lib/grocery";
 import type { Doc } from "../_generated/dataModel";
 
 const ingredientValidator = v.object({
@@ -458,10 +463,20 @@ export const saveGeneratedGroceryList = internalMutation({
         unit: v.string(),
         category: v.string(),
         checked: v.boolean(),
+        source: v.optional(
+          v.union(v.literal("plan"), v.literal("custom"))
+        ),
       }),
     ),
   },
   handler: async (ctx, args) => {
+    const latestLists = await ctx.db
+      .query("groceryLists")
+      .withIndex("by_householdId", (q) => q.eq("householdId", args.householdId))
+      .collect();
+    const latestList = latestLists.sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+    const preservedCustomItems = getPreservedCustomItems(latestList);
+
     const existingLists = await ctx.db
       .query("groceryLists")
       .withIndex("by_mealPlanId", (q) => q.eq("mealPlanId", args.mealPlanId))
@@ -474,7 +489,10 @@ export const saveGeneratedGroceryList = internalMutation({
     return await ctx.db.insert("groceryLists", {
       householdId: args.householdId,
       mealPlanId: args.mealPlanId,
-      items: args.items,
+      items: sortGroceryItems([
+        ...buildGeneratedGroceryItems(args.items),
+        ...preservedCustomItems,
+      ]),
       createdAt: Date.now(),
     });
   },

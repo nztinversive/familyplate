@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.14.0",
+    "version": "1.15.0",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate now lets you save your own household recipes.\n\n- Add family favorites directly to Cookbook.\n- Plan custom recipes alongside AI dinner ideas.\n- Cook custom recipes with step-by-step Cook Mode.\n- Send missing custom-recipe ingredients to Grocery List.\n- Keep optional nutrition tucked away for recipes that already have it.",
+        "releaseNotes": "FamilyPlate keeps your shopping list steadier while you plan dinner.\n\n- Generate Grocery from your weekly plan without losing manual errand items.\n- Keep cookbook-added missing ingredients on the list when you refresh plan-based groceries.\n- Preserve the same pantry, cookbook, and planning flow while making grocery prep less fragile.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",

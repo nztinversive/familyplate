@@ -2,6 +2,12 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, type MutationCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
+import {
+  buildGeneratedGroceryItems,
+  getPreservedCustomItems,
+  sortGroceryItems,
+  type GroceryListItem,
+} from "../lib/grocery";
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
@@ -35,13 +41,14 @@ function normalizeCustomItem(args: {
   quantity: number;
   unit: string;
   category: string;
-}) {
+}): GroceryListItem {
   return {
     name: requireNonEmptyString(args.name, "Name"),
     quantity: validateQuantity(args.quantity),
     unit: requireNonEmptyString(args.unit, "Unit"),
     category: requireNonEmptyString(args.category, "Category"),
     checked: false,
+    source: "custom",
   };
 }
 
@@ -226,11 +233,12 @@ export const generateFromPlan = mutation({
         };
       })
       .filter((item) => item.quantity > 0)
-      .sort((a, b) =>
-        a.category === b.category
-          ? a.name.localeCompare(b.name)
-          : a.category.localeCompare(b.category)
-      );
+    const latestList = await getLatestListForHousehold(ctx, householdId);
+    const preservedCustomItems = getPreservedCustomItems(latestList);
+    const items = sortGroceryItems([
+      ...buildGeneratedGroceryItems(groceryItems),
+      ...preservedCustomItems,
+    ]);
 
     // Replace existing grocery list for this meal plan instead of creating duplicates
     const existingLists = await ctx.db
@@ -245,7 +253,7 @@ export const generateFromPlan = mutation({
     return await ctx.db.insert("groceryLists", {
       householdId,
       mealPlanId: mealPlan._id,
-      items: groceryItems,
+      items,
       createdAt: Date.now(),
     });
   },
@@ -295,14 +303,7 @@ export const addCustomItem = mutation({
 
     const newItem = normalizeCustomItem(args);
 
-    const items = [
-      ...groceryList.items,
-      newItem,
-    ].sort((a, b) =>
-      a.category === b.category
-        ? a.name.localeCompare(b.name)
-        : a.category.localeCompare(b.category)
-    );
+    const items = sortGroceryItems([...groceryList.items, newItem]);
 
     await ctx.db.patch(args.groceryListId, { items });
     return args.groceryListId;
@@ -332,14 +333,7 @@ export const addMyCustomItem = mutation({
       return groceryListId;
     }
 
-    const items = [
-      ...latestList.items,
-      newItem,
-    ].sort((a, b) =>
-      a.category === b.category
-        ? a.name.localeCompare(b.name)
-        : a.category.localeCompare(b.category)
-    );
+    const items = sortGroceryItems([...latestList.items, newItem]);
 
     await ctx.db.patch(latestList._id, { items });
     return latestList._id;
