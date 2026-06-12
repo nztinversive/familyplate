@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -13,7 +13,10 @@ function usage() {
   console.log(`FamilyPlate agent CLI
 
 Usage:
+  npx @familyplate/cli@latest <command>
   familyplate connect --api-url <url> --token <token>
+  familyplate config [--pretty]
+  familyplate disconnect [--pretty]
   familyplate doctor [--pretty]
   familyplate instructions [--json] [--pretty]
   familyplate status
@@ -54,6 +57,15 @@ function parseArgs(argv) {
   return args;
 }
 
+async function loadDiskConfig() {
+  try {
+    const parsed = JSON.parse(await readFile(CONFIG_PATH, "utf8"));
+    return { ...parsed, source: CONFIG_PATH };
+  } catch {
+    return null;
+  }
+}
+
 async function loadConfig() {
   const apiUrl = process.env.FAMILYPLATE_AGENT_API_URL;
   const token = process.env.FAMILYPLATE_AGENT_TOKEN;
@@ -61,14 +73,12 @@ async function loadConfig() {
     return { apiUrl, token, source: "env" };
   }
 
-  try {
-    const parsed = JSON.parse(await readFile(CONFIG_PATH, "utf8"));
-    return { ...parsed, source: CONFIG_PATH };
-  } catch {
-    throw new Error(
-      "FamilyPlate is not connected. Run `familyplate connect --api-url <url> --token <token>` first."
-    );
-  }
+  const diskConfig = await loadDiskConfig();
+  if (diskConfig) return diskConfig;
+
+  throw new Error(
+    "FamilyPlate is not connected. Run `familyplate connect --api-url <url> --token <token>` first."
+  );
 }
 
 async function saveConfig(config) {
@@ -101,6 +111,15 @@ function parseJsonInput(value) {
 
 function print(value, pretty) {
   console.log(JSON.stringify(value, null, pretty ? 2 : 0));
+}
+
+function describeConfig(config) {
+  return {
+    source: config.source,
+    apiUrl: config.apiUrl,
+    connectedAt: config.connectedAt ?? null,
+    token: config.token ? "[redacted]" : null,
+  };
 }
 
 function checkPass(name, detail = "") {
@@ -272,11 +291,20 @@ function getInstructionsPayload() {
     ],
     setup: [
       "Ask the user to open FamilyPlate Settings and create an Agent Access connection.",
+      "If the published CLI is available, use npx @familyplate/cli@latest <command>.",
       "Run the one-time familyplate connect command.",
       "Run familyplate doctor --pretty before doing useful work.",
     ],
     commands: {
-      health: ["familyplate doctor --pretty", "familyplate status --pretty"],
+      install: [
+        "npx @familyplate/cli@latest instructions",
+        "npm install -g @familyplate/cli",
+      ],
+      health: [
+        "familyplate config --pretty",
+        "familyplate doctor --pretty",
+        "familyplate status --pretty",
+      ],
       reads: [
         "familyplate pantry list --pretty",
         "familyplate grocery list --pretty",
@@ -305,6 +333,11 @@ function printInstructions(asJson, pretty) {
 
 ## Setup
 ${payload.setup.map((item) => `- ${item}`).join("\n")}
+
+## Install
+\`\`\`bash
+${payload.commands.install.join("\n")}
+\`\`\`
 
 ## Safety Rules
 ${payload.safetyRules.map((item) => `- ${item}`).join("\n")}
@@ -347,6 +380,57 @@ async function main() {
 
   if (command === "instructions") {
     printInstructions(args.json, args.pretty);
+    return;
+  }
+
+  if (command === "config") {
+    const envConfig =
+      process.env.FAMILYPLATE_AGENT_API_URL && process.env.FAMILYPLATE_AGENT_TOKEN
+        ? {
+            apiUrl: process.env.FAMILYPLATE_AGENT_API_URL,
+            token: process.env.FAMILYPLATE_AGENT_TOKEN,
+            connectedAt: null,
+            source: "env",
+          }
+        : null;
+    const diskConfig = await loadDiskConfig();
+    print(
+      {
+        ok: Boolean(envConfig || diskConfig),
+        active: envConfig
+          ? describeConfig(envConfig)
+          : diskConfig
+            ? describeConfig(diskConfig)
+            : null,
+        disk: diskConfig ? describeConfig(diskConfig) : null,
+        env: {
+          apiUrl: process.env.FAMILYPLATE_AGENT_API_URL ? "[set]" : "[missing]",
+          token: process.env.FAMILYPLATE_AGENT_TOKEN ? "[set]" : "[missing]",
+        },
+        configPath: CONFIG_PATH,
+      },
+      args.pretty ?? true
+    );
+    if (!envConfig && !diskConfig) process.exitCode = 1;
+    return;
+  }
+
+  if (command === "disconnect") {
+    const diskConfig = await loadDiskConfig();
+    await rm(CONFIG_PATH, { force: true });
+    print(
+      {
+        ok: true,
+        removedConfig: Boolean(diskConfig),
+        configPath: CONFIG_PATH,
+        envStillActive: Boolean(
+          process.env.FAMILYPLATE_AGENT_API_URL && process.env.FAMILYPLATE_AGENT_TOKEN
+        ),
+        note:
+          "This only removes local CLI config. Revoke the token from FamilyPlate Settings to remove server access.",
+      },
+      args.pretty ?? true
+    );
     return;
   }
 

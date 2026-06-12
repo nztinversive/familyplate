@@ -1,13 +1,25 @@
 {
   "name": "@familyplate/cli",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Command line tools for trusted FamilyPlate agent connections.",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "familyplate": "./bin/familyplate.mjs"
   },
+  "files": [
+    "bin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nztinversive/familyplate.git",
+    "directory": "apps/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@familyplate/agent-tools": "*"
+    "@familyplate/agent-tools": "^0.1.0"
   },
   "engines": {
     "node": ">=22"

@@ -1,8 +1,21 @@
 {
   "name": "@familyplate/agent-tools",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Shared FamilyPlate agent tool registry and scope definitions.",
+  "license": "MIT",
   "type": "module",
   "main": "./index.js",
-  "types": "./index.d.ts"
+  "types": "./index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nztinversive/familyplate.git",
+    "directory": "packages/agent-tools"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

@@ -108,6 +108,47 @@ assert(
 );
 pass("CLI prints agent instructions");
 
+const tempConfigHome = await mkdtemp(join(tmpdir(), "familyplate-agent-config-"));
+try {
+  const configEnv = { HOME: tempConfigHome };
+  const connect = await run(
+    "node",
+    [
+      "apps/cli/bin/familyplate.mjs",
+      "connect",
+      "--api-url",
+      apiUrl,
+      "--token",
+      "fp_agent_config_smoke",
+      "--pretty",
+    ],
+    { env: configEnv }
+  );
+  assert(connect.code === 0, `CLI connect failed: ${connect.stderr}`);
+
+  const config = await run(
+    "node",
+    ["apps/cli/bin/familyplate.mjs", "config", "--pretty"],
+    { env: configEnv }
+  );
+  assert(config.code === 0, `CLI config failed: ${config.stderr}`);
+  const configPayload = JSON.parse(config.stdout);
+  assert(configPayload.active.token === "[redacted]", "CLI config should redact token");
+  assert(!config.stdout.includes("fp_agent_config_smoke"), "CLI config leaked token");
+
+  const disconnect = await run(
+    "node",
+    ["apps/cli/bin/familyplate.mjs", "disconnect", "--pretty"],
+    { env: configEnv }
+  );
+  assert(disconnect.code === 0, `CLI disconnect failed: ${disconnect.stderr}`);
+  const disconnectPayload = JSON.parse(disconnect.stdout);
+  assert(disconnectPayload.removedConfig === true, "CLI disconnect should remove config");
+  pass("CLI config and disconnect work");
+} finally {
+  await rm(tempConfigHome, { recursive: true, force: true });
+}
+
 const noConfirm = await run("node", [
   "apps/cli/bin/familyplate.mjs",
   "grocery",

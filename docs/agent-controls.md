@@ -18,6 +18,30 @@ For this repo, the local command is:
 npm run familyplate -- connect --api-url https://your-convex-deployment.convex.site --token fp_agent_...
 ```
 
+For users or agents outside this repo, install or invoke the published CLI from
+npm:
+
+```bash
+npx @familyplate/cli@latest connect --api-url https://your-convex-deployment.convex.site --token fp_agent_...
+npx @familyplate/cli@latest doctor --pretty
+```
+
+Or install it globally:
+
+```bash
+npm install -g @familyplate/cli
+familyplate connect --api-url https://your-convex-deployment.convex.site --token fp_agent_...
+familyplate doctor --pretty
+```
+
+Release the npm packages from this repo with:
+
+```bash
+npm run agent:publish
+```
+
+The packages must be published before `npx @familyplate/cli@latest` works.
+
 For agent setup, prefer direct `npm exec` so output is less likely to include
 extra npm lifecycle text:
 
@@ -39,11 +63,29 @@ export FAMILYPLATE_AGENT_API_URL=https://your-convex-deployment.convex.site
 export FAMILYPLATE_AGENT_TOKEN=fp_agent_...
 ```
 
+Inspect local configuration without printing the token:
+
+```bash
+familyplate config --pretty
+```
+
+Remove local CLI configuration when an agent is done:
+
+```bash
+familyplate disconnect --pretty
+```
+
+`disconnect` only removes the local config file. Users still revoke server-side
+agent access from FamilyPlate Settings.
+
 ## Current Tools
 
 The first pass is intentionally practical and narrow:
 
 ```bash
+npm run familyplate -- config --pretty
+npm run familyplate -- doctor --pretty
+npm run familyplate -- disconnect --pretty
 npm run familyplate -- status --pretty
 npm run familyplate -- tools --pretty
 npm run familyplate -- pantry list --pretty

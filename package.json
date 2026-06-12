@@ -16,6 +16,8 @@
     "lint": "npm run lint --workspace=@familyplate/web",
     "familyplate": "npm exec --workspace=@familyplate/cli familyplate --",
     "agent:smoke": "node scripts/agent-smoke.mjs",
+    "agent:pack": "npm pack --workspace=@familyplate/agent-tools --dry-run && npm pack --workspace=@familyplate/cli --dry-run",
+    "agent:publish": "npm publish --workspace=@familyplate/agent-tools --access public && npm publish --workspace=@familyplate/cli --access public",
     "store-preview:dev": "npm run dev --workspace=@familyplate/store-preview",
     "store-preview:render": "npm run render --workspace=@familyplate/store-preview",
     "store-preview:poster": "npm run poster --workspace=@familyplate/store-preview",
