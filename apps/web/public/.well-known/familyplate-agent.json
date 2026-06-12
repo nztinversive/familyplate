@@ -1,0 +1,109 @@
+{
+  "name": "FamilyPlate Agent Access",
+  "version": "0.1.0",
+  "homepage": "https://familyplate.co",
+  "documentation": "https://familyplate.co/agents",
+  "skillsIndex": "https://familyplate.co/.well-known/agent-skills/index.json",
+  "setupSkill": "https://familyplate.co/.well-known/agent-skills/familyplate-agent-cli.md",
+  "api": {
+    "tools": "https://effervescent-gecko-133.convex.site/api/agent/tools",
+    "run": "https://effervescent-gecko-133.convex.site/api/agent/run"
+  },
+  "install": {
+    "npx": "npx @familyplate/cli@latest instructions",
+    "global": "npm install -g @familyplate/cli"
+  },
+  "setup": [
+    "Ask the user to sign in at https://familyplate.co.",
+    "Ask the user to open Settings and create an Agent Access connection.",
+    "Ask the user to copy the one-time familyplate connect command.",
+    "Run the command in the terminal where the agent operates.",
+    "Run familyplate doctor --pretty before doing useful work."
+  ],
+  "healthCommands": [
+    "familyplate config --pretty",
+    "familyplate doctor --pretty",
+    "familyplate status --pretty"
+  ],
+  "readCommands": [
+    "familyplate pantry list --pretty",
+    "familyplate pantry list --location fridge --pretty",
+    "familyplate pantry list --location freezer --pretty",
+    "familyplate grocery list --pretty",
+    "familyplate plan list --pretty",
+    "familyplate recipes list --pretty"
+  ],
+  "writeCommands": [
+    "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --dry-run --pretty",
+    "familyplate grocery add \"olive oil\" --quantity 1 --unit bottle --category Pantry --confirm --pretty",
+    "familyplate grocery check \"Tomatoes\" --dry-run --pretty",
+    "familyplate grocery check \"Tomatoes\" --confirm --pretty"
+  ],
+  "scopes": {
+    "default": [
+      "read:profile",
+      "read:pantry",
+      "read:grocery",
+      "read:plan",
+      "read:recipes"
+    ],
+    "optional": [
+      "write:grocery"
+    ]
+  },
+  "safetyRules": [
+    "Never ask the user to paste an agent token into chat when a local terminal command is available.",
+    "Use read commands freely for the connected household context.",
+    "Never perform writes unless the user explicitly asks for that action.",
+    "Run grocery writes with --dry-run first when the target item is ambiguous.",
+    "Use --confirm only after the user confirms the exact change.",
+    "Do not provide diagnosis, treatment, or medical nutrition advice.",
+    "Tell the user to revoke the connection in FamilyPlate Settings when done."
+  ],
+  "tools": [
+    {
+      "name": "whoami",
+      "scope": "read:profile",
+      "kind": "query",
+      "description": "Show the FamilyPlate profile and household this agent connection can access."
+    },
+    {
+      "name": "listPantry",
+      "scope": "read:pantry",
+      "kind": "query",
+      "description": "List pantry, fridge, and freezer items for the connected user's household."
+    },
+    {
+      "name": "listGroceryList",
+      "scope": "read:grocery",
+      "kind": "query",
+      "description": "Get the latest grocery list for the connected user's household."
+    },
+    {
+      "name": "listMealPlan",
+      "scope": "read:plan",
+      "kind": "query",
+      "description": "Get the active 7-night dinner plan, including recipes and alternatives."
+    },
+    {
+      "name": "listSavedRecipes",
+      "scope": "read:recipes",
+      "kind": "query",
+      "description": "List recipes saved in the connected user's cookbook."
+    },
+    {
+      "name": "addGroceryItem",
+      "scope": "write:grocery",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Add one custom item to the household grocery list. Supports dry runs before writing."
+    },
+    {
+      "name": "checkGroceryItem",
+      "scope": "write:grocery",
+      "kind": "mutation",
+      "requiresConfirmation": true,
+      "description": "Mark one grocery list item checked by exact item name. Use dry run first when unsure."
+    }
+  ]
+}

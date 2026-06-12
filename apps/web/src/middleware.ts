@@ -39,6 +39,8 @@ dinner plans based on your pantry, preferences, and past favorites.
 - Sitemap: https://familyplate.co/sitemap.xml
 - API Catalog: https://familyplate.co/.well-known/api-catalog
 - MCP Server Card: https://familyplate.co/.well-known/mcp/server-card.json
+- Agent Setup: https://familyplate.co/agents
+- Agent Manifest: https://familyplate.co/.well-known/familyplate-agent.json
 - Agent Skills Index: https://familyplate.co/.well-known/agent-skills/index.json
 
 ## Links

@@ -16,6 +16,21 @@
           "title": "FamilyPlate documentation"
         },
         {
+          "href": "https://familyplate.co/agents",
+          "type": "text/html",
+          "title": "FamilyPlate agent setup"
+        },
+        {
+          "href": "https://familyplate.co/.well-known/familyplate-agent.json",
+          "type": "application/json",
+          "title": "FamilyPlate agent manifest"
+        },
+        {
+          "href": "https://familyplate.co/.well-known/agent-skills/familyplate-agent-cli.md",
+          "type": "text/markdown",
+          "title": "FamilyPlate agent CLI setup skill"
+        },
+        {
           "href": "https://familyplate.co/",
           "type": "text/markdown",
           "title": "FamilyPlate documentation (markdown)"

@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "description": "Smart family dinner planning & pantry management. Expose pantry items, meal plans, saved recipes, and grocery list actions to agents.",
     "homepage": "https://familyplate.co",
-    "documentation": "https://familyplate.co/",
+    "documentation": "https://familyplate.co/agents",
     "vendor": {
       "name": "FamilyPlate",
       "url": "https://familyplate.co"
@@ -33,6 +33,8 @@
   "agentApi": {
     "tools": "https://effervescent-gecko-133.convex.site/api/agent/tools",
     "run": "https://effervescent-gecko-133.convex.site/api/agent/run",
-    "documentation": "https://familyplate.co/"
+    "documentation": "https://familyplate.co/agents",
+    "manifest": "https://familyplate.co/.well-known/familyplate-agent.json",
+    "setupSkill": "https://familyplate.co/.well-known/agent-skills/familyplate-agent-cli.md"
   }
 }
