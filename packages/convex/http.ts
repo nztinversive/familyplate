@@ -2,10 +2,96 @@ import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
+import { FAMILYPLATE_AGENT_TOOLS } from "@familyplate/agent-tools";
+import { sha256Hex } from "./lib/agentConnections";
 
 const http = httpRouter();
 
 auth.addHttpRoutes(http);
+
+function jsonResponse(body: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...(init?.headers ?? {}),
+    },
+  });
+}
+
+function getBearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+http.route({
+  path: "/api/agent/tools",
+  method: "GET",
+  handler: httpAction(async () => {
+    return jsonResponse({
+      tools: FAMILYPLATE_AGENT_TOOLS,
+      runEndpoint: "/api/agent/run",
+    });
+  }),
+});
+
+http.route({
+  path: "/api/agent/run",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const token = getBearerToken(request);
+    if (!token) {
+      return jsonResponse({ error: "Missing bearer token." }, { status: 401 });
+    }
+
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return jsonResponse({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return jsonResponse({ error: "Body must be a JSON object." }, { status: 400 });
+    }
+
+    const body = payload as Record<string, unknown>;
+    if (typeof body.tool !== "string" || body.tool.trim().length === 0) {
+      return jsonResponse({ error: "tool is required." }, { status: 400 });
+    }
+
+    try {
+      const result = await ctx.runMutation(internal.internal.agent.runAgentTool, {
+        tokenHash: await sha256Hex(token),
+        toolName: body.tool,
+        input: body.input ?? {},
+        dryRun: body.dryRun === true,
+      });
+
+      return jsonResponse({
+        ok: true,
+        tool: body.tool,
+        dryRun: body.dryRun === true,
+        result,
+      });
+    } catch (error) {
+      const rawMessage =
+        error instanceof Error ? error.message : "Agent tool failed.";
+      const message = rawMessage
+        .replace(/^Uncaught ConvexError:\s*/, "")
+        .split("\n")[0]
+        .trim();
+      const lowerMessage = message.toLowerCase();
+      const status = lowerMessage.includes("scope")
+        ? 403
+        : lowerMessage.includes("invalid") || lowerMessage.includes("revoked")
+          ? 401
+          : 400;
+      return jsonResponse({ error: message }, { status });
+    }
+  }),
+});
 
 http.route({
   path: "/api/webhooks/lemonsqueezy",

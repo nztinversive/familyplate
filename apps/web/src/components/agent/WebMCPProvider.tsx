@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useConvex } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
+import { FAMILYPLATE_AGENT_TOOLS } from "@familyplate/agent-tools";
 
 // Minimal types for the WebMCP API (per draft spec)
 type ToolDefinition = {
@@ -34,6 +35,81 @@ export function WebMCPProvider() {
     if (typeof window === "undefined") return;
     if (!navigator.modelContext?.provideContext) return;
 
+    const webExecutors: Record<string, ToolDefinition["execute"]> = {
+      whoami: async () => {
+        return await convex.query(api.queries.profiles.getCurrentUser, {});
+      },
+      listPantry: async (input) => {
+        const storageLocation =
+          input.storageLocation === "pantry" ||
+          input.storageLocation === "fridge" ||
+          input.storageLocation === "freezer"
+            ? input.storageLocation
+            : undefined;
+        return await convex.query(api.queries.pantry.getMyPantryItems, {
+          storageLocation,
+        });
+      },
+      listMealPlan: async () => {
+        return await convex.query(api.queries.planner.getMyMealPlan, {});
+      },
+      listSavedRecipes: async () => {
+        return await convex.query(api.queries.savedRecipes.getMySavedRecipes, {});
+      },
+      listGroceryList: async () => {
+        return await convex.query(api.queries.grocery.getMyGroceryList, {});
+      },
+      addGroceryItem: async (input) => {
+        return await convex.mutation(api.mutations.grocery.addMyCustomItem, {
+          name: String(input.name),
+          quantity: Number(input.quantity),
+          unit: String(input.unit),
+          category: String(input.category),
+        });
+      },
+      checkGroceryItem: async (input) => {
+        const name = typeof input.name === "string" ? input.name.trim() : "";
+        if (!name) {
+          throw new Error("name is required.");
+        }
+
+        const groceryList = await convex.query(api.queries.grocery.getMyGroceryList, {});
+        if (!groceryList) {
+          throw new Error("No grocery list found.");
+        }
+
+        const matches = groceryList.items
+          .map((item, index) => ({ item, index }))
+          .filter(({ item }) => item.name.trim().toLowerCase() === name.toLowerCase());
+
+        if (matches.length === 0) {
+          throw new Error(`No grocery item found named "${name}".`);
+        }
+        if (matches.length > 1) {
+          throw new Error(`Multiple grocery items are named "${name}". Use the app to disambiguate.`);
+        }
+
+        if (matches[0].item.checked) {
+          return {
+            groceryListId: groceryList._id,
+            checked: matches[0].item,
+            alreadyChecked: true,
+          };
+        }
+
+        await convex.mutation(api.mutations.grocery.toggleItem, {
+          groceryListId: groceryList._id,
+          itemIndex: matches[0].index,
+        });
+
+        return {
+          groceryListId: groceryList._id,
+          checked: { ...matches[0].item, checked: !matches[0].item.checked },
+          alreadyChecked: false,
+        };
+      },
+    };
+
     const tools: ToolDefinition[] = [
       {
         name: "suggestDinner",
@@ -61,86 +137,14 @@ export function WebMCPProvider() {
           );
         },
       },
-      {
-        name: "listPantry",
-        description:
-          "List all items currently in the user's pantry, including quantity, unit, category, and storage location.",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-        execute: async () => {
-          return await convex.query(api.queries.pantry.getMyPantryItems, {});
-        },
-      },
-      {
-        name: "listMealPlan",
-        description:
-          "Get the user's current 7-night meal plan including each day's primary dinner and alternatives.",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-        execute: async () => {
-          return await convex.query(api.queries.planner.getMyMealPlan, {});
-        },
-      },
-      {
-        name: "listSavedRecipes",
-        description:
-          "List all recipes the user has saved to their cookbook.",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-        execute: async () => {
-          return await convex.query(api.queries.savedRecipes.getMySavedRecipes, {});
-        },
-      },
-      {
-        name: "listGroceryList",
-        description:
-          "Get the user's current grocery list with items grouped by category.",
-        inputSchema: {
-          type: "object",
-          properties: {},
-          additionalProperties: false,
-        },
-        execute: async () => {
-          return await convex.query(api.queries.grocery.getMyGroceryList, {});
-        },
-      },
-      {
-        name: "addGroceryItem",
-        description:
-          "Add a single custom item to the user's grocery list. Creates a new list if none exists.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Item name, e.g. 'Olive oil'" },
-            quantity: { type: "number", description: "Quantity amount" },
-            unit: { type: "string", description: "Unit, e.g. 'lb', 'oz', 'count'" },
-            category: {
-              type: "string",
-              description:
-                "Category: Produce, Meat, Dairy, Grains, Condiments, Frozen, or Other",
-            },
-          },
-          required: ["name", "quantity", "unit", "category"],
-          additionalProperties: false,
-        },
-        execute: async (input) => {
-          return await convex.mutation(api.mutations.grocery.addMyCustomItem, {
-            name: String(input.name),
-            quantity: Number(input.quantity),
-            unit: String(input.unit),
-            category: String(input.category),
-          });
-        },
-      },
+      ...FAMILYPLATE_AGENT_TOOLS
+        .filter((tool) => webExecutors[tool.name])
+        .map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        execute: webExecutors[tool.name],
+      })),
     ];
 
     try {

@@ -56,6 +56,20 @@ export default defineSchema({
     .index("by_lsCustomerId", ["lsCustomerId"])
     .index("by_rcAppUserId", ["rcAppUserId"]),
 
+  agentConnections: defineTable({
+    householdId: v.id("households"),
+    profileId: v.id("userProfiles"),
+    name: v.string(),
+    tokenHash: v.string(),
+    scopes: v.array(v.string()),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_profileId", ["profileId"])
+    .index("by_tokenHash", ["tokenHash"]),
+
   pantryItems: defineTable({
     householdId: v.id("households"),
     name: v.string(),

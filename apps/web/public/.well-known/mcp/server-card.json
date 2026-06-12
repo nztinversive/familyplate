@@ -13,8 +13,8 @@
     }
   },
   "transport": {
-    "type": "webmcp",
-    "description": "FamilyPlate exposes tools via WebMCP in-browser. Open https://familyplate.co/ and use navigator.modelContext to discover available tools."
+    "type": "webmcp+cli",
+    "description": "FamilyPlate exposes tools via WebMCP in-browser and via the FamilyPlate CLI for trusted terminal agents. Create an agent connection from Settings, then run the generated familyplate connect command."
   },
   "capabilities": {
     "tools": {
@@ -26,7 +26,13 @@
     }
   },
   "authentication": {
-    "type": "oauth2",
-    "metadata": "https://familyplate.co/.well-known/oauth-protected-resource"
+    "type": "scoped-agent-token",
+    "metadata": "https://familyplate.co/.well-known/oauth-protected-resource",
+    "description": "Agent tokens are created and revoked from FamilyPlate Settings. Tokens are shown once and are sent as Bearer tokens to the Convex agent API."
+  },
+  "agentApi": {
+    "tools": "https://effervescent-gecko-133.convex.site/api/agent/tools",
+    "run": "https://effervescent-gecko-133.convex.site/api/agent/run",
+    "documentation": "https://familyplate.co/"
   }
 }

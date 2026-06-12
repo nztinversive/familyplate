@@ -10,6 +10,8 @@ services:
         value: production
       - key: NEXT_PUBLIC_CONVEX_URL
         sync: false
+      - key: NEXT_PUBLIC_CONVEX_SITE_URL
+        sync: false
       - key: APP_URL
         sync: false
       - key: NEXT_PUBLIC_POSTHOG_KEY

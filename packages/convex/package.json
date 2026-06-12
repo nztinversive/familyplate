@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.91",
+    "@familyplate/agent-tools": "*",
     "convex": "^1.17.0"
   },
   "devDependencies": {

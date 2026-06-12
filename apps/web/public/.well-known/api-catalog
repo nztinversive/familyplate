@@ -27,6 +27,18 @@
           "type": "application/json",
           "title": "Convex backend health endpoint"
         }
+      ],
+      "service": [
+        {
+          "href": "https://effervescent-gecko-133.convex.site/api/agent/tools",
+          "type": "application/json",
+          "title": "FamilyPlate agent tools"
+        },
+        {
+          "href": "https://effervescent-gecko-133.convex.site/api/agent/run",
+          "type": "application/json",
+          "title": "FamilyPlate agent tool runner"
+        }
       ]
     }
   ]

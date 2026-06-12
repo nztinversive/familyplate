@@ -5,7 +5,8 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Id } from "@familyplate/convex/_generated/dataModel";
-import { Copy, LogOut, Mail, Moon, Share2, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { DEFAULT_AGENT_SCOPES } from "@familyplate/agent-tools";
+import { Bot, Copy, KeyRound, LogOut, Mail, Moon, Share2, ShieldCheck, Terminal, Trash2, UserPlus, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -55,12 +56,15 @@ export default function SettingsPage() {
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
   const subscription = useQuery(api.subscriptions.getMySubscription, {});
+  const agentConnections = useQuery(api.queries.agentConnections.listMyAgentConnections, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
     currentUser?.householdId ? { householdId: currentUser.householdId } : "skip"
   );
   const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
+  const createAgentConnection = useMutation(api.mutations.agentConnections.createAgentConnection);
+  const revokeAgentConnection = useMutation(api.mutations.agentConnections.revokeAgentConnection);
   const sendInviteEmail = useAction(api.actions.sendInviteEmail.sendInviteEmail);
 
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -82,9 +86,19 @@ export default function SettingsPage() {
   const [isSavingPreferences, setIsSavingPreferences] = useState(false);
   const [preferencesError, setPreferencesError] = useState("");
   const [preferencesSaved, setPreferencesSaved] = useState(false);
+  const [agentName, setAgentName] = useState("My dinner agent");
+  const [isCreatingAgentConnection, setIsCreatingAgentConnection] = useState(false);
+  const [agentConnectionError, setAgentConnectionError] = useState("");
+  const [agentTokenCommand, setAgentTokenCommand] = useState<string | null>(null);
+  const [copiedAgentCommand, setCopiedAgentCommand] = useState(false);
+  const [allowAgentGroceryWrites, setAllowAgentGroceryWrites] = useState(false);
   const profileAllergiesValue = (profile?.allergies ?? []).join(", ");
   const profileDislikesValue = (profile?.dislikes ?? []).join(", ");
   const canManageMembers = profile?.role === "admin";
+  const agentApiUrl =
+    process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
+    process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".convex.cloud", ".convex.site") ??
+    "https://familyplate.co";
 
   useEffect(() => {
     setAllergiesInput(profileAllergiesValue);
@@ -267,6 +281,62 @@ export default function SettingsPage() {
     setDislikesInput(profile?.dislikes?.join(", ") ?? "");
     setPreferencesError("");
     setPreferencesSaved(false);
+  };
+
+  const handleCreateAgentConnection = async () => {
+    if (!profile?._id) return;
+    setIsCreatingAgentConnection(true);
+    setAgentConnectionError("");
+    setAgentTokenCommand(null);
+
+    try {
+      const result = await createAgentConnection({
+        name: agentName.trim() || "FamilyPlate agent",
+        scopes: allowAgentGroceryWrites
+          ? [...DEFAULT_AGENT_SCOPES, "write:grocery"]
+          : DEFAULT_AGENT_SCOPES,
+      });
+      const command = `familyplate connect --api-url ${agentApiUrl} --token ${result.token}`;
+      setAgentTokenCommand(command);
+      track("cta_clicked", {
+        location: "settings",
+        label: "create_agent_connection",
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "create_agent_connection", platform: "web" },
+      });
+      setAgentConnectionError(
+        err instanceof Error ? err.message : "Unable to create agent connection."
+      );
+    } finally {
+      setIsCreatingAgentConnection(false);
+    }
+  };
+
+  const handleCopyAgentCommand = async () => {
+    if (!agentTokenCommand) return;
+    await navigator.clipboard.writeText(agentTokenCommand);
+    setCopiedAgentCommand(true);
+    setTimeout(() => setCopiedAgentCommand(false), 2000);
+  };
+
+  const handleRevokeAgentConnection = async (connectionId: Id<"agentConnections">) => {
+    setAgentConnectionError("");
+    try {
+      await revokeAgentConnection({ connectionId });
+      track("cta_clicked", {
+        location: "settings",
+        label: "revoke_agent_connection",
+      });
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "revoke_agent_connection", platform: "web" },
+      });
+      setAgentConnectionError(
+        err instanceof Error ? err.message : "Unable to revoke agent connection."
+      );
+    }
   };
 
   return (
@@ -556,6 +626,148 @@ export default function SettingsPage() {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Agent access card */}
+            <Card className="opacity-0 animate-fade-in stagger-4">
+              <CardContent className="space-y-4 p-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Bot className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">Agent Access</p>
+                    <p className="text-xs text-muted-foreground">
+                      Connect a trusted agent to read pantry, grocery, meal plan, and cookbook data.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="agent-name">Connection name</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="agent-name"
+                      value={agentName}
+                      onChange={(event) => setAgentName(event.target.value)}
+                      placeholder="e.g. Codex on my laptop"
+                      className="rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => void handleCreateAgentConnection()}
+                      disabled={isCreatingAgentConnection}
+                      className="shrink-0 gap-1.5 rounded-xl"
+                    >
+                      <KeyRound className="h-3.5 w-3.5" />
+                      {isCreatingAgentConnection ? "Creating..." : "Create"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    New connections start read-only unless you allow grocery writes.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 rounded-xl border bg-muted/20 p-3">
+                  <div className="flex-1">
+                    <Label htmlFor="agent-grocery-writes">Allow grocery writes</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Lets this agent add grocery items. The CLI still requires --confirm.
+                    </p>
+                  </div>
+                  <button
+                    id="agent-grocery-writes"
+                    type="button"
+                    onClick={() => setAllowAgentGroceryWrites((value) => !value)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                      allowAgentGroceryWrites ? "bg-primary" : "bg-muted"
+                    }`}
+                    aria-pressed={allowAgentGroceryWrites}
+                  >
+                    <span
+                      className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg transition-transform ${
+                        allowAgentGroceryWrites ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {agentTokenCommand && (
+                  <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Terminal className="h-4 w-4" />
+                      Connection command
+                    </div>
+                    <code className="block overflow-x-auto rounded-lg bg-background px-3 py-2 text-xs">
+                      {agentTokenCommand}
+                    </code>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        Copy it now. The token is only shown once.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleCopyAgentCommand()}
+                        className="gap-1.5 rounded-xl"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        {copiedAgentCommand ? "Copied" : "Copy"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {agentConnectionError && (
+                  <p className="text-sm text-destructive">{agentConnectionError}</p>
+                )}
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Connected agents</p>
+                  {agentConnections === undefined ? (
+                    <p className="text-xs text-muted-foreground">Loading connections...</p>
+                  ) : agentConnections.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No agents connected yet.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {agentConnections.map((connection) => {
+                        const revoked = connection.revokedAt !== null;
+                        return (
+                          <div
+                            key={connection._id}
+                            className="flex items-center justify-between gap-3 rounded-xl border bg-background p-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{connection.name}</p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {revoked
+                                  ? "Revoked"
+                                  : connection.lastUsedAt
+                                    ? `Last used ${new Date(connection.lastUsedAt).toLocaleDateString()}`
+                                    : `Created ${new Date(connection.createdAt).toLocaleDateString()}`}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              disabled={revoked}
+                              onClick={() => void handleRevokeAgentConnection(connection._id)}
+                              className="h-8 w-8 shrink-0 rounded-xl"
+                              aria-label={`Revoke ${connection.name}`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </>

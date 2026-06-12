@@ -14,6 +14,8 @@
     "build": "npm run build --workspace=@familyplate/web",
     "start": "npm run start --workspace=@familyplate/web",
     "lint": "npm run lint --workspace=@familyplate/web",
+    "familyplate": "npm exec --workspace=@familyplate/cli familyplate --",
+    "agent:smoke": "node scripts/agent-smoke.mjs",
     "store-preview:dev": "npm run dev --workspace=@familyplate/store-preview",
     "store-preview:render": "npm run render --workspace=@familyplate/store-preview",
     "store-preview:poster": "npm run poster --workspace=@familyplate/store-preview",

@@ -1,0 +1,15 @@
+{
+  "name": "@familyplate/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "familyplate": "./bin/familyplate.mjs"
+  },
+  "dependencies": {
+    "@familyplate/agent-tools": "*"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
