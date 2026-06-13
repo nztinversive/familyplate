@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAction } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import { usePostHog } from "posthog-react-native";
-import { ensureAiConsent } from "@/lib/aiConsent";
+import { ensureAiConsent, hasAiConsent } from "@/lib/aiConsent";
 import { PANTRY_CATEGORIES, type PantryCategory } from "@/lib/pantry";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
@@ -97,6 +97,7 @@ export function SnapGroceries({
   const isCapturingRef = useRef(false);
 
   const [phase, setPhase] = useState<Phase>("camera");
+  const [cameraSessionKey, setCameraSessionKey] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraSettled, setCameraSettled] = useState(false);
   const [appIsActive, setAppIsActive] = useState(
@@ -133,13 +134,16 @@ export function SnapGroceries({
     };
   }, []);
 
-  const resetCameraSession = () => {
+  const resetCameraSession = (shouldRemount = false) => {
     if (cameraReadyTimerRef.current) {
       clearTimeout(cameraReadyTimerRef.current);
     }
     setCameraReady(false);
     setCameraSettled(false);
     cameraRef.current = null;
+    if (shouldRemount) {
+      setCameraSessionKey((current) => current + 1);
+    }
   };
 
   const markCameraReady = () => {
@@ -168,6 +172,7 @@ export function SnapGroceries({
       return;
     }
 
+    const alreadyConsented = await hasAiConsent();
     const consented = await ensureAiConsent();
     if (!consented) {
       setError(
@@ -178,6 +183,13 @@ export function SnapGroceries({
     track(posthog, "ai_consent_accepted", {
       feature: "snap_groceries",
     });
+    if (!alreadyConsented) {
+      resetCameraSession(true);
+      setError(
+        "AI access is on. Let the camera reconnect, then take the photo again.",
+      );
+      return;
+    }
 
     const activeCamera = cameraRef.current;
     if (
@@ -347,6 +359,7 @@ export function SnapGroceries({
       {phase === "camera" ? (
         <CameraPhase
           cameraRef={cameraRef}
+          cameraSessionKey={cameraSessionKey}
           cameraReady={cameraReady}
           cameraSettled={cameraSettled}
           cameraError={cameraError}
@@ -397,6 +410,7 @@ export function SnapGroceries({
 
 function CameraPhase({
   cameraRef,
+  cameraSessionKey,
   cameraReady,
   cameraSettled,
   cameraError,
@@ -413,6 +427,7 @@ function CameraPhase({
   onScanBarcode,
 }: {
   cameraRef: React.MutableRefObject<CameraView | null>;
+  cameraSessionKey: number;
   cameraReady: boolean;
   cameraSettled: boolean;
   cameraError: string;
@@ -445,6 +460,7 @@ function CameraPhase({
             </View>
           ) : hasPermission && !cameraError ? (
             <CameraView
+              key={cameraSessionKey}
               ref={cameraRef}
               style={{ flex: 1 }}
               facing="back"
