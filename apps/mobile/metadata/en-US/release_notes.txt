@@ -1,0 +1,5 @@
+FamilyPlate improves custom recipe saving and app reliability.
+
+- Keep required-field guidance for custom recipes inside the form.
+- Reduce noisy error reports when recipe details are missing.
+- Preserve the existing Cookbook, planning, and grocery flows.
