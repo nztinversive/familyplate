@@ -11,7 +11,7 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate now keeps manual grocery items when you refresh the list from your weekly plan, so errands and cookbook add-ons stay put while dinner ingredients update.
+- What's New: FamilyPlate now shares only the grocery items you still need to buy, so family members get a cleaner shopping list without already-checked items mixed in.
 
 ## App Preview
 
@@ -87,7 +87,8 @@ Recommended age rating answers:
 5. Open Cookbook, add a custom family recipe, and confirm it appears as a saved recipe.
 6. Add that custom recipe to this week's plan or send missing ingredients to Grocery List.
 7. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
-8. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
-9. Complete the dinner check-in, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
-10. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
-11. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+8. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
+9. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
+10. Complete the dinner check-in, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
+11. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+12. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.

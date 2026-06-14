@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.15.0",
+    "version": "1.15.1",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate keeps your shopping list steadier while you plan dinner.\n\n- Generate Grocery from your weekly plan without losing manual errand items.\n- Keep cookbook-added missing ingredients on the list when you refresh plan-based groceries.\n- Preserve the same pantry, cookbook, and planning flow while making grocery prep less fragile.",
+        "releaseNotes": "FamilyPlate makes grocery sharing match what is left to buy.\n\n- Share only the remaining grocery items instead of already checked-off items.\n- Give households a cleaner grocery text they can send while shopping.\n- Preserve the existing grocery flow while making shared lists more useful.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",

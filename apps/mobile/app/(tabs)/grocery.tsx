@@ -289,10 +289,15 @@ export default function GroceryScreen() {
   };
 
   const handleShareGroceryList = async () => {
-    if (totalCount === 0) return;
+    const shareableItems = allItems.filter((item) => !item.checked);
+    if (shareableItems.length === 0) {
+      Alert.alert("Nothing to share", "No remaining grocery items to share.");
+      return;
+    }
 
+    setNotice("");
     const groups = new Map<string, GroceryItem[]>();
-    for (const item of allItems) {
+    for (const item of shareableItems) {
       const category = item.category || "Other";
       if (!groups.has(category)) groups.set(category, []);
       groups.get(category)!.push(item);
@@ -301,20 +306,18 @@ export default function GroceryScreen() {
     const lines = Array.from(groups.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .flatMap(([category, items]) => [
-      category,
-      ...items.map(
-        (item) =>
-          `${item.checked ? "[x]" : "[ ]"} ${item.quantity} ${item.unit} ${item.name}`,
-      ),
-    ]);
+        category,
+        ...items.map((item) => `- ${item.quantity} ${item.unit} ${item.name}`),
+      ]);
 
     try {
       await Share.share({
         title: "FamilyPlate Grocery List",
         message: `FamilyPlate Grocery List\n\n${lines.join("\n")}`,
       });
+      setNotice("");
       track(posthog, "grocery_list_shared", {
-        item_count: totalCount,
+        item_count: shareableItems.length,
         source: storeMode ? "store_mode" : "grocery_tab",
       });
     } catch (err) {
