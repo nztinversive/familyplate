@@ -1,0 +1,44 @@
+{
+  "issuer": "https://familyplate.co",
+  "authorization_endpoint": "https://familyplate.co/agents",
+  "token_endpoint": "https://familyplate.co/agents",
+  "jwks_uri": "https://familyplate.co/.well-known/jwks.json",
+  "registration_endpoint": "https://familyplate.co/agents",
+  "service_documentation": "https://familyplate.co/agents",
+  "op_policy_uri": "https://familyplate.co/privacy",
+  "op_tos_uri": "https://familyplate.co/terms",
+  "response_types_supported": ["code"],
+  "grant_types_supported": [
+    "urn:familyplate:params:oauth:grant-type:user-mediated-agent-token"
+  ],
+  "token_endpoint_auth_methods_supported": ["none"],
+  "scopes_supported": [
+    "read:profile",
+    "read:pantry",
+    "read:grocery",
+    "read:plan",
+    "read:recipes",
+    "write:grocery",
+    "write:pantry",
+    "write:plan",
+    "write:recipes"
+  ],
+  "agent_auth": {
+    "skill": "https://familyplate.co/auth.md",
+    "register_uri": "https://familyplate.co/agents",
+    "identity_types_supported": ["anonymous", "user_mediated"],
+    "credential_types_supported": ["scoped_agent_bearer_token"],
+    "claim_uri": "https://familyplate.co/settings",
+    "revocation_uri": "https://familyplate.co/settings",
+    "anonymous": {
+      "claim_uri": "https://familyplate.co/settings",
+      "credential_types_supported": ["scoped_agent_bearer_token"]
+    },
+    "user_mediated": {
+      "registration_uri": "https://familyplate.co/agents",
+      "claim_uri": "https://familyplate.co/settings",
+      "revocation_uri": "https://familyplate.co/settings",
+      "credential_types_supported": ["scoped_agent_bearer_token"]
+    }
+  }
+}

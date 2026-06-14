@@ -14,6 +14,8 @@ const nextConfig = {
       '</.well-known/mcp/server-card.json>; rel="mcp-server"; type="application/json"',
       '</.well-known/agent-skills/index.json>; rel="agent-skills"; type="application/json"',
       '</.well-known/oauth-protected-resource>; rel="oauth-protected-resource"; type="application/json"',
+      '</.well-known/oauth-authorization-server>; rel="oauth-authorization-server"; type="application/json"',
+      '</auth.md>; rel="authorization"; type="text/markdown"',
       '</sitemap.xml>; rel="sitemap"; type="application/xml"',
     ].join(", ");
 
@@ -51,6 +53,27 @@ const nextConfig = {
         source: "/.well-known/oauth-protected-resource",
         headers: [
           { key: "Content-Type", value: "application/json; charset=utf-8" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
+        source: "/.well-known/oauth-authorization-server",
+        headers: [
+          { key: "Content-Type", value: "application/json; charset=utf-8" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
+        source: "/.well-known/jwks.json",
+        headers: [
+          { key: "Content-Type", value: "application/json; charset=utf-8" },
+          { key: "Cache-Control", value: "public, max-age=3600" },
+        ],
+      },
+      {
+        source: "/auth.md",
+        headers: [
+          { key: "Content-Type", value: "text/markdown; charset=utf-8" },
           { key: "Cache-Control", value: "public, max-age=3600" },
         ],
       },

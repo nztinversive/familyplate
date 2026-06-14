@@ -154,6 +154,17 @@ The hosted web app needs `NEXT_PUBLIC_CONVEX_SITE_URL` so the Settings page can
 generate a connection command that points agents at the Convex HTTP API instead
 of the Next.js web origin.
 
+Public agent-auth discovery is served from the web origin:
+
+```text
+https://familyplate.co/auth.md
+https://familyplate.co/.well-known/oauth-protected-resource
+https://familyplate.co/.well-known/oauth-authorization-server
+```
+
+DNS-based agent discovery requires provider-side records outside this repo. See
+`docs/dns-aid.md` for the exact DNS-AID records and DNSSEC validation steps.
+
 Current production values:
 
 ```bash

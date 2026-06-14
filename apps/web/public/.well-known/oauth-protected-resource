@@ -1,11 +1,12 @@
 {
   "resource": "https://familyplate.co",
   "authorization_servers": [
-    "https://effervescent-gecko-133.convex.cloud"
+    "https://familyplate.co"
   ],
   "bearer_methods_supported": ["header"],
-  "resource_documentation": "https://familyplate.co/",
+  "resource_documentation": "https://familyplate.co/agents",
   "scopes_supported": [
+    "read:profile",
     "read:pantry",
     "write:pantry",
     "read:plan",
