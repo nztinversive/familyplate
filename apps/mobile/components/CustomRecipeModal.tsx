@@ -34,6 +34,13 @@ type NutritionInput = {
   fiber: string;
 };
 
+class RecipeFormValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RecipeFormValidationError";
+  }
+}
+
 const EMPTY_INGREDIENT: IngredientInput = {
   name: "",
   quantity: "",
@@ -63,7 +70,9 @@ function createInitialForm() {
 function parsePositiveNumber(value: string, fieldName: string) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) {
-    throw new Error(`${fieldName} must be greater than zero.`);
+    throw new RecipeFormValidationError(
+      `${fieldName} must be greater than zero.`,
+    );
   }
   return number;
 }
@@ -147,7 +156,9 @@ export function CustomRecipeModal({
 
     try {
       const title = form.title.trim();
-      if (!title) throw new Error("Recipe title is required.");
+      if (!title) {
+        throw new RecipeFormValidationError("Recipe title is required.");
+      }
 
       const estimatedTime = parsePositiveNumber(
         form.estimatedTime,
@@ -169,7 +180,7 @@ export function CustomRecipeModal({
           );
           const unit = ingredient.unit.trim();
           if (!name || !unit) {
-            throw new Error(
+            throw new RecipeFormValidationError(
               `Ingredient ${index + 1} needs a name, quantity, and unit.`,
             );
           }
@@ -177,7 +188,7 @@ export function CustomRecipeModal({
         });
 
       if (ingredients.length === 0) {
-        throw new Error("Add at least one ingredient.");
+        throw new RecipeFormValidationError("Add at least one ingredient.");
       }
 
       const instructions = form.instructions
@@ -186,7 +197,7 @@ export function CustomRecipeModal({
         .filter(Boolean);
 
       if (instructions.length === 0) {
-        throw new Error("Add at least one instruction.");
+        throw new RecipeFormValidationError("Add at least one instruction.");
       }
 
       const tags = form.tags
@@ -215,9 +226,15 @@ export function CustomRecipeModal({
       onCreated(recipeId, title);
       onClose();
     } catch (err) {
-      Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "create_custom_recipe", platform: "ios" },
-      });
+      if (!(err instanceof RecipeFormValidationError)) {
+        Sentry.captureException(err, {
+          tags: {
+            area: "cookbook",
+            action: "create_custom_recipe",
+            platform: "ios",
+          },
+        });
+      }
       setError(err instanceof Error ? err.message : "Could not save recipe.");
     } finally {
       setIsSubmitting(false);
