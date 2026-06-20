@@ -565,6 +565,7 @@ export const saveQuickDinnerSuggestions = internalMutation({
   args: {
     householdId: v.id("households"),
     createdBy: v.id("userProfiles"),
+    mode: v.optional(v.union(v.literal("pantry"), v.literal("shopping"))),
     suggestions: v.array(quickDinnerSuggestionValidator),
   },
   handler: async (ctx, args) => {
@@ -593,6 +594,10 @@ export const saveQuickDinnerSuggestions = internalMutation({
     // Insert new suggestions
     const ids = [];
     const now = Date.now();
+    const tags =
+      args.mode === "shopping"
+        ? ["quick-dinner", "shop-first"]
+        : ["quick-dinner"];
     for (let i = 0; i < args.suggestions.length; i++) {
       const s = args.suggestions[i];
       const id = await ctx.db.insert("recipeSuggestions", {
@@ -605,7 +610,7 @@ export const saveQuickDinnerSuggestions = internalMutation({
         effortLevel: s.effortLevel,
         estimatedTime: s.estimatedTime,
         servings: s.servings,
-        tags: ["quick-dinner"],
+        tags,
         nutrition: s.nutrition,
         usedPantryItems: s.ingredients
           .filter((ing) => ing.inPantry)

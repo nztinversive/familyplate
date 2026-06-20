@@ -30,6 +30,7 @@ import { Sentry } from "@/lib/sentry";
 
 type Suggestion = {
   _id?: string;
+  mode?: "pantry" | "shopping";
   name: string;
   description: string;
   effortLevel: string;
@@ -138,6 +139,7 @@ export default function TonightScreen() {
   const [selectedCraving, setSelectedCraving] = useState("");
   const [customCraving, setCustomCraving] = useState("");
   const [activeCraving, setActiveCraving] = useState("");
+  const [activeMode, setActiveMode] = useState<"pantry" | "shopping">("pantry");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
@@ -153,6 +155,7 @@ export default function TonightScreen() {
       effortLevel: recipe.effortLevel,
       estimatedTime: recipe.estimatedTime,
       servings: recipe.servings,
+      mode: recipe.tags.includes("shop-first") ? "shopping" : "pantry",
       ingredients: recipe.ingredients,
       instructions: recipe.instructions,
       nutrition: recipe.nutrition,
@@ -187,11 +190,15 @@ export default function TonightScreen() {
     });
   }, [posthog, subscription?.tier, suggestions.length]);
 
-  const handleGenerate = async (overrideCraving?: string) => {
+  const handleGenerate = async (
+    overrideCraving?: string,
+    shoppingMode = false,
+  ) => {
     const cravingValue = (
       (overrideCraving ?? selectedCraving) ||
       customCraving
     ).trim();
+    const mode = shoppingMode ? "shopping" : "pantry";
 
     const consented = await ensureAiConsent();
     if (!consented) {
@@ -208,34 +215,45 @@ export default function TonightScreen() {
     setFreshSuggestions([]);
     setExpandedIndex(null);
     setActiveCraving(cravingValue);
+    setActiveMode(mode);
     setHasGenerated(true);
 
     try {
       track(posthog, "dinner_suggestions_started", {
         has_craving: !!cravingValue,
+        mode,
         source: overrideCraving ? "chip" : "button",
       });
       const result = await suggestFromPantry({
         craving: cravingValue || undefined,
+        shoppingMode,
       });
 
       if (result.suggestions.length === 0) {
         track(posthog, "dinner_suggestions_failed", {
           reason: "empty_pantry_or_empty_result",
           has_craving: !!cravingValue,
+          mode,
         });
         setError("Add some pantry items first so I can suggest dinner.");
       } else {
         track(posthog, "dinner_suggestions_completed", {
           count: result.suggestions.length,
           has_craving: !!cravingValue,
+          mode,
         });
-        setFreshSuggestions(result.suggestions);
+        setFreshSuggestions(
+          result.suggestions.map((suggestion) => ({
+            ...suggestion,
+            mode,
+          })),
+        );
       }
     } catch (err) {
       track(posthog, "dinner_suggestions_failed", {
         reason: err instanceof Error ? err.message : "unknown",
         has_craving: !!cravingValue,
+        mode,
       });
       Sentry.captureException(err, {
         tags: { area: "tonight", action: "suggest_from_pantry", platform: "ios" },
@@ -466,6 +484,21 @@ export default function TonightScreen() {
         </Text>
       </TouchableOpacity>
 
+      <TouchableOpacity
+        onPress={() => void handleGenerate(undefined, true)}
+        disabled={isGenerating}
+        className="mb-5 flex-row items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 py-3.5"
+        style={{ opacity: isGenerating ? 0.7 : 1 }}
+        accessibilityRole="button"
+        accessibilityLabel="Suggest dinners to shop for"
+        accessibilityHint="Suggests dinner ideas and grocery items to buy, even if your pantry is sparse."
+      >
+        <Ionicons name="cart-outline" size={18} color="#248f58" />
+        <Text className="text-base font-semibold text-primary">
+          Suggest What to Buy
+        </Text>
+      </TouchableOpacity>
+
       {useFirstItems.length > 0 ? (
         <View className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <View className="mb-3 flex-row items-start gap-3">
@@ -585,6 +618,7 @@ export default function TonightScreen() {
             addingMissing={
               addingMissingId === (suggestion._id ?? suggestion.name)
             }
+            mode={suggestion.mode ?? activeMode}
             onToggleExpanded={() =>
               setExpandedIndex(expandedIndex === index ? null : index)
             }
@@ -663,6 +697,7 @@ function SuggestionCard({
   saved,
   saving,
   addingMissing,
+  mode,
   onToggleExpanded,
   onToggleSave,
   onAddMissing,
@@ -673,6 +708,7 @@ function SuggestionCard({
   saved: boolean;
   saving: boolean;
   addingMissing: boolean;
+  mode: "pantry" | "shopping";
   onToggleExpanded: () => void;
   onToggleSave: () => void;
   onAddMissing: (targetServings: number) => void;
@@ -690,6 +726,9 @@ function SuggestionCard({
     suggestion.ingredients,
     suggestion.servings,
     targetServings,
+  );
+  const alreadyHaveIngredients = scaledIngredients.filter((ingredient) =>
+    isIngredientAvailable(ingredient),
   );
   const missingIngredients = scaledIngredients.filter(
     (ingredient) => !isIngredientAvailable(ingredient),
@@ -757,6 +796,9 @@ function SuggestionCard({
             icon="people-outline"
             label={formatServingsLabel(suggestion.servings)}
           />
+          {mode === "shopping" ? (
+            <InfoPill icon="cart-outline" label="shop-first" />
+          ) : null}
           <InfoPill label={`${pantryCount}/${totalCount} in pantry`} />
           {suggestion._id ? (
             <TouchableOpacity
@@ -811,6 +853,26 @@ function SuggestionCard({
             disabled={saving || addingMissing}
             onChangeServings={setTargetServings}
           />
+
+          {alreadyHaveIngredients.length > 0 ? (
+            <View className="mb-4">
+              <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
+                Already have
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {alreadyHaveIngredients.map((item) => (
+                  <View
+                    key={`${item.name}-${item.unit}`}
+                    className="rounded-lg bg-primary/10 px-2 py-1"
+                  >
+                    <Text className="text-xs font-semibold text-primary">
+                      {item.quantity} {item.unit} {item.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           {missingIngredients.length > 0 ? (
             <View className="mb-4">

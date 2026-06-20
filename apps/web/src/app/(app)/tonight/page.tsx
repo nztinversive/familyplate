@@ -10,6 +10,7 @@ import {
   Clock3,
   Heart,
   Loader2,
+  ShoppingCart,
   Sparkles,
   UtensilsCrossed,
   X,
@@ -21,11 +22,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CookTheseFirst } from "@/components/pantry/CookTheseFirst";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { inferPantryCategory } from "@/lib/pantryCategories";
 import { track } from "@/lib/analytics";
 import * as Sentry from "@sentry/nextjs";
 
 type Suggestion = {
   _id?: string;
+  mode?: "pantry" | "shopping";
   name: string;
   description: string;
   effortLevel: string;
@@ -64,16 +67,20 @@ export default function TonightPage() {
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const saveRecipeMutation = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipeMutation = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+  const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
 
   const [freshSuggestions, setFreshSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [craving, setCraving] = useState("");
   const [customCraving, setCustomCraving] = useState("");
   const [activeCraving, setActiveCraving] = useState("");
+  const [activeMode, setActiveMode] = useState<"pantry" | "shopping">("pantry");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+  const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,6 +100,7 @@ export default function TonightPage() {
       effortLevel: r.effortLevel,
       estimatedTime: r.estimatedTime,
       servings: r.servings,
+      mode: r.tags.includes("shop-first") ? "shopping" : "pantry",
       ingredients: r.ingredients,
       instructions: r.instructions,
       missingItems: r.ingredients
@@ -129,39 +137,52 @@ export default function TonightPage() {
     }
   };
 
-  const handleGenerate = async (overrideCraving?: string) => {
+  const handleGenerate = async (overrideCraving?: string, shoppingMode = false) => {
     const cravingValue = overrideCraving ?? (craving || customCraving.trim());
+    const mode = shoppingMode ? "shopping" : "pantry";
     setIsLoading(true);
     setError("");
+    setNotice("");
     setFreshSuggestions([]);
     setExpandedIndex(null);
     setActiveCraving(cravingValue);
+    setActiveMode(mode);
     setHasGenerated(true);
     try {
       track("dinner_suggestions_started", {
         has_craving: !!cravingValue,
+        mode,
         source: overrideCraving ? "chip" : "button",
       });
       const result = await suggestFromPantry({
         craving: cravingValue || undefined,
+        shoppingMode,
       });
       if (result.suggestions.length === 0) {
         track("dinner_suggestions_failed", {
           reason: "empty_pantry_or_empty_result",
           has_craving: !!cravingValue,
+          mode,
         });
         setError("Add some items to your pantry first so I can suggest recipes.");
       } else {
         track("dinner_suggestions_completed", {
           count: result.suggestions.length,
           has_craving: !!cravingValue,
+          mode,
         });
-        setFreshSuggestions(result.suggestions);
+        setFreshSuggestions(
+          result.suggestions.map((suggestion) => ({
+            ...suggestion,
+            mode,
+          })),
+        );
       }
     } catch (err) {
       track("dinner_suggestions_failed", {
         reason: err instanceof Error ? err.message : "unknown",
         has_craving: !!cravingValue,
+        mode,
       });
       Sentry.captureException(err, {
         tags: { area: "tonight", action: "suggest_from_pantry", platform: "web" },
@@ -175,6 +196,54 @@ export default function TonightPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAddMissingIngredients = async (suggestion: Suggestion) => {
+    const suggestionId = suggestion._id ?? suggestion.name;
+    const missingIngredients = suggestion.ingredients.filter(
+      (ingredient) => !isIngredientAvailable(ingredient)
+    );
+
+    if (missingIngredients.length === 0) {
+      setNotice("Everything for this dinner is already in your pantry.");
+      return;
+    }
+
+    setAddingMissingId(suggestionId);
+    setError("");
+    setNotice("");
+
+    try {
+      for (const ingredient of missingIngredients) {
+        await addGroceryItem({
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          category: inferPantryCategory(ingredient.name, ingredient.unit),
+        });
+      }
+      track("missing_ingredients_added_to_grocery", {
+        source: "tonight",
+        count: missingIngredients.length,
+        mode: suggestion.mode ?? activeMode,
+      });
+      setNotice(
+        `Added ${missingIngredients.length} missing item${
+          missingIngredients.length === 1 ? "" : "s"
+        } to Grocery List.`
+      );
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "tonight", action: "add_missing_to_grocery", platform: "web" },
+      });
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to add missing ingredients to Grocery List."
+      );
+    } finally {
+      setAddingMissingId(null);
     }
   };
 
@@ -276,12 +345,24 @@ export default function TonightPage() {
 
             {/* Generate button */}
             <div className="flex justify-center">
-              <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
-                <Sparkles className="h-4 w-4" />
-                {craving || customCraving
-                  ? `Suggest ${craving || customCraving} Dinners`
-                  : suggestions.length > 0 ? "Suggest Different Dinners" : "Suggest Dinners"}
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => void handleGenerate()} size="lg" className="gap-2 rounded-xl">
+                  <Sparkles className="h-4 w-4" />
+                  {craving || customCraving
+                    ? `Suggest ${craving || customCraving} Dinners`
+                    : suggestions.length > 0 ? "Suggest Different Dinners" : "Suggest Dinners"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  onClick={() => void handleGenerate(undefined, true)}
+                  className="gap-2 rounded-xl"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  Suggest What to Buy
+                </Button>
+              </div>
             </div>
 
             {showInitialState && (
@@ -328,6 +409,12 @@ export default function TonightPage() {
           </div>
         )}
 
+        {notice && !isLoading && (
+          <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-primary animate-scale-in">
+            {notice}
+          </div>
+        )}
+
         {/* Active craving badge above results */}
         {suggestions.length > 0 && activeCraving && (
           <div className="flex items-center justify-center gap-2 animate-fade-in">
@@ -350,6 +437,12 @@ export default function TonightPage() {
           const pantryCount = suggestion.ingredients.filter((ingredient) =>
             isIngredientAvailable(ingredient)
           ).length;
+          const alreadyHaveItems = suggestion.ingredients.filter((ingredient) =>
+            isIngredientAvailable(ingredient)
+          );
+          const missingIngredients = suggestion.ingredients.filter(
+            (ingredient) => !isIngredientAvailable(ingredient)
+          );
           const totalCount = suggestion.ingredients.length;
           const matchPct = totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
           const circumference = 2 * Math.PI * 18;
@@ -416,6 +509,12 @@ export default function TonightPage() {
                     }`}>
                       {pantryCount}/{totalCount} in pantry
                     </span>
+                    {(suggestion.mode ?? activeMode) === "shopping" && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                        <ShoppingCart className="h-3 w-3" />
+                        shop-first
+                      </span>
+                    )}
                     {suggestion._id && (
                       <button
                         type="button"
@@ -433,15 +532,30 @@ export default function TonightPage() {
 
                 {isExpanded && (
                   <div className="border-t px-4 py-4 space-y-4 animate-fade-in">
-                    {suggestion.missingItems.length > 0 && (
+                    {alreadyHaveItems.length > 0 && (
+                      <div>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-primary">
+                          Already have
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {alreadyHaveItems.map((item) => (
+                            <span key={`${item.name}-${item.unit}`} className="inline-flex items-center rounded-lg bg-primary/10 text-primary px-2 py-0.5 text-xs font-medium">
+                              {item.quantity} {item.unit} {item.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {missingIngredients.length > 0 && (
                       <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
                           Need to buy
                         </p>
                         <div className="flex flex-wrap gap-1.5">
-                          {suggestion.missingItems.map((item) => (
-                            <span key={item} className="inline-flex items-center rounded-lg bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium">
-                              {item}
+                          {missingIngredients.map((item) => (
+                            <span key={`${item.name}-${item.unit}`} className="inline-flex items-center rounded-lg bg-accent/10 text-accent px-2 py-0.5 text-xs font-medium">
+                              {item.quantity} {item.unit} {item.name}
                             </span>
                           ))}
                         </div>
@@ -490,6 +604,23 @@ export default function TonightPage() {
                         ))}
                       </ol>
                     </div>
+
+                    <Button
+                      type="button"
+                      className="w-full gap-2 rounded-xl"
+                      disabled={
+                        addingMissingId === (suggestion._id ?? suggestion.name) ||
+                        missingIngredients.length === 0
+                      }
+                      onClick={() => void handleAddMissingIngredients(suggestion)}
+                    >
+                      <ShoppingCart className="h-4 w-4" />
+                      {addingMissingId === (suggestion._id ?? suggestion.name)
+                        ? "Adding..."
+                        : missingIngredients.length === 0
+                          ? "Everything is in pantry"
+                          : "Add missing to Grocery"}
+                    </Button>
                   </div>
                 )}
               </CardContent>

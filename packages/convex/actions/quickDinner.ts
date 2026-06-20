@@ -28,12 +28,14 @@ type QuickSuggestion = {
 export const suggestFromPantry = action({
   args: {
     craving: v.optional(v.string()),
+    shoppingMode: v.optional(v.boolean()),
   },
   handler: async (ctx, args): Promise<{ suggestions: QuickSuggestion[] }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Must be signed in.");
 
     const authId = userId as string;
+    const shoppingMode = args.shoppingMode === true;
 
     let pantryContext: { householdId: string; profileId: string; pantryItems: Array<{ name: string; quantity: number; unit: string; category: string }>; profiles: Array<{ dietaryPreferences: string[]; allergies: string[]; dislikes: string[] }> };
     try {
@@ -46,7 +48,7 @@ export const suggestFromPantry = action({
       throw new ConvexError("Could not load your pantry. Please make sure your profile is set up.");
     }
 
-    if (!pantryContext.pantryItems || pantryContext.pantryItems.length === 0) {
+    if (!shoppingMode && (!pantryContext.pantryItems || pantryContext.pantryItems.length === 0)) {
       return { suggestions: [] };
     }
 
@@ -63,9 +65,11 @@ export const suggestFromPantry = action({
       feedbackSummary = { summary: "", favorites: [], disliked: [] };
     }
 
-    const pantryList = pantryContext.pantryItems
-      .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
-      .join("\n");
+    const pantryList = pantryContext.pantryItems.length > 0
+      ? pantryContext.pantryItems
+          .map((item) => `- ${item.name}: ${item.quantity} ${item.unit} (${item.category})`)
+          .join("\n")
+      : "- No pantry items logged yet.";
 
     const allergies = pantryContext.profiles
       .flatMap((p) => p.allergies)
@@ -83,7 +87,15 @@ export const suggestFromPantry = action({
       ? `\n\nDISLIKES (completely avoid): ${dislikes.join(", ")}`
       : "";
 
-    const systemPrompt = `You are a practical home cooking assistant. Given a list of pantry items, suggest 3 dinner recipes that can be made primarily with what is available. Prioritize recipes that use the most pantry items. Each recipe should be realistic and family-friendly.
+    const systemPrompt = shoppingMode
+      ? `You are a practical family dinner and grocery planning assistant. Suggest dinners that are worth a quick grocery run, even when the pantry is sparse. Use any pantry items that are actually useful, but do not limit recipes to the pantry. Prefer common, easy-to-buy ingredients and avoid specialty-store items unless the craving asks for them.
+
+CRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. This includes ALL derivatives and hidden forms of the allergen. There are no exceptions. Also completely avoid all listed dislikes.
+
+For each recipe, list ALL ingredients needed. Mark ingredients already in the pantry as inPantry: true and groceries to buy as inPantry: false. The missingItems list should be exactly the practical grocery run for that recipe, excluding water and other always-available items. Include approximate per-serving nutrition: calories, protein, carbs, fat, and fiber.
+
+Return exactly 6 suggestions with varied effort levels and cuisines. More options means better filtering.`
+      : `You are a practical home cooking assistant. Given a list of pantry items, suggest 3 dinner recipes that can be made primarily with what is available. Prioritize recipes that use the most pantry items. Each recipe should be realistic and family-friendly.
 
 CRITICAL SAFETY RULE: You MUST NEVER include any ingredient that a household member is allergic to. Allergies are life-threatening. This includes ALL derivatives and hidden forms of the allergen. There are no exceptions. Also completely avoid all listed dislikes.
 
@@ -99,7 +111,13 @@ Return exactly 6 suggestions with varied effort levels and cuisines. More option
       ? `\n\nCRAVING: The user is in the mood for: "${args.craving.trim()}". Prioritize recipes featuring this ingredient, protein, cuisine, or style. All 6 suggestions should relate to this craving.`
       : "";
 
-    const userPrompt = `Here are the items currently in my pantry:
+    const userPrompt = shoppingMode
+      ? `Here are the items currently in my pantry:
+
+${pantryList}${allergyNote}${dislikeNote}${cravingNote}${feedbackNote}
+
+Suggest 6 family-friendly dinner recipes I could shop for tonight. Use helpful pantry items when they fit, but make the ideas useful even if the pantry is empty or thin. Label pantry ingredients with inPantry: true and groceries to buy with inPantry: false. Remember: NEVER include any allergen ingredients or their derivatives.${args.craving?.trim() ? ` Focus on "${args.craving.trim()}" recipes.` : " Vary the cuisines and proteins across all 6 suggestions."}`
+      : `Here are the items currently in my pantry:
 
 ${pantryList}${allergyNote}${dislikeNote}${cravingNote}${feedbackNote}
 
@@ -236,6 +254,7 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
         {
           householdId: pantryContext.householdId as any,
           createdBy: pantryContext.profileId as any,
+          mode: shoppingMode ? "shopping" : "pantry",
           suggestions: safeSuggestions.map((s) => ({
             ...s,
             effortLevel: s.effortLevel as "easy" | "medium" | "hard",
