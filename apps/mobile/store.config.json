@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.15.2",
+    "version": "1.16.2",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate improves custom recipe saving and app reliability.\n\n- Keep required-field guidance for custom recipes inside the form.\n- Reduce noisy error reports when recipe details are missing.\n- Preserve the existing Cookbook, planning, and grocery flows.",
+        "releaseNotes": "FamilyPlate improves dinner check-in reliability.\n\n- Keep deleted dinner feedback cleared instead of reloading stale responses.\n- Let households resubmit updated check-ins right away after clearing feedback.\n- Preserve the existing Cookbook, planning, and grocery flows.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",

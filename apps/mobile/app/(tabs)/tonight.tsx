@@ -16,9 +16,15 @@ import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
-import { formatExpirationLabel } from "@/lib/pantry";
+import { formatExpirationLabel, inferCategory } from "@/lib/pantry";
+import {
+  buildScaledRecipeShareText,
+  formatServingsLabel,
+  scaleIngredients,
+} from "@/lib/recipeScaling";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
@@ -107,20 +113,6 @@ function getUseFirstLabel(item: PantryItem) {
   return formatExpirationLabel(item.expirationDate);
 }
 
-function buildRecipeShareText(suggestion: Suggestion) {
-  const ingredients = suggestion.ingredients
-    .map(
-      (ingredient) =>
-        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
-    )
-    .join("\n");
-  const instructions = suggestion.instructions
-    .map((step, index) => `${index + 1}. ${step}`)
-    .join("\n");
-
-  return `${suggestion.name}\n\n${suggestion.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
-}
-
 export default function TonightScreen() {
   const router = useRouter();
   const posthog = usePostHog();
@@ -136,16 +128,19 @@ export default function TonightScreen() {
   const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
+  const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
 
   const [freshSuggestions, setFreshSuggestions] = useState<Suggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [selectedCraving, setSelectedCraving] = useState("");
   const [customCraving, setCustomCraving] = useState("");
   const [activeCraving, setActiveCraving] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
+  const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
   const trackedSuccessNudge = useRef(false);
 
   const initialSuggestions = useMemo<Suggestion[]>(() => {
@@ -209,6 +204,7 @@ export default function TonightScreen() {
 
     setIsGenerating(true);
     setError("");
+    setNotice("");
     setFreshSuggestions([]);
     setExpandedIndex(null);
     setActiveCraving(cravingValue);
@@ -269,6 +265,7 @@ export default function TonightScreen() {
 
   const handleToggleSave = async (recipeId: string) => {
     setSavingRecipeId(recipeId);
+    setNotice("");
     try {
       const typedId = recipeId as Id<"recipeSuggestions">;
       if (savedRecipeIds.has(typedId)) {
@@ -292,15 +289,77 @@ export default function TonightScreen() {
     }
   };
 
-  const handleShareSuggestion = async (suggestion: Suggestion) => {
+  const handleAddMissingIngredients = async (
+    suggestion: Suggestion,
+    targetServings: number,
+  ) => {
+    const suggestionId = suggestion._id ?? suggestion.name;
+    const missingIngredients = scaleIngredients(
+      suggestion.ingredients,
+      suggestion.servings,
+      targetServings,
+    ).filter((ingredient) => !isIngredientAvailable(ingredient));
+
+    if (missingIngredients.length === 0) {
+      setNotice("Everything for this dinner is already in your pantry.");
+      return;
+    }
+
+    setAddingMissingId(suggestionId);
+    setError("");
+    setNotice("");
+
+    try {
+      for (const ingredient of missingIngredients) {
+        await addGroceryItem({
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          category: inferCategory(ingredient.name),
+        });
+      }
+      track(posthog, "grocery_item_added", {
+        source: "tonight_missing_ingredients",
+        count: missingIngredients.length,
+      });
+      track(posthog, "missing_ingredients_added_to_grocery", {
+        source: "tonight",
+        count: missingIngredients.length,
+        target_servings: targetServings,
+      });
+      setNotice(
+        `Added ${missingIngredients.length} missing item${
+          missingIngredients.length === 1 ? "" : "s"
+        } for ${formatServingsLabel(targetServings)} to Grocery List.`,
+      );
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: {
+          area: "tonight",
+          action: "add_missing_to_grocery",
+          platform: "ios",
+        },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setAddingMissingId(null);
+    }
+  };
+
+  const handleShareSuggestion = async (
+    suggestion: Suggestion,
+    targetServings: number,
+  ) => {
+    setNotice("");
     try {
       await Share.share({
         title: suggestion.name,
-        message: buildRecipeShareText(suggestion),
+        message: buildScaledRecipeShareText(suggestion, targetServings),
       });
       track(posthog, "recipe_shared", {
         source: "tonight",
         has_recipe_id: !!suggestion._id,
+        target_servings: targetServings,
       });
     } catch (err) {
       Sentry.captureException(err, {
@@ -505,6 +564,12 @@ export default function TonightScreen() {
         </View>
       ) : null}
 
+      {notice && !isGenerating ? (
+        <View className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4">
+          <Text className="text-sm text-green-700">{notice}</Text>
+        </View>
+      ) : null}
+
       <View className="gap-3">
         {suggestions.map((suggestion, index) => (
           <SuggestionCard
@@ -517,13 +582,21 @@ export default function TonightScreen() {
                 : false
             }
             saving={savingRecipeId === suggestion._id}
+            addingMissing={
+              addingMissingId === (suggestion._id ?? suggestion.name)
+            }
             onToggleExpanded={() =>
               setExpandedIndex(expandedIndex === index ? null : index)
             }
             onToggleSave={() => {
               if (suggestion._id) void handleToggleSave(suggestion._id);
             }}
-            onShare={() => void handleShareSuggestion(suggestion)}
+            onAddMissing={(targetServings) =>
+              void handleAddMissingIngredients(suggestion, targetServings)
+            }
+            onShare={(targetServings) =>
+              void handleShareSuggestion(suggestion, targetServings)
+            }
           />
         ))}
       </View>
@@ -589,18 +662,23 @@ function SuggestionCard({
   expanded,
   saved,
   saving,
+  addingMissing,
   onToggleExpanded,
   onToggleSave,
+  onAddMissing,
   onShare,
 }: {
   suggestion: Suggestion;
   expanded: boolean;
   saved: boolean;
   saving: boolean;
+  addingMissing: boolean;
   onToggleExpanded: () => void;
   onToggleSave: () => void;
-  onShare: () => void;
+  onAddMissing: (targetServings: number) => void;
+  onShare: (targetServings: number) => void;
 }) {
+  const [targetServings, setTargetServings] = useState(suggestion.servings);
   const pantryCount = suggestion.ingredients.filter((ingredient) =>
     isIngredientAvailable(ingredient),
   ).length;
@@ -608,6 +686,14 @@ function SuggestionCard({
   const matchPct =
     totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
   const effortColor = getEffortColor(suggestion.effortLevel);
+  const scaledIngredients = scaleIngredients(
+    suggestion.ingredients,
+    suggestion.servings,
+    targetServings,
+  );
+  const missingIngredients = scaledIngredients.filter(
+    (ingredient) => !isIngredientAvailable(ingredient),
+  );
 
   return (
     <View
@@ -669,7 +755,7 @@ function SuggestionCard({
           />
           <InfoPill
             icon="people-outline"
-            label={`Serves ${suggestion.servings}`}
+            label={formatServingsLabel(suggestion.servings)}
           />
           <InfoPill label={`${pantryCount}/${totalCount} in pantry`} />
           {suggestion._id ? (
@@ -702,7 +788,7 @@ function SuggestionCard({
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
-            onPress={onShare}
+            onPress={() => onShare(targetServings)}
             className="flex-row items-center gap-1 rounded-lg px-2 py-1"
             accessibilityRole="button"
             accessibilityLabel={`Share ${suggestion.name}`}
@@ -717,19 +803,28 @@ function SuggestionCard({
 
       {expanded ? (
         <View className="border-t border-border p-4">
-          {suggestion.missingItems.length > 0 ? (
+          <ServingsAdjuster
+            title="Adjust servings"
+            subtitle="Scale ingredients before you cook, share, or send missing items to Grocery."
+            originalServings={suggestion.servings}
+            targetServings={targetServings}
+            disabled={saving || addingMissing}
+            onChangeServings={setTargetServings}
+          />
+
+          {missingIngredients.length > 0 ? (
             <View className="mb-4">
               <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-accent">
                 Need to buy
               </Text>
               <View className="flex-row flex-wrap gap-2">
-                {suggestion.missingItems.map((item) => (
+                {missingIngredients.map((item) => (
                   <View
-                    key={item}
+                    key={`${item.name}-${item.unit}`}
                     className="rounded-lg bg-accent/10 px-2 py-1"
                   >
                     <Text className="text-xs font-semibold text-accent">
-                      {item}
+                      {item.quantity} {item.unit} {item.name}
                     </Text>
                   </View>
                 ))}
@@ -744,11 +839,11 @@ function SuggestionCard({
           ) : null}
 
           <View className="mb-4">
-            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Ingredients
-            </Text>
-            <View className="gap-2">
-              {suggestion.ingredients.map((ingredient, index) => {
+              <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Ingredients
+              </Text>
+              <View className="gap-2">
+              {scaledIngredients.map((ingredient, index) => {
                 const available = isIngredientAvailable(ingredient);
                 return (
                   <View
@@ -777,6 +872,28 @@ function SuggestionCard({
               })}
             </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => onAddMissing(targetServings)}
+            disabled={addingMissing || missingIngredients.length === 0}
+            className="mb-4 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+            style={{
+              opacity: addingMissing || missingIngredients.length === 0 ? 0.55 : 1,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Add ${missingIngredients.length} missing ingredients to Grocery`}
+          >
+            {addingMissing ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Ionicons name="cart-outline" size={17} color="white" />
+            )}
+            <Text className="font-semibold text-white">
+              {addingMissing
+                ? "Adding..."
+                : `Add missing for ${formatServingsLabel(targetServings)}`}
+            </Text>
+          </TouchableOpacity>
 
           <View>
             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">

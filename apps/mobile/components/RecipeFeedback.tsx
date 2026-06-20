@@ -51,19 +51,36 @@ export function RecipeFeedback({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [dismissedFeedbackId, setDismissedFeedbackId] =
+    useState<Id<"mealFeedback"> | null>(null);
+  const currentFeedback =
+    existing && existing._id !== dismissedFeedbackId ? existing : null;
+
+  const resetForm = () => {
+    setRating(0);
+    setLiked(null);
+    setTags([]);
+    setNotes("");
+  };
 
   useEffect(() => {
-    if (existing && !hasInitialized) {
-      setRating(existing.rating);
-      setLiked(existing.liked);
-      setTags(existing.tags);
-      setNotes(existing.notes ?? "");
+    if (currentFeedback && !hasInitialized) {
+      setRating(currentFeedback.rating);
+      setLiked(currentFeedback.liked);
+      setTags(currentFeedback.tags);
+      setNotes(currentFeedback.notes ?? "");
       setHasInitialized(true);
     }
-    if (existing === null && !hasInitialized) {
+    if (currentFeedback === null && !hasInitialized) {
       setHasInitialized(true);
     }
-  }, [existing, hasInitialized]);
+  }, [currentFeedback, hasInitialized]);
+
+  useEffect(() => {
+    if (existing === null && dismissedFeedbackId) {
+      setDismissedFeedbackId(null);
+    }
+  }, [existing, dismissedFeedbackId]);
 
   const toggleTag = (tag: string) => {
     setTags((current) =>
@@ -85,6 +102,7 @@ export function RecipeFeedback({
         tags,
         notes: notes.trim() || undefined,
       });
+      setDismissedFeedbackId(null);
       track(posthog, "feedback_submitted", {
         rating,
         liked,
@@ -114,19 +132,17 @@ export function RecipeFeedback({
   };
 
   const handleDelete = async () => {
-    if (!existing) return;
+    if (!currentFeedback) return;
 
     setIsSubmitting(true);
     try {
-      await deleteFeedback({ feedbackId: existing._id });
+      await deleteFeedback({ feedbackId: currentFeedback._id });
+      setDismissedFeedbackId(currentFeedback._id);
       track(posthog, "feedback_deleted", {
         source: "recipe_feedback",
       });
-      setRating(0);
-      setLiked(null);
-      setTags([]);
-      setNotes("");
-      setHasInitialized(false);
+      resetForm();
+      setHasInitialized(true);
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "feedback", action: "delete", platform: "ios" },
@@ -146,10 +162,12 @@ export function RecipeFeedback({
             Dinner check-in
           </Text>
           <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-            Rate dinner so future plans learn what your family likes and avoids.
+            {currentFeedback
+              ? "Update or clear your last dinner check-in."
+              : "Rate dinner so future plans learn what your family likes and avoids."}
           </Text>
         </View>
-        {existing ? (
+        {currentFeedback ? (
           <TouchableOpacity
             onPress={() => void handleDelete()}
             disabled={isSubmitting}
@@ -271,7 +289,7 @@ export function RecipeFeedback({
         <Text className="font-semibold text-white">
           {isSubmitting
             ? "Saving..."
-            : existing
+            : currentFeedback
               ? "Update Cooked Feedback"
               : "Save Cooked Feedback"}
         </Text>

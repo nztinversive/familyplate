@@ -47,19 +47,36 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [dismissedFeedbackId, setDismissedFeedbackId] =
+    useState<Id<"mealFeedback"> | null>(null);
+  const currentFeedback =
+    existing && existing._id !== dismissedFeedbackId ? existing : null;
+
+  const resetForm = () => {
+    setRating(0);
+    setLiked(null);
+    setTags([]);
+    setNotes("");
+  };
 
   useEffect(() => {
-    if (existing && !hasInitialized) {
-      setRating(existing.rating);
-      setLiked(existing.liked);
-      setTags(existing.tags);
-      setNotes(existing.notes ?? "");
+    if (currentFeedback && !hasInitialized) {
+      setRating(currentFeedback.rating);
+      setLiked(currentFeedback.liked);
+      setTags(currentFeedback.tags);
+      setNotes(currentFeedback.notes ?? "");
       setHasInitialized(true);
     }
-    if (existing === null && !hasInitialized) {
+    if (currentFeedback === null && !hasInitialized) {
       setHasInitialized(true);
     }
-  }, [existing, hasInitialized]);
+  }, [currentFeedback, hasInitialized]);
+
+  useEffect(() => {
+    if (existing === null && dismissedFeedbackId) {
+      setDismissedFeedbackId(null);
+    }
+  }, [existing, dismissedFeedbackId]);
 
   const toggleTag = (tag: string) => {
     setTags((prev) =>
@@ -78,6 +95,7 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
         tags,
         notes: notes.trim() || undefined,
       });
+      setDismissedFeedbackId(null);
       track("feedback_submitted", {
         rating,
         liked,
@@ -108,18 +126,16 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
   };
 
   const handleDelete = async () => {
-    if (!existing) return;
+    if (!currentFeedback) return;
     setIsSubmitting(true);
     try {
-      await deleteFeedback({ feedbackId: existing._id });
+      await deleteFeedback({ feedbackId: currentFeedback._id });
+      setDismissedFeedbackId(currentFeedback._id);
       track("feedback_deleted", {
         source: "meal_feedback",
       });
-      setRating(0);
-      setLiked(null);
-      setTags([]);
-      setNotes("");
-      setHasInitialized(false);
+      resetForm();
+      setHasInitialized(true);
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "feedback", action: "delete", platform: "web" },
@@ -139,12 +155,12 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
           <div>
             <h3 className="font-semibold">How was dinner?</h3>
             <p className="text-sm text-muted-foreground">
-              {existing
-                ? "Update your feedback"
+              {currentFeedback
+                ? "Update or clear your feedback"
                 : "Rate this meal to improve future suggestions"}
             </p>
           </div>
-          {existing && (
+          {currentFeedback && (
             <Button
               variant="ghost"
               size="icon"
@@ -245,7 +261,11 @@ export function MealFeedbackCard({ recipeId }: MealFeedbackCardProps) {
           disabled={!canSubmit || isSubmitting}
           className="w-full"
         >
-          {isSubmitting ? "Saving..." : existing ? "Update Feedback" : "Submit Feedback"}
+          {isSubmitting
+            ? "Saving..."
+            : currentFeedback
+              ? "Update Feedback"
+              : "Submit Feedback"}
         </Button>
       </CardContent>
     </Card>

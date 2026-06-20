@@ -34,10 +34,25 @@ type NutritionInput = {
   fiber: string;
 };
 
+type IngredientFieldErrors = Partial<Record<keyof IngredientInput, string>>;
+type NutritionFieldErrors = Partial<Record<keyof NutritionInput, string>>;
+
+type RecipeFormFieldErrors = {
+  title?: string;
+  estimatedTime?: string;
+  servings?: string;
+  instructions?: string;
+  ingredients?: Record<number, IngredientFieldErrors>;
+  nutrition?: NutritionFieldErrors;
+};
+
 class RecipeFormValidationError extends Error {
-  constructor(message: string) {
+  fieldErrors: RecipeFormFieldErrors;
+
+  constructor(message: string, fieldErrors: RecipeFormFieldErrors = {}) {
     super(message);
     this.name = "RecipeFormValidationError";
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -67,11 +82,16 @@ function createInitialForm() {
   };
 }
 
-function parsePositiveNumber(value: string, fieldName: string) {
+function parsePositiveNumber(
+  value: string,
+  fieldName: string,
+  fieldErrors: RecipeFormFieldErrors = {},
+) {
   const number = Number(value);
   if (!Number.isFinite(number) || number <= 0) {
     throw new RecipeFormValidationError(
       `${fieldName} must be greater than zero.`,
+      fieldErrors,
     );
   }
   return number;
@@ -81,13 +101,47 @@ function parseOptionalNutrition(nutrition: NutritionInput) {
   const hasNutrition = Object.values(nutrition).some((value) => value.trim());
   if (!hasNutrition) return undefined;
 
+  const nutritionErrors: NutritionFieldErrors = {};
+
+  if (!nutrition.calories.trim()) {
+    nutritionErrors.calories = "Enter calories or leave all nutrition blank.";
+  }
+  if (!nutrition.protein.trim()) {
+    nutritionErrors.protein = "Enter protein or leave all nutrition blank.";
+  }
+  if (!nutrition.carbs.trim()) {
+    nutritionErrors.carbs = "Enter carbs or leave all nutrition blank.";
+  }
+  if (!nutrition.fat.trim()) {
+    nutritionErrors.fat = "Enter fat or leave all nutrition blank.";
+  }
+
+  if (Object.keys(nutritionErrors).length > 0) {
+    throw new RecipeFormValidationError(
+      "Complete the nutrition fields or leave them blank.",
+      { nutrition: nutritionErrors },
+    );
+  }
+
   const parsed = {
-    calories: parsePositiveNumber(nutrition.calories, "Calories"),
-    protein: parsePositiveNumber(nutrition.protein, "Protein"),
-    carbs: parsePositiveNumber(nutrition.carbs, "Carbs"),
-    fat: parsePositiveNumber(nutrition.fat, "Fat"),
+    calories: parsePositiveNumber(nutrition.calories, "Calories", {
+      nutrition: { calories: "Calories must be greater than zero." },
+    }),
+    protein: parsePositiveNumber(nutrition.protein, "Protein", {
+      nutrition: { protein: "Protein must be greater than zero." },
+    }),
+    carbs: parsePositiveNumber(nutrition.carbs, "Carbs", {
+      nutrition: { carbs: "Carbs must be greater than zero." },
+    }),
+    fat: parsePositiveNumber(nutrition.fat, "Fat", {
+      nutrition: { fat: "Fat must be greater than zero." },
+    }),
     ...(nutrition.fiber.trim()
-      ? { fiber: parsePositiveNumber(nutrition.fiber, "Fiber") }
+      ? {
+          fiber: parsePositiveNumber(nutrition.fiber, "Fiber", {
+            nutrition: { fiber: "Fiber must be greater than zero." },
+          }),
+        }
       : {}),
   };
 
@@ -108,6 +162,7 @@ export function CustomRecipeModal({
   const [form, setForm] = useState(createInitialForm);
   const [showNutrition, setShowNutrition] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<RecipeFormFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -115,14 +170,57 @@ export function CustomRecipeModal({
     setForm(createInitialForm());
     setShowNutrition(false);
     setError("");
+    setFieldErrors({});
     setIsSubmitting(false);
   }, [visible]);
+
+  const clearFieldError = (field: keyof RecipeFormFieldErrors) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      return { ...current, [field]: undefined };
+    });
+  };
+
+  const clearIngredientFieldError = (
+    index: number,
+    field: keyof IngredientInput,
+  ) => {
+    setFieldErrors((current) => {
+      const ingredientErrors = current.ingredients?.[index];
+      if (!ingredientErrors?.[field]) return current;
+
+      const nextIngredientErrors = {
+        ...ingredientErrors,
+        [field]: undefined,
+      };
+      const nextIngredients = {
+        ...(current.ingredients ?? {}),
+        [index]: nextIngredientErrors,
+      };
+
+      return { ...current, ingredients: nextIngredients };
+    });
+  };
+
+  const clearNutritionFieldError = (field: keyof NutritionInput) => {
+    setFieldErrors((current) => {
+      if (!current.nutrition?.[field]) return current;
+      return {
+        ...current,
+        nutrition: {
+          ...current.nutrition,
+          [field]: undefined,
+        },
+      };
+    });
+  };
 
   const updateIngredient = (
     index: number,
     key: keyof IngredientInput,
     value: string,
   ) => {
+    clearIngredientFieldError(index, key);
     setForm((current) => ({
       ...current,
       ingredients: current.ingredients.map((ingredient, ingredientIndex) =>
@@ -152,19 +250,25 @@ export function CustomRecipeModal({
 
   const handleSubmit = async () => {
     setError("");
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
       const title = form.title.trim();
       if (!title) {
-        throw new RecipeFormValidationError("Recipe title is required.");
+        throw new RecipeFormValidationError("Recipe title is required.", {
+          title: "Enter a recipe title.",
+        });
       }
 
       const estimatedTime = parsePositiveNumber(
         form.estimatedTime,
         "Estimated time",
+        { estimatedTime: "Enter minutes greater than zero." },
       );
-      const servings = parsePositiveNumber(form.servings, "Servings");
+      const servings = parsePositiveNumber(form.servings, "Servings", {
+        servings: "Enter servings greater than zero.",
+      });
       const ingredients = form.ingredients
         .filter(
           (ingredient) =>
@@ -174,21 +278,41 @@ export function CustomRecipeModal({
         )
         .map((ingredient, index) => {
           const name = ingredient.name.trim();
+          const ingredientErrors: IngredientFieldErrors = {};
+          if (!name) {
+            ingredientErrors.name = "Enter an ingredient name.";
+          }
+          if (!ingredient.quantity.trim()) {
+            ingredientErrors.quantity = "Enter a quantity greater than zero.";
+          }
+          const unit = ingredient.unit.trim();
+          if (!unit) {
+            ingredientErrors.unit = "Enter a unit.";
+          }
+          if (Object.keys(ingredientErrors).length > 0) {
+            throw new RecipeFormValidationError(
+              `Ingredient ${index + 1} needs a name, quantity, and unit.`,
+              { ingredients: { [index]: ingredientErrors } },
+            );
+          }
           const quantity = parsePositiveNumber(
             ingredient.quantity,
             `Ingredient ${index + 1} quantity`,
+            {
+              ingredients: {
+                [index]: {
+                  quantity: "Quantity must be greater than zero.",
+                },
+              },
+            },
           );
-          const unit = ingredient.unit.trim();
-          if (!name || !unit) {
-            throw new RecipeFormValidationError(
-              `Ingredient ${index + 1} needs a name, quantity, and unit.`,
-            );
-          }
           return { name, quantity, unit };
         });
 
       if (ingredients.length === 0) {
-        throw new RecipeFormValidationError("Add at least one ingredient.");
+        throw new RecipeFormValidationError("Add at least one ingredient.", {
+          ingredients: { 0: { name: "Add at least one ingredient." } },
+        });
       }
 
       const instructions = form.instructions
@@ -197,7 +321,9 @@ export function CustomRecipeModal({
         .filter(Boolean);
 
       if (instructions.length === 0) {
-        throw new RecipeFormValidationError("Add at least one instruction.");
+        throw new RecipeFormValidationError("Add at least one instruction.", {
+          instructions: "Add at least one step.",
+        });
       }
 
       const tags = form.tags
@@ -226,7 +352,9 @@ export function CustomRecipeModal({
       onCreated(recipeId, title);
       onClose();
     } catch (err) {
-      if (!(err instanceof RecipeFormValidationError)) {
+      if (err instanceof RecipeFormValidationError) {
+        setFieldErrors(err.fieldErrors);
+      } else {
         Sentry.captureException(err, {
           tags: {
             area: "cookbook",
@@ -297,10 +425,12 @@ export function CustomRecipeModal({
               label="Title"
               value={form.title}
               placeholder="Grandma's chicken enchiladas"
-              onChangeText={(title) =>
-                setForm((current) => ({ ...current, title }))
-              }
+              onChangeText={(title) => {
+                clearFieldError("title");
+                setForm((current) => ({ ...current, title }));
+              }}
               editable={!isSubmitting}
+              error={fieldErrors.title}
             />
             <RecipeInput
               label="Short description"
@@ -318,22 +448,30 @@ export function CustomRecipeModal({
                 value={form.estimatedTime}
                 placeholder="30"
                 onChangeText={(estimatedTime) =>
-                  setForm((current) => ({ ...current, estimatedTime }))
+                  {
+                    clearFieldError("estimatedTime");
+                    setForm((current) => ({ ...current, estimatedTime }));
+                  }
                 }
                 editable={!isSubmitting}
                 keyboardType="number-pad"
                 containerClassName="flex-1"
+                error={fieldErrors.estimatedTime}
               />
               <RecipeInput
                 label="Servings"
                 value={form.servings}
                 placeholder="4"
                 onChangeText={(servings) =>
-                  setForm((current) => ({ ...current, servings }))
+                  {
+                    clearFieldError("servings");
+                    setForm((current) => ({ ...current, servings }));
+                  }
                 }
                 editable={!isSubmitting}
                 keyboardType="number-pad"
                 containerClassName="flex-1"
+                error={fieldErrors.servings}
               />
             </View>
             <View>
@@ -423,6 +561,7 @@ export function CustomRecipeModal({
                       updateIngredient(index, "name", value)
                     }
                     editable={!isSubmitting}
+                    error={fieldErrors.ingredients?.[index]?.name}
                   />
                   <View className="mt-3 flex-row gap-2">
                     <RecipeInput
@@ -435,6 +574,7 @@ export function CustomRecipeModal({
                       editable={!isSubmitting}
                       keyboardType="decimal-pad"
                       containerClassName="w-24"
+                      error={fieldErrors.ingredients?.[index]?.quantity}
                     />
                     <RecipeInput
                       label="Unit"
@@ -445,6 +585,7 @@ export function CustomRecipeModal({
                       }
                       editable={!isSubmitting}
                       containerClassName="flex-1"
+                      error={fieldErrors.ingredients?.[index]?.unit}
                     />
                   </View>
                 </View>
@@ -461,12 +602,14 @@ export function CustomRecipeModal({
               label="Steps"
               value={form.instructions}
               placeholder={"Brown the chicken.\nAdd sauce and simmer.\nServe with rice."}
-              onChangeText={(instructions) =>
-                setForm((current) => ({ ...current, instructions }))
-              }
+              onChangeText={(instructions) => {
+                clearFieldError("instructions");
+                setForm((current) => ({ ...current, instructions }));
+              }}
               editable={!isSubmitting}
               multiline
               inputClassName="min-h-32"
+              error={fieldErrors.instructions}
             />
           </FormSection>
 
@@ -523,28 +666,36 @@ export function CustomRecipeModal({
                     value={form.nutrition.calories}
                     placeholder="450"
                     onChangeText={(calories) =>
-                      setForm((current) => ({
-                        ...current,
-                        nutrition: { ...current.nutrition, calories },
-                      }))
+                      {
+                        clearNutritionFieldError("calories");
+                        setForm((current) => ({
+                          ...current,
+                          nutrition: { ...current.nutrition, calories },
+                        }));
+                      }
                     }
                     editable={!isSubmitting}
                     keyboardType="number-pad"
                     containerClassName="flex-1"
+                    error={fieldErrors.nutrition?.calories}
                   />
                   <RecipeInput
                     label="Protein"
                     value={form.nutrition.protein}
                     placeholder="32"
                     onChangeText={(protein) =>
-                      setForm((current) => ({
-                        ...current,
-                        nutrition: { ...current.nutrition, protein },
-                      }))
+                      {
+                        clearNutritionFieldError("protein");
+                        setForm((current) => ({
+                          ...current,
+                          nutrition: { ...current.nutrition, protein },
+                        }));
+                      }
                     }
                     editable={!isSubmitting}
                     keyboardType="number-pad"
                     containerClassName="flex-1"
+                    error={fieldErrors.nutrition?.protein}
                   />
                 </View>
                 <View className="flex-row gap-2">
@@ -553,28 +704,36 @@ export function CustomRecipeModal({
                     value={form.nutrition.carbs}
                     placeholder="40"
                     onChangeText={(carbs) =>
-                      setForm((current) => ({
-                        ...current,
-                        nutrition: { ...current.nutrition, carbs },
-                      }))
+                      {
+                        clearNutritionFieldError("carbs");
+                        setForm((current) => ({
+                          ...current,
+                          nutrition: { ...current.nutrition, carbs },
+                        }));
+                      }
                     }
                     editable={!isSubmitting}
                     keyboardType="number-pad"
                     containerClassName="flex-1"
+                    error={fieldErrors.nutrition?.carbs}
                   />
                   <RecipeInput
                     label="Fat"
                     value={form.nutrition.fat}
                     placeholder="18"
                     onChangeText={(fat) =>
-                      setForm((current) => ({
-                        ...current,
-                        nutrition: { ...current.nutrition, fat },
-                      }))
+                      {
+                        clearNutritionFieldError("fat");
+                        setForm((current) => ({
+                          ...current,
+                          nutrition: { ...current.nutrition, fat },
+                        }));
+                      }
                     }
                     editable={!isSubmitting}
                     keyboardType="number-pad"
                     containerClassName="flex-1"
+                    error={fieldErrors.nutrition?.fat}
                   />
                 </View>
                 <RecipeInput
@@ -582,13 +741,17 @@ export function CustomRecipeModal({
                   value={form.nutrition.fiber}
                   placeholder="6"
                   onChangeText={(fiber) =>
-                    setForm((current) => ({
-                      ...current,
-                      nutrition: { ...current.nutrition, fiber },
-                    }))
+                    {
+                      clearNutritionFieldError("fiber");
+                      setForm((current) => ({
+                        ...current,
+                        nutrition: { ...current.nutrition, fiber },
+                      }));
+                    }
                   }
                   editable={!isSubmitting}
                   keyboardType="number-pad"
+                  error={fieldErrors.nutrition?.fiber}
                 />
               </View>
             ) : null}
@@ -659,6 +822,7 @@ function RecipeInput({
   keyboardType,
   containerClassName,
   inputClassName,
+  error,
 }: {
   label: string;
   value: string;
@@ -669,6 +833,7 @@ function RecipeInput({
   keyboardType?: "default" | "number-pad" | "decimal-pad";
   containerClassName?: string;
   inputClassName?: string;
+  error?: string;
 }) {
   return (
     <View className={containerClassName}>
@@ -684,8 +849,13 @@ function RecipeInput({
         keyboardType={keyboardType}
         placeholder={placeholder}
         placeholderTextColor="#9a9489"
-        className={`rounded-xl border border-border bg-background px-3 py-3 text-foreground ${inputClassName ?? ""}`}
+        className={`rounded-xl border px-3 py-3 text-foreground ${
+          error ? "border-red-300 bg-red-50/40" : "border-border bg-background"
+        } ${inputClassName ?? ""}`}
       />
+      {error ? (
+        <Text className="mt-1.5 text-xs leading-4 text-red-600">{error}</Text>
+      ) : null}
     </View>
   );
 }

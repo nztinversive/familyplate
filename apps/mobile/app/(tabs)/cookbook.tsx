@@ -22,9 +22,16 @@ import { CustomRecipeModal } from "@/components/CustomRecipeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ScreenShell } from "@/components/ScreenShell";
+import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { LoadingCard } from "@/components/LoadingCard";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { inferCategory } from "@/lib/pantry";
+import {
+  buildScaledRecipeShareText,
+  formatServingsLabel,
+  scaleIngredients,
+  scaleQuantity,
+} from "@/lib/recipeScaling";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
@@ -101,24 +108,6 @@ function getSourceLabel(source: Recipe["source"]) {
   if (source === "custom") return "Custom";
   if (source === "curated") return "Curated";
   return "AI";
-}
-
-function scaleQuantity(quantity: number, scaleFactor: number) {
-  return Math.round(quantity * scaleFactor * 100) / 100;
-}
-
-function buildRecipeShareText(recipe: Recipe) {
-  const ingredients = recipe.ingredients
-    .map(
-      (ingredient) =>
-        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
-    )
-    .join("\n");
-  const instructions = recipe.instructions
-    .map((step, index) => `${index + 1}. ${step}`)
-    .join("\n");
-
-  return `${recipe.title}\n\n${recipe.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
 }
 
 export default function CookbookScreen() {
@@ -301,7 +290,7 @@ export default function CookbookScreen() {
     }
   };
 
-  const shareRecipe = async (recipe: Recipe) => {
+  const shareRecipe = async (recipe: Recipe, targetServings: number) => {
     setNotice("");
     setError("");
     setShowPlanShortcut(false);
@@ -309,11 +298,12 @@ export default function CookbookScreen() {
     try {
       await Share.share({
         title: recipe.title,
-        message: buildRecipeShareText(recipe),
+        message: buildScaledRecipeShareText(recipe, targetServings),
       });
       track(posthog, "recipe_shared", {
         source: "cookbook",
         recipe_id: recipe._id,
+        target_servings: targetServings,
       });
     } catch (err) {
       Sentry.captureException(err, {
@@ -472,7 +462,9 @@ export default function CookbookScreen() {
                   void addMissingToGrocery(savedRecipe.recipe, targetServings)
                 }
                 onStartCookMode={() => startCookMode(savedRecipe.recipe)}
-                onShare={() => void shareRecipe(savedRecipe.recipe)}
+                onShare={(targetServings) =>
+                  void shareRecipe(savedRecipe.recipe, targetServings)
+                }
                 onRemove={() => removeRecipe(savedRecipe.recipe)}
               />
             ))}
@@ -823,7 +815,7 @@ function RecipeCard({
   onSchedule: (date: string) => void;
   onAddMissing: (targetServings: number) => void;
   onStartCookMode: () => void;
-  onShare: () => void;
+  onShare: (targetServings: number) => void;
   onRemove: () => void;
 }) {
   const [targetServings, setTargetServings] = useState(recipe.servings);
@@ -834,7 +826,12 @@ function RecipeCard({
   const matchPct =
     totalCount > 0 ? Math.round((pantryCount / totalCount) * 100) : 0;
   const effortColor = getEffortColor(recipe.effortLevel);
-  const missingIngredients = recipe.ingredients.filter(
+  const scaledIngredients = scaleIngredients(
+    recipe.ingredients,
+    recipe.servings,
+    targetServings,
+  );
+  const missingIngredients = scaledIngredients.filter(
     (ingredient) => !isIngredientAvailable(ingredient),
   );
 
@@ -890,7 +887,10 @@ function RecipeCard({
             </Text>
           </View>
           <InfoPill icon="time-outline" label={`${recipe.estimatedTime}m`} />
-          <InfoPill icon="people-outline" label={`Serves ${recipe.servings}`} />
+          <InfoPill
+            icon="people-outline"
+            label={formatServingsLabel(recipe.servings)}
+          />
           {recipe.nutrition ? (
             <InfoPill
               icon="stats-chart-outline"
@@ -921,12 +921,21 @@ function RecipeCard({
 
       {expanded ? (
         <View className="border-t border-border p-4">
+          <ServingsAdjuster
+            title="Adjust servings"
+            subtitle="Scale ingredient quantities before you cook, share, or send missing items to Grocery."
+            originalServings={recipe.servings}
+            targetServings={targetServings}
+            disabled={removing || addingMissing}
+            onChangeServings={setTargetServings}
+          />
+
           <View className="mb-4">
             <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               Ingredients
             </Text>
             <View className="gap-2">
-              {recipe.ingredients.map((ingredient, index) => {
+              {scaledIngredients.map((ingredient, index) => {
                 const available = isIngredientAvailable(ingredient);
                 return (
                   <View
@@ -960,9 +969,7 @@ function RecipeCard({
             adding={addingMissing}
             disabled={removing}
             missingIngredients={missingIngredients}
-            originalServings={recipe.servings}
             targetServings={targetServings}
-            onChangeServings={setTargetServings}
             onAddMissing={() => onAddMissing(targetServings)}
           />
 
@@ -985,7 +992,7 @@ function RecipeCard({
               <Text className="font-semibold text-white">Start Cook Mode</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={onShare}
+              onPress={() => onShare(targetServings)}
               disabled={removing}
               className="h-12 w-12 items-center justify-center rounded-xl border border-border bg-card"
               accessibilityRole="button"
@@ -1086,17 +1093,13 @@ function MissingIngredientsAction({
   adding,
   disabled,
   missingIngredients,
-  originalServings,
   targetServings,
-  onChangeServings,
   onAddMissing,
 }: {
   adding: boolean;
   disabled: boolean;
   missingIngredients: RecipeIngredient[];
-  originalServings: number;
   targetServings: number;
-  onChangeServings: (servings: number) => void;
   onAddMissing: () => void;
 }) {
   if (missingIngredients.length === 0) {
@@ -1110,49 +1113,16 @@ function MissingIngredientsAction({
     );
   }
 
-  const scaleLabel =
-    targetServings === originalServings
-      ? "Original recipe"
-      : `${targetServings} serving${targetServings === 1 ? "" : "s"}`;
-
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-3">
-      <View className="mb-3 flex-row items-center justify-between gap-3">
-        <View className="flex-1">
-          <Text className="text-sm font-bold text-foreground">
-            Scale grocery quantities
-          </Text>
-          <Text className="mt-0.5 text-xs leading-4 text-muted-foreground">
-            {scaleLabel}. Missing items will be adjusted before they are added.
-          </Text>
-        </View>
-        <View className="flex-row items-center rounded-full border border-border bg-muted">
-          <TouchableOpacity
-            onPress={() => onChangeServings(Math.max(1, targetServings - 1))}
-            disabled={adding || disabled || targetServings <= 1}
-            className="h-9 w-9 items-center justify-center"
-            style={{
-              opacity: adding || disabled || targetServings <= 1 ? 0.4 : 1,
-            }}
-            accessibilityLabel="Decrease servings"
-          >
-            <Ionicons name="remove" size={15} color="#374151" />
-          </TouchableOpacity>
-          <Text className="min-w-8 text-center text-sm font-bold text-foreground tabular-nums">
-            {targetServings}
-          </Text>
-          <TouchableOpacity
-            onPress={() => onChangeServings(Math.min(16, targetServings + 1))}
-            disabled={adding || disabled || targetServings >= 16}
-            className="h-9 w-9 items-center justify-center"
-            style={{
-              opacity: adding || disabled || targetServings >= 16 ? 0.4 : 1,
-            }}
-            accessibilityLabel="Increase servings"
-          >
-            <Ionicons name="add" size={15} color="#374151" />
-          </TouchableOpacity>
-        </View>
+      <View className="mb-3">
+        <Text className="text-sm font-bold text-foreground">
+          Add missing ingredients
+        </Text>
+        <Text className="mt-0.5 text-xs leading-4 text-muted-foreground">
+          FamilyPlate will add only the missing items for{" "}
+          {formatServingsLabel(targetServings)}.
+        </Text>
       </View>
       <TouchableOpacity
         onPress={onAddMissing}

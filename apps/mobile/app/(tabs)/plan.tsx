@@ -25,8 +25,14 @@ import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
+import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import {
+  buildScaledRecipeShareText,
+  formatServingsLabel,
+  scaleIngredients,
+} from "@/lib/recipeScaling";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
@@ -193,20 +199,6 @@ function getUseFirstLabel(item: PantryItem) {
   });
 }
 
-function buildRecipeShareText(recipe: Recipe) {
-  const ingredients = recipe.ingredients
-    .map(
-      (ingredient) =>
-        `- ${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
-    )
-    .join("\n");
-  const instructions = recipe.instructions
-    .map((step, index) => `${index + 1}. ${step}`)
-    .join("\n");
-
-  return `${recipe.title}\n\n${recipe.description}\n\nIngredients\n${ingredients}\n\nInstructions\n${instructions}\n\nShared from FamilyPlate`;
-}
-
 function inferGroceryCategory(name: string) {
   const normalized = name.toLowerCase();
 
@@ -298,6 +290,7 @@ export default function PlanScreen() {
   const generateGroceryList = useMutation(
     api.mutations.grocery.generateFromPlan,
   );
+  const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
   const addPantryItem = useMutation(api.mutations.pantry.addItem);
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
@@ -317,6 +310,9 @@ export default function PlanScreen() {
   const [mealAudience, setMealAudience] = useState<MealAudience>("whole");
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
   const [adjustingMealId, setAdjustingMealId] = useState<string | null>(null);
+  const [addingMissingMealId, setAddingMissingMealId] = useState<string | null>(
+    null,
+  );
   const [avoidText, setAvoidText] = useState("");
   const [savedAvoidText, setSavedAvoidText] = useState("");
   const [notice, setNotice] = useState("");
@@ -739,21 +735,82 @@ export default function PlanScreen() {
     }
   };
 
-  const handleShareRecipe = async (recipe: Recipe, source: string) => {
+  const handleShareRecipe = async (
+    recipe: Recipe,
+    source: string,
+    targetServings: number,
+  ) => {
     try {
       await Share.share({
         title: recipe.title,
-        message: buildRecipeShareText(recipe),
+        message: buildScaledRecipeShareText(recipe, targetServings),
       });
       track(posthog, "recipe_shared", {
         source,
         recipe_id: recipe._id,
+        target_servings: targetServings,
       });
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "plan", action: "share_recipe", platform: "ios" },
       });
       setError(getErrorMessage(err));
+    }
+  };
+
+  const handleAddMissingIngredients = async (
+    meal: PlannedMeal,
+    targetServings: number,
+  ) => {
+    const missingIngredients = scaleIngredients(
+      meal.recipe.ingredients,
+      meal.recipe.servings,
+      targetServings,
+    ).filter((ingredient) => !isIngredientAvailable(ingredient));
+
+    if (missingIngredients.length === 0) {
+      setNotice("Everything for this dinner is already in your pantry.");
+      return;
+    }
+
+    setAddingMissingMealId(meal._id);
+    setError("");
+    setNotice("");
+
+    try {
+      for (const ingredient of missingIngredients) {
+        await addGroceryItem({
+          name: ingredient.name,
+          quantity: ingredient.quantity,
+          unit: ingredient.unit,
+          category: inferGroceryCategory(ingredient.name),
+        });
+      }
+      track(posthog, "grocery_item_added", {
+        source: "weekly_plan_missing_ingredients",
+        count: missingIngredients.length,
+      });
+      track(posthog, "missing_ingredients_added_to_grocery", {
+        source: "weekly_plan",
+        count: missingIngredients.length,
+        target_servings: targetServings,
+      });
+      setNotice(
+        `Added ${missingIngredients.length} missing item${
+          missingIngredients.length === 1 ? "" : "s"
+        } for ${formatServingsLabel(targetServings)} to Grocery List.`,
+      );
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: {
+          area: "plan",
+          action: "add_missing_to_grocery",
+          platform: "ios",
+        },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setAddingMissingMealId(null);
     }
   };
 
@@ -1159,8 +1216,14 @@ export default function PlanScreen() {
         onSwapMeal={handleSwapMeal}
         onAdjustMeal={handleMealAdjustment}
         onToggleSavedRecipe={handleToggleSavedRecipe}
-        onShareRecipe={(recipe) => void handleShareRecipe(recipe, "plan_detail")}
+        onShareRecipe={(recipe, targetServings) =>
+          void handleShareRecipe(recipe, "plan_detail", targetServings)
+        }
         onStartCookMode={handleStartCookMode}
+        onAddMissingIngredients={(meal, targetServings) =>
+          void handleAddMissingIngredients(meal, targetServings)
+        }
+        addingMissingMealId={addingMissingMealId}
         adjustingMealId={adjustingMealId}
         avoidText={avoidText}
         savedAvoidText={savedAvoidText}
@@ -1976,6 +2039,8 @@ function MealDetailModal({
   onToggleSavedRecipe,
   onShareRecipe,
   onStartCookMode,
+  onAddMissingIngredients,
+  addingMissingMealId,
   adjustingMealId,
   avoidText,
   savedAvoidText,
@@ -1999,8 +2064,13 @@ function MealDetailModal({
     adjustmentType: AdjustmentType,
   ) => Promise<void>;
   onToggleSavedRecipe: (recipeId: Id<"recipeSuggestions">) => Promise<void>;
-  onShareRecipe: (recipe: Recipe) => void;
+  onShareRecipe: (recipe: Recipe, targetServings: number) => void;
   onStartCookMode: (meal: PlannedMeal) => void;
+  onAddMissingIngredients: (
+    meal: PlannedMeal,
+    targetServings: number,
+  ) => void;
+  addingMissingMealId: string | null;
   adjustingMealId: string | null;
   avoidText: string;
   savedAvoidText: string;
@@ -2008,11 +2078,31 @@ function MealDetailModal({
   onChangeAvoidText: (value: string) => void;
   onSaveAvoidPreference: () => Promise<void>;
 }) {
+  const mealId = meal?._id;
+  const mealServings = meal?.recipe.servings ?? 1;
+  const [targetServings, setTargetServings] = useState(
+    mealServings,
+  );
+
+  useEffect(() => {
+    if (!mealId) return;
+    setTargetServings(mealServings);
+  }, [mealId, mealServings]);
+
   if (!meal) return null;
 
   const recipe = meal.recipe;
   const status = STATUS_STYLES[meal.status];
   const pantry = getPantryMatch(recipe);
+
+  const scaledIngredients = scaleIngredients(
+    recipe.ingredients,
+    recipe.servings,
+    targetServings,
+  );
+  const missingIngredients = scaledIngredients.filter(
+    (ingredient) => !isIngredientAvailable(ingredient),
+  );
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -2059,7 +2149,7 @@ function MealDetailModal({
               />
               <InfoPill
                 icon="people-outline"
-                label={`${recipe.servings} servings`}
+                label={formatServingsLabel(recipe.servings)}
               />
               <InfoPill icon="leaf-outline" label={pantry.label} />
             </View>
@@ -2069,6 +2159,41 @@ function MealDetailModal({
                 <RecipeNutrition nutrition={recipe.nutrition} />
               </View>
             ) : null}
+
+            <ServingsAdjuster
+              title="Adjust servings"
+              subtitle="Scale ingredient quantities before you cook, share, or send just this dinner's missing items to Grocery."
+              originalServings={recipe.servings}
+              targetServings={targetServings}
+              disabled={busy || saving || addingMissingMealId === meal._id}
+              onChangeServings={setTargetServings}
+            />
+
+            <TouchableOpacity
+              onPress={() => void onAddMissingIngredients(meal, targetServings)}
+              disabled={
+                addingMissingMealId === meal._id || missingIngredients.length === 0
+              }
+              className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+              style={{
+                opacity:
+                  addingMissingMealId === meal._id ||
+                  missingIngredients.length === 0
+                    ? 0.55
+                    : 1,
+              }}
+            >
+              {addingMissingMealId === meal._id ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Ionicons name="cart-outline" size={18} color="white" />
+              )}
+              <Text className="font-semibold text-white">
+                {addingMissingMealId === meal._id
+                  ? "Adding..."
+                  : `Add missing for ${formatServingsLabel(targetServings)}`}
+              </Text>
+            </TouchableOpacity>
 
             <Text className="mb-2 text-base font-bold text-foreground">
               Adjust This Dinner
@@ -2200,7 +2325,7 @@ function MealDetailModal({
               Ingredients
             </Text>
             <View className="mb-5 gap-2">
-              {recipe.ingredients.map((ingredient, index) => (
+              {scaledIngredients.map((ingredient, index) => (
                 <View
                   key={`${ingredient.name}-${index}`}
                   className="flex-row items-center gap-3 rounded-xl bg-card p-3"
@@ -2318,7 +2443,7 @@ function MealDetailModal({
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => onShareRecipe(recipe)}
+                onPress={() => onShareRecipe(recipe, targetServings)}
                 className="h-12 w-12 items-center justify-center rounded-xl border border-border bg-card"
                 accessibilityRole="button"
                 accessibilityLabel={`Share ${recipe.title}`}

@@ -1,5 +1,5 @@
-FamilyPlate improves custom recipe saving and app reliability.
+FamilyPlate improves dinner check-in reliability.
 
-- Keep required-field guidance for custom recipes inside the form.
-- Reduce noisy error reports when recipe details are missing.
+- Keep deleted dinner feedback cleared instead of reloading stale responses.
+- Let households resubmit updated check-ins right away after clearing feedback.
 - Preserve the existing Cookbook, planning, and grocery flows.
