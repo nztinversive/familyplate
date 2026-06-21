@@ -1,5 +1,5 @@
-FamilyPlate improves dinner check-in reliability.
+FamilyPlate adds shop-first dinner suggestions.
 
-- Keep deleted dinner feedback cleared instead of reloading stale responses.
-- Let households resubmit updated check-ins right away after clearing feedback.
-- Preserve the existing Cookbook, planning, and grocery flows.
+- Suggest dinners worth a quick grocery run even when your pantry is sparse.
+- Show which ingredients you already have versus what to buy for each idea.
+- Keep Grocery List, Tonight, and pantry planning working together in one flow.
