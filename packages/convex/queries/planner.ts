@@ -285,7 +285,7 @@ export const getQuickDinnerSuggestions = query({
     return recipes
       .filter((r) => r.tags.includes("quick-dinner"))
       .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 3);
+      .slice(0, 6);
   },
 });
 

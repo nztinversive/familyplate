@@ -199,10 +199,11 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
         .map((d) => d.toLowerCase().trim())
         .filter(Boolean);
 
-      // Filter ALL suggestions, then take the first 3 safe ones
+      // Filter all suggestions, then keep up to six safe ones so the
+      // persisted Tonight list matches the prompt and fresh generation UI.
       const safeSuggestions: QuickSuggestion[] = [];
       for (const suggestion of response.suggestions) {
-        if (safeSuggestions.length >= 3) break;
+        if (safeSuggestions.length >= 6) break;
 
         // Check for dislikes
         const dislikeHits = checkRecipeForDislikes(suggestion.name, suggestion.ingredients, allDislikes);
@@ -244,8 +245,8 @@ Suggest 6 dinner recipes I can make tonight using primarily these ingredients. R
         throw new ConvexError("Unable to generate any safe dinner suggestions. Please check your allergy and dislike settings.");
       }
 
-      if (safeSuggestions.length < 3) {
-        console.warn(`Only ${safeSuggestions.length} of 3 suggestions survived safety filtering. AI may be ignoring dietary restrictions.`);
+      if (safeSuggestions.length < 6) {
+        console.warn(`Only ${safeSuggestions.length} of 6 suggestions survived safety filtering. AI may be ignoring dietary restrictions.`);
       }
 
       // Persist suggestions to DB so they survive page navigation

@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.16.3",
+    "version": "1.16.4",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate adds shop-first dinner suggestions.\n\n- Suggest dinners worth a quick grocery run even when your pantry is sparse.\n- Show which ingredients you already have versus what to buy for each idea.\n- Keep Grocery List, Tonight, and pantry planning working together in one flow.",
+        "releaseNotes": "FamilyPlate keeps a fuller Tonight slate ready after you generate dinner ideas.\n\n- Preserve up to six Tonight suggestions instead of collapsing the list after refreshes.\n- Keep pantry-first and shop-first ideas available when you leave and come back.\n- Make it easier to compare more dinner options before you decide what to cook.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",

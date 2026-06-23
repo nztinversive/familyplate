@@ -1,5 +1,5 @@
-FamilyPlate adds shop-first dinner suggestions.
+FamilyPlate keeps a fuller Tonight slate ready after you generate dinner ideas.
 
-- Suggest dinners worth a quick grocery run even when your pantry is sparse.
-- Show which ingredients you already have versus what to buy for each idea.
-- Keep Grocery List, Tonight, and pantry planning working together in one flow.
+- Preserve up to six Tonight suggestions instead of collapsing the list after refreshes.
+- Keep pantry-first and shop-first ideas available when you leave and come back.
+- Make it easier to compare more dinner options before you decide what to cook.
