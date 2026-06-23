@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate adds shop-first dinner suggestions so households can get useful dinner ideas and a practical grocery run even when the pantry is sparse.
-- App Review status: Submitted on 2026-06-21 as version 1.16.3 build 54; App Store Connect reports `WAITING_FOR_REVIEW` with manual release. Current live version remains 1.16.2.
+- App Review status: Released on 2026-06-23 as version 1.16.3 build 54; App Store Connect reports `READY_FOR_SALE` with manual release.
 
 ## App Preview
 
