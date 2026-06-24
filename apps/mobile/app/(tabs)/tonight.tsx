@@ -31,6 +31,7 @@ import { Sentry } from "@/lib/sentry";
 type Suggestion = {
   _id?: string;
   mode?: "pantry" | "shopping";
+  usedPantryItems?: string[];
   name: string;
   description: string;
   effortLevel: string;
@@ -114,6 +115,26 @@ function getUseFirstLabel(item: PantryItem) {
   return formatExpirationLabel(item.expirationDate);
 }
 
+function getUsedPantryItems(
+  suggestion: Pick<Suggestion, "usedPantryItems" | "ingredients">,
+) {
+  const items =
+    suggestion.usedPantryItems?.length
+      ? suggestion.usedPantryItems
+      : suggestion.ingredients
+          .filter((ingredient) => isIngredientAvailable(ingredient))
+          .map((ingredient) => ingredient.name);
+
+  return Array.from(
+    new Map(
+      items
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => [item.toLowerCase(), item]),
+    ).values(),
+  );
+}
+
 export default function TonightScreen() {
   const router = useRouter();
   const posthog = usePostHog();
@@ -156,6 +177,7 @@ export default function TonightScreen() {
       estimatedTime: recipe.estimatedTime,
       servings: recipe.servings,
       mode: recipe.tags.includes("shop-first") ? "shopping" : "pantry",
+      usedPantryItems: recipe.usedPantryItems,
       ingredients: recipe.ingredients,
       instructions: recipe.instructions,
       nutrition: recipe.nutrition,
@@ -246,6 +268,7 @@ export default function TonightScreen() {
           result.suggestions.map((suggestion) => ({
             ...suggestion,
             mode,
+            usedPantryItems: getUsedPantryItems(suggestion),
           })),
         );
       }
@@ -733,6 +756,9 @@ function SuggestionCard({
   const missingIngredients = scaledIngredients.filter(
     (ingredient) => !isIngredientAvailable(ingredient),
   );
+  const usedPantryItems = getUsedPantryItems(suggestion);
+  const pantryHighlights = usedPantryItems.slice(0, 3);
+  const remainingPantryHighlights = usedPantryItems.length - pantryHighlights.length;
 
   return (
     <View
@@ -760,6 +786,27 @@ function SuggestionCard({
             >
               {suggestion.description}
             </Text>
+            {pantryHighlights.length > 0 ? (
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                {pantryHighlights.map((item) => (
+                  <View
+                    key={item}
+                    className="rounded-full bg-primary/10 px-2.5 py-1"
+                  >
+                    <Text className="text-[11px] font-semibold text-primary">
+                      Uses {item}
+                    </Text>
+                  </View>
+                ))}
+                {remainingPantryHighlights > 0 ? (
+                  <View className="rounded-full bg-muted px-2.5 py-1">
+                    <Text className="text-[11px] font-semibold text-muted-foreground">
+                      +{remainingPantryHighlights} more
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
           <View className="items-center">
             <View className="h-12 w-12 items-center justify-center rounded-2xl bg-muted">

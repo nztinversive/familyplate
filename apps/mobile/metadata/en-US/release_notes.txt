@@ -1,5 +1,5 @@
-FamilyPlate keeps a fuller Tonight slate ready after you generate dinner ideas.
+FamilyPlate now shows which pantry items each Tonight suggestion will actually use.
 
-- Preserve up to six Tonight suggestions instead of collapsing the list after refreshes.
-- Keep pantry-first and shop-first ideas available when you leave and come back.
-- Make it easier to compare more dinner options before you decide what to cook.
+- Highlight the pantry ingredients behind each Tonight dinner idea.
+- Make the six-suggestion Tonight view faster to scan at a glance.
+- Keep pantry-first and shop-first options easier to compare before you cook.

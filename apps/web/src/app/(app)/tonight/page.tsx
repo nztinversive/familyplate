@@ -29,6 +29,7 @@ import * as Sentry from "@sentry/nextjs";
 type Suggestion = {
   _id?: string;
   mode?: "pantry" | "shopping";
+  usedPantryItems?: string[];
   name: string;
   description: string;
   effortLevel: string;
@@ -59,6 +60,26 @@ function getEffortColor(level: string) {
   if (level === "easy") return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800";
   if (level === "medium") return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800";
   return "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800";
+}
+
+function getUsedPantryItems(
+  suggestion: Pick<Suggestion, "usedPantryItems" | "ingredients">,
+) {
+  const items =
+    suggestion.usedPantryItems?.length
+      ? suggestion.usedPantryItems
+      : suggestion.ingredients
+          .filter((ingredient) => isIngredientAvailable(ingredient))
+          .map((ingredient) => ingredient.name);
+
+  return Array.from(
+    new Map(
+      items
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => [item.toLowerCase(), item]),
+    ).values(),
+  );
 }
 
 export default function TonightPage() {
@@ -101,6 +122,7 @@ export default function TonightPage() {
       estimatedTime: r.estimatedTime,
       servings: r.servings,
       mode: r.tags.includes("shop-first") ? "shopping" : "pantry",
+      usedPantryItems: r.usedPantryItems,
       ingredients: r.ingredients,
       instructions: r.instructions,
       missingItems: r.ingredients
@@ -175,6 +197,7 @@ export default function TonightPage() {
           result.suggestions.map((suggestion) => ({
             ...suggestion,
             mode,
+            usedPantryItems: getUsedPantryItems(suggestion),
           })),
         );
       }
@@ -440,6 +463,10 @@ export default function TonightPage() {
           const alreadyHaveItems = suggestion.ingredients.filter((ingredient) =>
             isIngredientAvailable(ingredient)
           );
+          const usedPantryItems = getUsedPantryItems(suggestion);
+          const pantryHighlights = usedPantryItems.slice(0, 3);
+          const remainingPantryHighlights =
+            usedPantryItems.length - pantryHighlights.length;
           const missingIngredients = suggestion.ingredients.filter(
             (ingredient) => !isIngredientAvailable(ingredient)
           );
@@ -467,6 +494,23 @@ export default function TonightPage() {
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {suggestion.description}
                       </p>
+                      {pantryHighlights.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {pantryHighlights.map((item) => (
+                            <span
+                              key={item}
+                              className="inline-flex items-center rounded-full bg-primary/10 px-2 py-1 text-[11px] font-semibold text-primary"
+                            >
+                              Uses {item}
+                            </span>
+                          ))}
+                          {remainingPantryHighlights > 0 && (
+                            <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+                              +{remainingPantryHighlights} more
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="shrink-0 flex flex-col items-center">
                       <div className="relative h-11 w-11">

@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.4
+- Version under prep: 1.16.5
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate keeps a fuller Tonight slate ready after you generate dinner ideas, so households can compare more pantry-first and shop-first options before deciding what to cook.
-- App Review status: Current live version is 1.16.4 build 55. App Store Connect reported 1.16.4 (55) in `READY_FOR_SALE` on 2026-06-24; build 55 is `VALID`, not expired, and uploaded on 2026-06-23. There is no active `PENDING_APP_REVIEW_RETRY` case for this version.
+- What's New: FamilyPlate now shows which pantry items each Tonight suggestion will actually use, so households can scan the fuller six-option Tonight list and pick the best pantry-first dinner faster.
+- App Review status: Current live version is 1.16.4 build 55. App Store Connect reported 1.16.4 (55) in `READY_FOR_SALE` on 2026-06-24; build 55 is `VALID`, not expired, and uploaded on 2026-06-23. No `PENDING_DEVELOPER_RELEASE`, `WAITING_FOR_REVIEW`, `IN_REVIEW`, processing iOS version, or active `PENDING_APP_REVIEW_RETRY` case existed at the start of this 1.16.5 release run.
 
 ## App Preview
 
@@ -85,18 +85,19 @@ Recommended age rating answers:
 1. Sign in with the demo account.
 2. Open Pantry and add a pantry item manually.
 3. Use Snap Groceries to test camera/photo recognition and barcode scanning.
-4. Open Tonight, generate dinner suggestions, confirm up to six options appear, expand one recipe, increase the serving count, and confirm ingredient quantities update for the chosen serving size.
-5. Tap Suggest What to Buy, expand one shop-first recipe, and confirm the card clearly separates ingredients you already have from the ones you need to buy.
-6. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
-7. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
-8. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
-9. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
-10. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
-11. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
-12. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
-13. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
-14. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
-15. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
-16. Submit a fresh dinner check-in again and verify the updated response saves successfully.
-17. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
-18. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+4. Open Tonight, generate dinner suggestions, confirm up to six options appear, and verify each card highlights pantry ingredients it will use.
+5. Expand one Tonight recipe, increase the serving count, and confirm ingredient quantities update for the chosen serving size.
+6. Tap Suggest What to Buy, expand one shop-first recipe, and confirm the card clearly separates ingredients you already have from the ones you need to buy.
+7. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
+8. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
+9. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
+10. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
+11. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
+12. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
+13. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
+14. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
+15. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
+16. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
+17. Submit a fresh dinner check-in again and verify the updated response saves successfully.
+18. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+19. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
