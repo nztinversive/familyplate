@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now shows which pantry items each Tonight suggestion will actually use, so households can scan the fuller six-option Tonight list and pick the best pantry-first dinner faster.
-- App Review status: Current live version is 1.16.4 build 55. App Store Connect reported 1.16.4 (55) in `READY_FOR_SALE` on 2026-06-24; build 55 is `VALID`, not expired, and uploaded on 2026-06-23. No `PENDING_DEVELOPER_RELEASE`, `WAITING_FOR_REVIEW`, `IN_REVIEW`, processing iOS version, or active `PENDING_APP_REVIEW_RETRY` case existed at the start of this 1.16.5 release run.
+- App Review status: Current live version is 1.16.4 build 55 in `READY_FOR_SALE`. Build 1.16.5 (56) uploaded on 2026-06-24, processed as `VALID`, and was submitted for App Review on 2026-06-24. App Store Connect now reports version `1.16.5` as `WAITING_FOR_REVIEW` with manual release, and there is no active `PENDING_APP_REVIEW_RETRY` case for this build.
 
 ## App Preview
 
