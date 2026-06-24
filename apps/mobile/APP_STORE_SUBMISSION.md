@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate keeps a fuller Tonight slate ready after you generate dinner ideas, so households can compare more pantry-first and shop-first options before deciding what to cook.
-- App Review status: Current live version is 1.16.3 build 54, released on 2026-06-23 and now in `READY_FOR_SALE` with manual release. Verified build 1.16.4 (55) was uploaded to App Store Connect on 2026-06-23, metadata sync succeeded on retry, and Fastlane submitted the same build for App Review. App Store Connect reports `WAITING_FOR_REVIEW` with manual release.
+- App Review status: Current live version is 1.16.4 build 55. App Store Connect reported 1.16.4 (55) in `READY_FOR_SALE` on 2026-06-24; build 55 is `VALID`, not expired, and uploaded on 2026-06-23. There is no active `PENDING_APP_REVIEW_RETRY` case for this version.
 
 ## App Preview
 
