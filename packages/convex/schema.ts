@@ -83,6 +83,9 @@ export default defineSchema({
       v.literal("freezer")
     ),
     expirationDate: v.optional(v.number()),
+    expirationDateSource: v.optional(
+      v.union(v.literal("estimated"), v.literal("manual"))
+    ),
     barcode: v.optional(v.string()),
     addedBy: v.id("userProfiles"),
     addedAt: v.number(),

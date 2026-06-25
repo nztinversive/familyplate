@@ -105,7 +105,10 @@ function getExpirationTone(timestamp?: number) {
   return "outline" as const;
 }
 
-function formatExpirationLabel(timestamp?: number) {
+function formatExpirationLabel(
+  timestamp?: number,
+  source?: PantryItem["expirationDateSource"]
+) {
   if (!timestamp) return "No expiration";
   const date = new Date(timestamp);
   const today = new Date();
@@ -116,18 +119,21 @@ function formatExpirationLabel(timestamp?: number) {
   );
 
   if (diffDays < 0) {
-    return `Expired ${Math.abs(diffDays)}d ago`;
+    const label = `Expired ${Math.abs(diffDays)}d ago`;
+    return source === "estimated" ? `Est. ${label}` : label;
   }
 
   if (diffDays === 0) {
-    return "Expires today";
+    return source === "estimated" ? "Est. expires today" : "Expires today";
   }
 
   if (diffDays <= 7) {
-    return `Expires in ${diffDays}d`;
+    const label = `Expires in ${diffDays}d`;
+    return source === "estimated" ? `Est. ${label}` : label;
   }
 
-  return `Exp ${date.toLocaleDateString()}`;
+  const label = `Exp ${date.toLocaleDateString()}`;
+  return source === "estimated" ? `Est. ${label}` : label;
 }
 
 function getLocationLabel(location: StorageLocation) {
@@ -143,6 +149,7 @@ export default function PantryPage() {
   const [cameraMode, setCameraMode] = useState<"barcode" | "snap">("barcode");
   const [prefillValues, setPrefillValues] = useState<BarcodeScannerResult | undefined>();
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
+  const [expirationBackfillRequested, setExpirationBackfillRequested] = useState(false);
 
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const householdId = currentUser?.householdId ?? null;
@@ -156,6 +163,25 @@ export default function PantryPage() {
   const { toast } = useToast();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
+  const backfillMissingExpirationDates = useMutation(
+    api.mutations.pantry.backfillMissingExpirationDates
+  );
+
+  useEffect(() => {
+    if (
+      !expirationBackfillRequested &&
+      pantryItems?.some(
+        (item) => !item.expirationDate || !item.expirationDateSource
+      )
+    ) {
+      setExpirationBackfillRequested(true);
+      void backfillMissingExpirationDates();
+    }
+  }, [
+    pantryItems,
+    backfillMissingExpirationDates,
+    expirationBackfillRequested,
+  ]);
 
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
@@ -433,7 +459,10 @@ export default function PantryPage() {
                     <div className="flex items-center justify-between gap-2 border-t bg-muted/20 px-3.5 py-2">
                       <Badge variant={expirationTone} className="text-[11px]">
                         <CalendarClock className="mr-1 h-3 w-3" />
-                        {formatExpirationLabel(item.expirationDate)}
+                        {formatExpirationLabel(
+                          item.expirationDate,
+                          item.expirationDateSource
+                        )}
                       </Badge>
 
                       <div className="flex items-center gap-1">
@@ -660,6 +689,14 @@ function PantryItemDialogForm({
         : undefined;
 
       if (item) {
+        const expirationSource =
+          expirationTimestamp !== undefined &&
+          !(
+            item.expirationDateSource === "estimated" &&
+            item.expirationDate === expirationTimestamp
+          )
+            ? "manual"
+            : "estimated";
         await updateItem({
           itemId: item._id,
           name: trimmedName,
@@ -677,7 +714,8 @@ function PantryItemDialogForm({
         track("pantry_item_updated", {
           category,
           storage_location: storageLocation,
-          has_expiration: expirationTimestamp !== undefined,
+          has_expiration: true,
+          expiration_source: expirationSource,
           has_barcode: !!trimmedBarcode,
           source: "item_dialog",
         });
@@ -697,7 +735,9 @@ function PantryItemDialogForm({
         track("pantry_item_added", {
           category,
           storage_location: storageLocation,
-          has_expiration: expirationTimestamp !== undefined,
+          has_expiration: true,
+          expiration_source:
+            expirationTimestamp !== undefined ? "manual" : "estimated",
           has_barcode: !!trimmedBarcode,
           source: prefillValues ? "barcode_prefill" : "item_dialog",
         });
@@ -782,9 +822,13 @@ function PantryItemDialogForm({
         <Input
           id="pantry-expiration"
           type="date"
+          placeholder="Blank uses estimate"
           value={expirationDate}
           onChange={(event) => setExpirationDate(event.target.value)}
         />
+        <p className="text-xs text-muted-foreground">
+          Leave blank to use FamilyPlate&apos;s estimate for this item.
+        </p>
       </div>
 
       <div className="space-y-2">

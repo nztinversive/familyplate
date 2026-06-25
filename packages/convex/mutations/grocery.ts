@@ -8,6 +8,7 @@ import {
   sortGroceryItems,
   type GroceryListItem,
 } from "../lib/grocery";
+import { resolveExpirationDate } from "../lib/pantryExpiration";
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
@@ -384,13 +385,24 @@ export const moveCheckedToPantry = mutation({
 
     const now = Date.now();
     for (const item of checkedItems) {
+      const name = requireNonEmptyString(item.name, "Name");
+      const quantity = validateQuantity(item.quantity);
+      const unit = requireNonEmptyString(item.unit, "Unit");
+      const category = requireNonEmptyString(item.category, "Category");
+
       await ctx.db.insert("pantryItems", {
         householdId: profile.householdId,
-        name: requireNonEmptyString(item.name, "Name"),
-        quantity: validateQuantity(item.quantity),
-        unit: requireNonEmptyString(item.unit, "Unit"),
-        category: requireNonEmptyString(item.category, "Category"),
+        name,
+        quantity,
+        unit,
+        category,
         storageLocation: "pantry",
+        ...resolveExpirationDate({
+          name,
+          category,
+          storageLocation: "pantry",
+          referenceTime: now,
+        }),
         addedBy: profile._id,
         addedAt: now,
       });

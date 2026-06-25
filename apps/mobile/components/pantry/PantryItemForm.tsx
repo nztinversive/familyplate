@@ -144,6 +144,14 @@ export function PantryItemForm({
       const trimmedBarcode = barcode.trim();
 
       if (item) {
+        const expirationSource =
+          expirationTs !== undefined &&
+          !(
+            item.expirationDateSource === "estimated" &&
+            item.expirationDate === expirationTs
+          )
+            ? "manual"
+            : "estimated";
         await updateItem({
           itemId: item._id,
           name: trimmedName,
@@ -165,7 +173,8 @@ export function PantryItemForm({
         track(posthog, "pantry_item_updated", {
           category,
           storage_location: storageLocation,
-          has_expiration: expirationTs !== undefined,
+          has_expiration: true,
+          expiration_source: expirationSource,
           has_barcode: !!trimmedBarcode,
         });
       } else {
@@ -184,7 +193,8 @@ export function PantryItemForm({
         track(posthog, "pantry_item_added", {
           category,
           storage_location: storageLocation,
-          has_expiration: expirationTs !== undefined,
+          has_expiration: true,
+          expiration_source: expirationTs !== undefined ? "manual" : "estimated",
           has_barcode: !!trimmedBarcode,
           source: prefillValues ? "barcode_prefill" : "manual_form",
         });
@@ -355,11 +365,11 @@ export function PantryItemForm({
         {/* Expiration */}
         <View className="mb-4">
           <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Expiration (optional)
+            Expiration
           </Text>
           <TextInput
             className="rounded-xl border border-border bg-card px-4 py-3 text-base text-foreground"
-            placeholder="YYYY-MM-DD"
+            placeholder="YYYY-MM-DD (blank uses estimate)"
             placeholderTextColor="#9a9489"
             value={expirationDate}
             onChangeText={setExpirationDate}

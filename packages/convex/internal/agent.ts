@@ -2,6 +2,7 @@ import { getAgentTool } from "@familyplate/agent-tools";
 import { ConvexError, v } from "convex/values";
 import { internalMutation } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { resolveExpirationDate } from "../lib/pantryExpiration";
 
 type AgentContext = {
   connection: Doc<"agentConnections">;
@@ -458,14 +459,25 @@ async function addPantryItem(
   dryRun: boolean
 ) {
   const expirationDate = optionalNumber(input, "expirationDate");
+  const name = requireString(input, "name");
+  const quantity = requireNumber(input, "quantity");
+  const unit = requireString(input, "unit");
+  const category = requireString(input, "category");
+  const storageLocation = requireStorageLocation(input, "storageLocation");
+  const expiration = resolveExpirationDate({
+    name,
+    category,
+    storageLocation,
+    expirationDate,
+  });
   const item = {
     householdId: profile.householdId,
-    name: requireString(input, "name"),
-    quantity: requireNumber(input, "quantity"),
-    unit: requireString(input, "unit"),
-    category: requireString(input, "category"),
-    storageLocation: requireStorageLocation(input, "storageLocation"),
-    ...(expirationDate !== undefined ? { expirationDate } : {}),
+    name,
+    quantity,
+    unit,
+    category,
+    storageLocation,
+    ...expiration,
     addedBy: profile._id,
     addedAt: Date.now(),
   };
@@ -494,29 +506,53 @@ async function updatePantryItem(
   }
 
   const clearExpirationDate = optionalBoolean(input, "clearExpirationDate");
+  const name = optionalString(input, "name");
+  const quantity = optionalNumber(input, "quantity");
+  const unit = optionalString(input, "unit");
+  const category = optionalString(input, "category");
+  const storageLocation = optionalStorageLocation(input, "storageLocation");
+  const expirationDate = optionalNumber(input, "expirationDate");
   const patch: Partial<Doc<"pantryItems">> = {
-    ...(optionalString(input, "name") !== undefined
-      ? { name: optionalString(input, "name") }
-      : {}),
-    ...(optionalNumber(input, "quantity") !== undefined
-      ? { quantity: optionalNumber(input, "quantity") }
-      : {}),
-    ...(optionalString(input, "unit") !== undefined
-      ? { unit: optionalString(input, "unit") }
-      : {}),
-    ...(optionalString(input, "category") !== undefined
-      ? { category: optionalString(input, "category") }
-      : {}),
-    ...(optionalStorageLocation(input, "storageLocation") !== undefined
-      ? { storageLocation: optionalStorageLocation(input, "storageLocation") }
-      : {}),
-    ...(optionalNumber(input, "expirationDate") !== undefined
-      ? { expirationDate: optionalNumber(input, "expirationDate") }
-      : {}),
+    ...(name !== undefined ? { name } : {}),
+    ...(quantity !== undefined ? { quantity } : {}),
+    ...(unit !== undefined ? { unit } : {}),
+    ...(category !== undefined ? { category } : {}),
+    ...(storageLocation !== undefined ? { storageLocation } : {}),
+    ...(expirationDate !== undefined ? { expirationDate } : {}),
   };
 
-  if (clearExpirationDate) {
-    patch.expirationDate = undefined;
+  if (expirationDate !== undefined) {
+    patch.expirationDateSource =
+      item.expirationDateSource === "estimated" &&
+      item.expirationDate === expirationDate
+        ? "estimated"
+        : "manual";
+  } else if (clearExpirationDate) {
+    const updatedPreview = { ...item, ...patch };
+    const expiration = resolveExpirationDate({
+      name: updatedPreview.name,
+      category: updatedPreview.category,
+      storageLocation: updatedPreview.storageLocation,
+      referenceTime: item.addedAt,
+    });
+    patch.expirationDate = expiration.expirationDate;
+    patch.expirationDateSource = expiration.expirationDateSource;
+  } else if (
+    !item.expirationDate ||
+    (item.expirationDateSource === "estimated" &&
+      (name !== undefined ||
+        category !== undefined ||
+        storageLocation !== undefined))
+  ) {
+    const updatedPreview = { ...item, ...patch };
+    const expiration = resolveExpirationDate({
+      name: updatedPreview.name,
+      category: updatedPreview.category,
+      storageLocation: updatedPreview.storageLocation,
+      referenceTime: item.addedAt,
+    });
+    patch.expirationDate = expiration.expirationDate;
+    patch.expirationDateSource = expiration.expirationDateSource;
   }
 
   if (Object.keys(patch).length === 0) {

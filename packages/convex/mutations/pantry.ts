@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
+import { resolveExpirationDate } from "../lib/pantryExpiration";
 
 function requireNonEmptyString(value: string, fieldName: string) {
   const trimmed = value.trim();
@@ -32,6 +33,19 @@ function validateOptionalTimestamp(value?: number) {
   }
 
   return value;
+}
+
+function getResolvedExpiration(args: {
+  name: string;
+  category: string;
+  storageLocation: "pantry" | "fridge" | "freezer";
+  expirationDate?: number;
+  referenceTime?: number;
+}) {
+  return resolveExpirationDate({
+    ...args,
+    expirationDate: validateOptionalTimestamp(args.expirationDate),
+  });
 }
 
 async function getViewerProfile(ctx: MutationCtx) {
@@ -84,17 +98,27 @@ export const bulkImportFromGenerator = mutation({
     const now = Date.now();
     let inserted = 0;
     for (const name of cleanItems) {
+      const category = inferCategory(name);
+      const storageLocation = /frozen/i.test(name)
+        ? "freezer"
+        : /milk|cheese|yogurt|butter|cream|egg|fresh|deli|tofu/i.test(name)
+          ? "fridge"
+          : "pantry";
+      const expiration = getResolvedExpiration({
+        name,
+        category,
+        storageLocation,
+        referenceTime: now,
+      });
+
       await ctx.db.insert("pantryItems", {
         householdId: profile.householdId,
         name,
         quantity: 1,
         unit: "items",
-        category: inferCategory(name),
-        storageLocation: /frozen/i.test(name)
-          ? "freezer"
-          : /milk|cheese|yogurt|butter|cream|egg|fresh|deli|tofu/i.test(name)
-            ? "fridge"
-            : "pantry",
+        category,
+        storageLocation,
+        ...expiration,
         addedBy: profile._id,
         addedAt: now,
       });
@@ -144,8 +168,13 @@ export const addItem = mutation({
     const quantity = validateQuantity(args.quantity);
     const unit = requireNonEmptyString(args.unit, "Unit");
     const category = requireNonEmptyString(args.category, "Category");
-    const expirationDate = validateOptionalTimestamp(args.expirationDate);
     const barcode = normalizeOptionalString(args.barcode);
+    const expiration = getResolvedExpiration({
+      name,
+      category,
+      storageLocation: args.storageLocation,
+      expirationDate: args.expirationDate,
+    });
 
     return await ctx.db.insert("pantryItems", {
       householdId: args.householdId,
@@ -154,7 +183,7 @@ export const addItem = mutation({
       unit,
       category,
       storageLocation: args.storageLocation,
-      expirationDate,
+      ...expiration,
       barcode,
       addedBy: profile._id,
       addedAt: Date.now(),
@@ -212,9 +241,37 @@ export const updateItem = mutation({
     };
 
     if (args.expirationDate !== undefined) {
-      updatedItem.expirationDate = validateOptionalTimestamp(args.expirationDate);
+      const expirationDate = validateOptionalTimestamp(args.expirationDate);
+      updatedItem.expirationDate = expirationDate;
+      updatedItem.expirationDateSource =
+        item.expirationDateSource === "estimated" &&
+        item.expirationDate === expirationDate
+          ? "estimated"
+          : "manual";
     } else if (args.clearExpirationDate) {
-      delete updatedItem.expirationDate;
+      const expiration = getResolvedExpiration({
+        name: updatedItem.name,
+        category: updatedItem.category,
+        storageLocation: updatedItem.storageLocation,
+        referenceTime: item.addedAt,
+      });
+      updatedItem.expirationDate = expiration.expirationDate;
+      updatedItem.expirationDateSource = expiration.expirationDateSource;
+    } else if (
+      !updatedItem.expirationDate ||
+      (item.expirationDateSource === "estimated" &&
+        (args.name !== undefined ||
+          args.category !== undefined ||
+          args.storageLocation !== undefined))
+    ) {
+      const expiration = getResolvedExpiration({
+        name: updatedItem.name,
+        category: updatedItem.category,
+        storageLocation: updatedItem.storageLocation,
+        referenceTime: item.addedAt,
+      });
+      updatedItem.expirationDate = expiration.expirationDate;
+      updatedItem.expirationDateSource = expiration.expirationDateSource;
     }
 
     if (args.clearBarcode) {
@@ -223,6 +280,40 @@ export const updateItem = mutation({
 
     await ctx.db.replace(args.itemId, updatedItem);
     return args.itemId;
+  },
+});
+
+export const backfillMissingExpirationDates = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await getViewerProfile(ctx);
+    const items = await ctx.db
+      .query("pantryItems")
+      .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
+      .collect();
+
+    let updated = 0;
+    for (const item of items) {
+      if (item.expirationDate && item.expirationDateSource) {
+        continue;
+      }
+
+      if (item.expirationDate && !item.expirationDateSource) {
+        await ctx.db.patch(item._id, { expirationDateSource: "manual" });
+        updated++;
+        continue;
+      }
+
+      const expiration = getResolvedExpiration({
+        name: item.name,
+        category: item.category,
+        storageLocation: item.storageLocation,
+      });
+      await ctx.db.patch(item._id, expiration);
+      updated++;
+    }
+
+    return { updated };
   },
 });
 

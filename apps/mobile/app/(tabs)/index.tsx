@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -68,6 +68,8 @@ export default function PantryScreen() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [quickAddNotice, setQuickAddNotice] = useState("");
   const [quickAddError, setQuickAddError] = useState("");
+  const [expirationBackfillRequested, setExpirationBackfillRequested] =
+    useState(false);
 
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const householdId = currentUser?.householdId ?? null;
@@ -82,6 +84,25 @@ export default function PantryScreen() {
   const addItem = useMutation(api.mutations.pantry.addItem);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
   const deleteItem = useMutation(api.mutations.pantry.deleteItem);
+  const backfillMissingExpirationDates = useMutation(
+    api.mutations.pantry.backfillMissingExpirationDates,
+  );
+
+  useEffect(() => {
+    if (
+      !expirationBackfillRequested &&
+      allPantryItems?.some(
+        (item) => !item.expirationDate || !item.expirationDateSource,
+      )
+    ) {
+      setExpirationBackfillRequested(true);
+      void backfillMissingExpirationDates();
+    }
+  }, [
+    allPantryItems,
+    backfillMissingExpirationDates,
+    expirationBackfillRequested,
+  ]);
 
   const filteredItems = useMemo(() => {
     return (visibleItemsForTab ?? [])
@@ -525,7 +546,10 @@ function ItemCard({
 }) {
   const tint = getStorageTint(item.storageLocation);
   const expirationColor = getExpirationColor(item.expirationDate);
-  const expirationLabel = formatExpirationLabel(item.expirationDate);
+  const expirationLabel =
+    item.expirationDateSource === "estimated"
+      ? `Est. ${formatExpirationLabel(item.expirationDate)}`
+      : formatExpirationLabel(item.expirationDate);
   const iconName = STORAGE_ICON[item.storageLocation];
 
   return (
