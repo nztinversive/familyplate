@@ -1,7 +1,7 @@
 {
   "configVersion": 0,
   "apple": {
-    "version": "1.16.5",
+    "version": "1.16.6",
     "copyright": "2026 FamilyPlate",
     "release": {
       "automaticRelease": false
@@ -19,7 +19,7 @@
           "cookbook",
           "barcode"
         ],
-        "releaseNotes": "FamilyPlate now shows which pantry items each Tonight suggestion will actually use.\n\n- Highlight the pantry ingredients behind each Tonight dinner idea.\n- Make the six-suggestion Tonight view faster to scan at a glance.\n- Keep pantry-first and shop-first options easier to compare before you cook.",
+        "releaseNotes": "FamilyPlate now estimates pantry expiration dates automatically.\n\n- Estimate expiration dates from each pantry item's name, category, and storage location.\n- Label estimated versus manual expiration dates directly in Pantry.\n- Surface expired and expiring-soon pantry items faster so households know what to cook first.",
         "marketingUrl": "https://familyplate.co",
         "promoText": "Plan family dinners from what you already have. Scan groceries, build a pantry, save recipes, and turn missing ingredients into a grocery list.",
         "supportUrl": "https://familyplate.co/support",
