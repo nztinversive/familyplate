@@ -41,6 +41,12 @@ export const PANTRY_UNITS = [
 export const STORAGE_LOCATIONS = ["pantry", "fridge", "freezer"] as const;
 export type StorageLocation = (typeof STORAGE_LOCATIONS)[number];
 
+type UseFirstPantryItem = {
+  name: string;
+  category: string;
+  expirationDate?: number;
+};
+
 export function getStorageIconName(location: StorageLocation): string {
   switch (location) {
     case "freezer":
@@ -97,6 +103,44 @@ export function getExpirationColor(timestamp?: number): string {
   if (diffDays < 0) return "#dc2626";
   if (diffDays <= 3) return "#d97706";
   return "#6b7280";
+}
+
+export function getUseFirstItems<T extends UseFirstPantryItem>(items: T[]): T[] {
+  const now = Date.now();
+  const fourDays = 4 * 24 * 60 * 60 * 1000;
+
+  return items
+    .filter((item) => {
+      const isLeftover =
+        item.category.toLowerCase() === "leftovers" ||
+        item.name.toLowerCase().includes("leftover");
+      const isExpiring =
+        item.expirationDate !== undefined && item.expirationDate <= now + fourDays;
+      return isLeftover || isExpiring;
+    })
+    .sort((a, b) => {
+      const aLeftover =
+        a.category.toLowerCase() === "leftovers" ||
+        a.name.toLowerCase().includes("leftover");
+      const bLeftover =
+        b.category.toLowerCase() === "leftovers" ||
+        b.name.toLowerCase().includes("leftover");
+      if (aLeftover !== bLeftover) return aLeftover ? -1 : 1;
+      return (a.expirationDate ?? Number.MAX_SAFE_INTEGER) -
+        (b.expirationDate ?? Number.MAX_SAFE_INTEGER);
+    })
+    .slice(0, 5);
+}
+
+export function getUseFirstLabel(item: UseFirstPantryItem): string {
+  if (
+    item.category.toLowerCase() === "leftovers" ||
+    item.name.toLowerCase().includes("leftover")
+  ) {
+    return "Leftovers";
+  }
+
+  return formatExpirationLabel(item.expirationDate);
 }
 
 export function inferCategory(name: string): PantryCategory {

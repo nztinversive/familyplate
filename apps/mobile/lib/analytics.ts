@@ -29,6 +29,7 @@ export type AnalyticsEvent =
   | "pantry_item_update_failed"
   | "pantry_item_deleted"
   | "pantry_item_add_failed"
+  | "pantry_use_first_tapped"
   | "grocery_item_added"
   | "grocery_item_checked"
   | "grocery_item_removed"

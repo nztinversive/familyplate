@@ -9,17 +9,21 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
-import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
+import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
-import { formatExpirationLabel, inferCategory } from "@/lib/pantry";
+import {
+  getUseFirstItems,
+  getUseFirstLabel,
+  inferCategory,
+} from "@/lib/pantry";
 import {
   buildScaledRecipeShareText,
   formatServingsLabel,
@@ -53,7 +57,6 @@ type Suggestion = {
     fiber?: number;
   };
 };
-type PantryItem = Doc<"pantryItems">;
 
 const CRAVING_CHIPS = [
   "Chicken",
@@ -77,42 +80,11 @@ function getErrorMessage(err: unknown) {
   return "Unable to generate dinner suggestions right now. Please try again.";
 }
 
-function getUseFirstItems(items: PantryItem[]) {
-  const now = Date.now();
-  const fourDays = 4 * 24 * 60 * 60 * 1000;
-
-  return items
-    .filter((item) => {
-      const isLeftover =
-        item.category.toLowerCase() === "leftovers" ||
-        item.name.toLowerCase().includes("leftover");
-      const isExpiring =
-        item.expirationDate !== undefined && item.expirationDate <= now + fourDays;
-      return isLeftover || isExpiring;
-    })
-    .sort((a, b) => {
-      const aLeftover =
-        a.category.toLowerCase() === "leftovers" ||
-        a.name.toLowerCase().includes("leftover");
-      const bLeftover =
-        b.category.toLowerCase() === "leftovers" ||
-        b.name.toLowerCase().includes("leftover");
-      if (aLeftover !== bLeftover) return aLeftover ? -1 : 1;
-      return (a.expirationDate ?? Number.MAX_SAFE_INTEGER) -
-        (b.expirationDate ?? Number.MAX_SAFE_INTEGER);
-    })
-    .slice(0, 5);
-}
-
-function getUseFirstLabel(item: PantryItem) {
-  if (
-    item.category.toLowerCase() === "leftovers" ||
-    item.name.toLowerCase().includes("leftover")
-  ) {
-    return "Leftovers";
+function getIngredientParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0]?.trim() ?? "";
   }
-
-  return formatExpirationLabel(item.expirationDate);
+  return value?.trim() ?? "";
 }
 
 function getUsedPantryItems(
@@ -137,6 +109,7 @@ function getUsedPantryItems(
 
 export default function TonightScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ ingredient?: string | string[] }>();
   const posthog = usePostHog();
   const suggestFromPantry = useAction(
     api.actions.quickDinner.suggestFromPantry,
@@ -165,6 +138,8 @@ export default function TonightScreen() {
   const [savingRecipeId, setSavingRecipeId] = useState<string | null>(null);
   const [addingMissingId, setAddingMissingId] = useState<string | null>(null);
   const trackedSuccessNudge = useRef(false);
+  const handledIngredientParam = useRef<string | null>(null);
+  const generateFromParamRef = useRef<(ingredient: string) => void>(() => {});
 
   const initialSuggestions = useMemo<Suggestion[]>(() => {
     if (!persistedSuggestions?.length) return [];
@@ -200,6 +175,8 @@ export default function TonightScreen() {
     () => getUseFirstItems(pantryItems ?? []),
     [pantryItems],
   );
+
+  const ingredientParam = getIngredientParam(params.ingredient);
 
   useEffect(() => {
     if (trackedSuccessNudge.current) return;
@@ -286,6 +263,29 @@ export default function TonightScreen() {
       setIsGenerating(false);
     }
   };
+
+  generateFromParamRef.current = (ingredient: string) => {
+    setSelectedCraving("");
+    setCustomCraving(ingredient);
+    setActiveCraving(ingredient);
+    setError("");
+    void handleGenerate(ingredient);
+  };
+
+  useEffect(() => {
+    if (!ingredientParam) {
+      handledIngredientParam.current = null;
+      return;
+    }
+
+    if (handledIngredientParam.current === ingredientParam) {
+      return;
+    }
+
+    handledIngredientParam.current = ingredientParam;
+    generateFromParamRef.current(ingredientParam);
+    router.replace("/tonight");
+  }, [ingredientParam, router]);
 
   const handleSelectChip = (label: string) => {
     if (selectedCraving === label) {

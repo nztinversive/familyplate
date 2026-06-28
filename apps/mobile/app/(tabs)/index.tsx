@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/pantry";
 import { PantryItemForm } from "@/components/pantry/PantryItemForm";
 import { ExpirationAlerts } from "@/components/pantry/ExpirationAlerts";
+import { CookTheseFirst } from "@/components/pantry/CookTheseFirst";
 import {
   BarcodeScanner,
   type BarcodeScannerResult,
@@ -56,6 +58,7 @@ const STORAGE_ICON: Record<StorageLocation, keyof typeof Ionicons.glyphMap> = {
 };
 
 export default function PantryScreen() {
+  const router = useRouter();
   const posthog = usePostHog();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("all");
@@ -272,6 +275,17 @@ export default function PantryScreen() {
     );
   };
 
+  const handleCookThisFirst = (ingredient: string) => {
+    track(posthog, "pantry_use_first_tapped", {
+      source: "mobile_pantry",
+      ingredient,
+    });
+    router.push({
+      pathname: "/tonight",
+      params: { ingredient },
+    });
+  };
+
   const toggleCategory = (cat: string) => {
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -437,7 +451,12 @@ export default function PantryScreen() {
           </>
         ) : (
           <>
-            <View className="mb-4">
+            <View className="mb-4 gap-4">
+              <CookTheseFirst
+                items={allPantryItems ?? []}
+                disabled={!householdId}
+                onCook={handleCookThisFirst}
+              />
               <ExpirationAlerts items={allPantryItems ?? []} />
             </View>
             {groupedItems.map(([category, items]) => {

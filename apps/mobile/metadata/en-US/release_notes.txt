@@ -1,5 +1,5 @@
-FamilyPlate now estimates pantry expiration dates automatically.
+FamilyPlate now turns pantry urgency into faster dinner ideas.
 
-- Estimate expiration dates from each pantry item's name, category, and storage location.
-- Label estimated versus manual expiration dates directly in Pantry.
-- Surface expired and expiring-soon pantry items faster so households know what to cook first.
+- Open Tonight suggestions straight from a new Cook these first section in Pantry.
+- Surface leftovers and soon-expiring items together so you can use them before they go to waste.
+- Keep the Tonight prompt focused on the pantry item you picked from Pantry.
