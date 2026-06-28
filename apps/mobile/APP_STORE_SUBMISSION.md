@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now estimates pantry expiration dates automatically, so households can spot what to cook first without entering every pantry date by hand.
-- App Review status: Current live version is `1.16.5` build `56` in `READY_FOR_SALE`. Build `1.16.6 (57)` was uploaded on 2026-06-26, processed as `VALID`, and submitted for App Review on 2026-06-26. App Store Connect now reports version `1.16.6` as `WAITING_FOR_REVIEW` with manual release, and there is no active `PENDING_APP_REVIEW_RETRY` case for this build.
+- App Review status: Current live version is `1.16.6` build `57` in `READY_FOR_SALE`. Build `1.16.6 (57)` was uploaded on 2026-06-26, processed as `VALID`, submitted for App Review on 2026-06-26, and released on App Store Connect by 2026-06-28. There is no active `PENDING_APP_REVIEW_RETRY` case for this build.
 
 ## App Preview
 
