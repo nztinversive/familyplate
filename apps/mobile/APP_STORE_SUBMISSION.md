@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now turns pantry urgency into faster dinner ideas, so households can jump from expiring ingredients to Tonight suggestions in one tap.
-- App Review status: Current live version is `1.16.6` build `57` in `READY_FOR_SALE` as of 2026-06-28. Version `1.16.7` build `58` was uploaded through EAS Submit on 2026-06-28 and accepted by App Store Connect, but Apple is still processing it and Fastlane cannot select build `58` for App Review yet (`Build number: 58 does not exist`). An exact `PENDING_APP_REVIEW_RETRY` handoff is active for the same source commit and IPA while processing finishes.
+- App Review status: Current live version is `1.16.6` build `57` in `READY_FOR_SALE` as of 2026-06-28. Version `1.16.7` build `58` was submitted for App Review on 2026-06-28 after Apple finished processing the uploaded IPA; App Store Connect reports `WAITING_FOR_REVIEW` with manual release and attached build `58`.
 
 ## App Preview
 
