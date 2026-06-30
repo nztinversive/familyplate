@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now makes household invites easier to accept on iPhone, so new family members can join the shared household without leaving the app.
-- App Review status: Current live version is `1.16.7` build `58` in `READY_FOR_SALE` as of 2026-06-30. Version `1.16.8` is the next release under prep in this checkout.
+- App Review status: Current live version is `1.16.7` build `58` in `READY_FOR_SALE`. Version `1.16.8` build `59` is `WAITING_FOR_REVIEW` with manual release as of 2026-06-30.
 
 ## App Preview
 
