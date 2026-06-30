@@ -4,6 +4,9 @@ import * as Application from "expo-application";
 export type AnalyticsEvent =
   | "auth_started"
   | "auth_failed"
+  | "household_join_started"
+  | "household_join_completed"
+  | "household_join_failed"
   | "checkout_clicked"
   | "paywall_viewed"
   | "subscription_products_loaded"

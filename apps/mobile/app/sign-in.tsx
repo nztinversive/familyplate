@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
-import { Redirect } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { usePostHog } from "posthog-react-native";
 import { track } from "@/lib/analytics";
@@ -46,15 +46,20 @@ function getAuthErrorMessage(err: unknown, mode: Mode) {
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
+  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const returnTo =
+    typeof params.returnTo === "string" && params.returnTo.startsWith("/")
+      ? params.returnTo
+      : "/(tabs)";
 
   if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href={returnTo as never} />;
   }
 
   const handleSubmit = async () => {

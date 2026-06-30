@@ -34,6 +34,7 @@ function RootLayout() {
         <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="join/[inviteCode]" options={{ headerShown: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
             <Stack.Screen name="setup/household" options={{ headerShown: false }} />
           </Stack>

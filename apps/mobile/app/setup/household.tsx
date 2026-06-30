@@ -43,6 +43,7 @@ export default function HouseholdSetupScreen() {
     isAuthenticated ? {} : "skip",
   );
   const createHousehold = useMutation(api.mutations.households.createHousehold);
+  const joinHousehold = useMutation(api.mutations.households.joinHousehold);
   const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
 
   const defaultName =
@@ -58,8 +59,15 @@ export default function HouseholdSetupScreen() {
   const [kidAllergies, setKidAllergies] = useState("");
   const [kidDislikes, setKidDislikes] = useState("");
   const [kidDietaryPreferences, setKidDietaryPreferences] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isJoiningHousehold, setIsJoiningHousehold] = useState(false);
   const [error, setError] = useState("");
+  const normalizedInviteCode = inviteCode.trim().toUpperCase();
+  const invitePreview = useQuery(
+    api.queries.households.getHouseholdByInviteCode,
+    normalizedInviteCode ? { inviteCode: normalizedInviteCode } : "skip",
+  );
 
   useEffect(() => {
     if (!currentUser?.userName || currentUser.userName === "User") return;
@@ -84,6 +92,40 @@ export default function HouseholdSetupScreen() {
   if (currentUser && !currentUser.needsOnboarding) {
     return <Redirect href="/plan" />;
   }
+
+  const handleJoinExistingHousehold = async () => {
+    if (!normalizedInviteCode) {
+      setError("Enter an invite code to join a household.");
+      return;
+    }
+
+    setIsJoiningHousehold(true);
+    setError("");
+
+    try {
+      track(posthog, "household_join_started", {
+        source: "mobile_setup",
+        invite_code_length: normalizedInviteCode.length,
+      });
+      await joinHousehold({ inviteCode: normalizedInviteCode });
+      track(posthog, "household_join_completed", {
+        source: "mobile_setup",
+        household_name: invitePreview?.name,
+      });
+      router.replace("/plan");
+    } catch (err) {
+      track(posthog, "household_join_failed", {
+        source: "mobile_setup",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Sentry.captureException(err, {
+        tags: { area: "onboarding", action: "join_household", platform: "ios" },
+      });
+      setError(getErrorMessage(err));
+    } finally {
+      setIsJoiningHousehold(false);
+    }
+  };
 
   const handleFinishSetup = async () => {
     const name = householdName.trim();
@@ -158,8 +200,9 @@ export default function HouseholdSetupScreen() {
           </Text>
           <Text className="mt-2 text-base leading-6 text-muted-foreground">
             A few details help FamilyPlate plan around the people actually
-            eating dinner. Next, add a few staples so Tonight and Weekly Plan
-            can start from what you already have.
+            eating dinner. Create your own household or join one you were
+            invited to so Tonight and Weekly Plan can start from the right
+            pantry.
           </Text>
         </View>
 
@@ -171,6 +214,94 @@ export default function HouseholdSetupScreen() {
             </Text>
           </View>
         ) : null}
+
+        <SetupCard
+          icon="people-outline"
+          title="Join an existing household"
+          subtitle="Use the 6-character invite code from a family member or shared invite link."
+        >
+          <View>
+            <Text className="mb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Invite code
+            </Text>
+            <TextInput
+              value={inviteCode}
+              placeholder="AB12CD"
+              placeholderTextColor="#9a9489"
+              onChangeText={(value) => {
+                setInviteCode(value.replace(/\s+/g, "").toUpperCase());
+                setError("");
+              }}
+              editable={!isSubmitting && !isJoiningHousehold}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              className="rounded-xl bg-muted p-3 text-base text-foreground"
+            />
+            <Text className="mt-1 text-[11px] leading-4 text-muted-foreground">
+              Enter the code exactly as it appears in the invite.
+            </Text>
+          </View>
+
+          {normalizedInviteCode ? (
+            invitePreview === undefined ? (
+              <View className="flex-row items-center gap-2 rounded-xl bg-muted px-3 py-3">
+                <ActivityIndicator size="small" color="#248f58" />
+                <Text className="text-sm text-muted-foreground">
+                  Checking invite...
+                </Text>
+              </View>
+            ) : invitePreview ? (
+              <View className="rounded-xl border border-primary/20 bg-primary/10 px-3 py-3">
+                <Text className="text-sm font-semibold text-foreground">
+                  Join {invitePreview.name}
+                </Text>
+                <Text className="mt-1 text-sm text-muted-foreground">
+                  Invited by {invitePreview.invitedBy}. {invitePreview.memberCount}{" "}
+                  member{invitePreview.memberCount === 1 ? "" : "s"} already
+                  eating here.
+                </Text>
+              </View>
+            ) : (
+              <View className="rounded-xl border border-destructive/20 bg-destructive/10 px-3 py-3">
+                <Text className="text-sm text-destructive">
+                  That invite code was not found. Double-check the code and try
+                  again.
+                </Text>
+              </View>
+            )
+          ) : null}
+
+          <TouchableOpacity
+            onPress={() => void handleJoinExistingHousehold()}
+            disabled={
+              isSubmitting ||
+              isJoiningHousehold ||
+              !normalizedInviteCode ||
+              invitePreview === null
+            }
+            className="flex-row items-center justify-center gap-2 rounded-2xl border border-primary/20 bg-primary/10 py-3.5"
+            style={{
+              opacity:
+                isSubmitting ||
+                isJoiningHousehold ||
+                !normalizedInviteCode ||
+                invitePreview === null
+                  ? 0.55
+                  : 1,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Join existing FamilyPlate household"
+          >
+            {isJoiningHousehold ? (
+              <ActivityIndicator color="#248f58" />
+            ) : (
+              <Ionicons name="enter-outline" size={19} color="#248f58" />
+            )}
+            <Text className="text-base font-bold text-primary">
+              {isJoiningHousehold ? "Joining household..." : "Join Household"}
+            </Text>
+          </TouchableOpacity>
+        </SetupCard>
 
         <SetupCard
           icon="home-outline"
@@ -259,9 +390,11 @@ export default function HouseholdSetupScreen() {
 
         <TouchableOpacity
           onPress={() => void handleFinishSetup()}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isJoiningHousehold}
           className="mt-1 flex-row items-center justify-center gap-2 rounded-2xl bg-primary py-4"
-          style={{ opacity: isSubmitting ? 0.7 : 1 }}
+          style={{
+            opacity: isSubmitting || isJoiningHousehold ? 0.7 : 1,
+          }}
           accessibilityRole="button"
           accessibilityLabel="Finish FamilyPlate setup"
         >

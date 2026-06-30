@@ -1,5 +1,5 @@
-FamilyPlate now turns pantry urgency into faster dinner ideas.
+FamilyPlate now makes household invites easier to accept on iPhone.
 
-- Open Tonight suggestions straight from a new Cook these first section in Pantry.
-- Surface leftovers and soon-expiring items together so you can use them before they go to waste.
-- Keep the Tonight prompt focused on the pantry item you picked from Pantry.
+- Open a shared invite and join the household without leaving the iPhone app.
+- Enter an invite code during setup when a family member already shared one.
+- Keep new members moving straight into the shared pantry, Tonight, and weekly plan.
