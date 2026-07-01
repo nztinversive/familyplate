@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now lets you revisit past weekly plans on iPhone, so you can review earlier dinner progress without losing the current week.
-- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE` as of 2026-07-01. No newer iOS App Store version is currently pending review, in review, processing, or pending manual release before this `1.16.9` prep run.
+- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE` as of 2026-07-01 15:04 CDT. The verified local `1.16.9` IPA for build `60` exists at `/Users/noahthies/.codex/worktrees/c351/familyplate/apps/mobile/build-1782935945933.ipa`, but App Store Connect still shows no `1.16.9` app version record and no build `60` after this prep run. `npx eas-cli@latest submit --platform ios --profile production --path /Users/noahthies/.codex/worktrees/c351/familyplate/apps/mobile/build-1782935945933.ipa --non-interactive` reached Expo submission `dddb119a-b531-4858-bb29-a4f2be9acae3` and then stalled on `waiting for an available submitter`, while `npx eas-cli@latest metadata:push --profile production --non-interactive` failed with `GraphQL request failed`. Same-build App Review submission is blocked until the retry worker re-checks App Store Connect and either sees build `60` surface or re-runs the same-IPA submit path.
 
 ## App Preview
 
