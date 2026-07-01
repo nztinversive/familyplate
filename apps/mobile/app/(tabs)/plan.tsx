@@ -268,6 +268,7 @@ export default function PlanScreen() {
   const router = useRouter();
   const posthog = usePostHog();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
+  const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
   const members = useQuery(
@@ -317,11 +318,31 @@ export default function PlanScreen() {
   const [savedAvoidText, setSavedAvoidText] = useState("");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const trackedLimitPaywallForCycle = useRef<string | null>(null);
 
+  const sortedWeeks = useMemo(
+    () =>
+      (mealPlanWeeks ?? []).sort((a, b) =>
+        b.weekStartDate.localeCompare(a.weekStartDate),
+      ),
+    [mealPlanWeeks],
+  );
+  const viewingWeekDate = sortedWeeks[viewingWeekIndex]?.weekStartDate ?? null;
+  const viewingPastWeek = viewingWeekIndex > 0 && !!viewingWeekDate;
+  const pastWeekPlan = useQuery(
+    api.queries.planner.getMyMealPlanByWeek,
+    viewingPastWeek && viewingWeekDate
+      ? { weekStartDate: viewingWeekDate }
+      : "skip",
+  );
+  const displayPlan = viewingPastWeek ? pastWeekPlan : mealPlan;
+  const canGoBack = viewingWeekIndex < sortedWeeks.length - 1;
+  const canGoForward = viewingWeekIndex > 0;
+
   const meals = useMemo(
-    () => (mealPlan?.meals ?? []) as PlannedMeal[],
-    [mealPlan?.meals],
+    () => (displayPlan?.meals ?? []) as PlannedMeal[],
+    [displayPlan?.meals],
   );
   const cookedCount = meals.filter((meal) => meal.status === "cooked").length;
   const skippedCount = meals.filter((meal) => meal.status === "skipped").length;
@@ -437,6 +458,15 @@ export default function PlanScreen() {
     !isFamilyPlan &&
     !isAtPlanLimit &&
     subscription.plansUsed > 0;
+
+  useEffect(() => {
+    setSelectedMeal(null);
+    setCookingMeal(null);
+    setMovingMealId(null);
+    setShowGroceryReview(false);
+    setNotice("");
+    setError("");
+  }, [viewingWeekIndex]);
 
   useEffect(() => {
     if (!subscription || subscription.canGenerate || isFamilyPlan) return;
@@ -984,24 +1014,61 @@ export default function PlanScreen() {
     <ScreenShell
       title="Weekly Plan"
       subtitle={
-        mealPlan
-          ? `${formatWeekRange(mealPlan.plan.weekStartDate)} dinner plan`
+        displayPlan
+          ? `${formatWeekRange(displayPlan.plan.weekStartDate)} dinner plan`
           : "Build a seven-night dinner plan."
       }
     >
       <View className="mb-4 rounded-2xl border border-border bg-card p-4">
+        {sortedWeeks.length > 1 ? (
+          <View className="mb-4 flex-row items-center justify-between">
+            <TouchableOpacity
+              onPress={() => setViewingWeekIndex((current) => current + 1)}
+              disabled={!canGoBack}
+              className="h-10 w-10 items-center justify-center rounded-xl bg-muted"
+              style={{ opacity: canGoBack ? 1 : 0.35 }}
+              accessibilityRole="button"
+              accessibilityLabel="View older week"
+            >
+              <Ionicons name="chevron-back" size={18} color="#26211b" />
+            </TouchableOpacity>
+            <View className="items-center px-3">
+              <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                {viewingWeekIndex === 0 ? "Current week" : "Past week"}
+              </Text>
+              <Text className="mt-1 text-sm font-semibold text-foreground">
+                {displayPlan
+                  ? formatWeekRange(displayPlan.plan.weekStartDate)
+                  : "Loading week..."}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setViewingWeekIndex((current) => current - 1)}
+              disabled={!canGoForward}
+              className="h-10 w-10 items-center justify-center rounded-xl bg-muted"
+              style={{ opacity: canGoForward ? 1 : 0.35 }}
+              accessibilityRole="button"
+              accessibilityLabel="View newer week"
+            >
+              <Ionicons name="chevron-forward" size={18} color="#26211b" />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         <View className="mb-4 flex-row items-start justify-between gap-3">
           <View className="flex-1">
             <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              This week
+              {viewingWeekIndex === 0 ? "This week" : "Past week"}
             </Text>
             <Text className="mt-1 text-2xl font-bold text-foreground">
-              {formatWeekRange(mealPlan?.plan.weekStartDate)}
+              {formatWeekRange(displayPlan?.plan.weekStartDate)}
             </Text>
             <Text className="mt-1 text-sm leading-5 text-muted-foreground">
               {meals.length > 0
                 ? `${cookedCount}/${activeCount} dinners cooked`
-                : "Generate a plan to fill the week."}
+                : viewingWeekIndex === 0
+                  ? "Generate a plan to fill the week."
+                  : "No saved dinners for this week."}
             </Text>
           </View>
           <View className="h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
@@ -1035,29 +1102,48 @@ export default function PlanScreen() {
 
         <View className="flex-row gap-2">
           <TouchableOpacity
-            onPress={() => void handleGeneratePlan()}
-            disabled={generateDisabled}
+            onPress={() => {
+              if (viewingWeekIndex > 0) {
+                setViewingWeekIndex(0);
+                return;
+              }
+              void handleGeneratePlan();
+            }}
+            disabled={viewingWeekIndex > 0 ? false : generateDisabled}
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
             style={{
-              opacity: generateDisabled ? 0.55 : 1,
+              opacity:
+                viewingWeekIndex > 0 || !generateDisabled ? 1 : 0.55,
             }}
             accessibilityRole="button"
             accessibilityLabel={
-              meals.length ? "Refresh weekly plan" : "Generate weekly plan"
+              viewingWeekIndex > 0
+                ? "Return to current week"
+                : meals.length
+                  ? "Refresh weekly plan"
+                  : "Generate weekly plan"
             }
-            accessibilityHint={generateDisabledReason || undefined}
+            accessibilityHint={
+              viewingWeekIndex > 0
+                ? "Go back to the active week to refresh or regenerate dinners."
+                : generateDisabledReason || undefined
+            }
           >
-            {isGenerating ? (
+            {viewingWeekIndex > 0 ? (
+              <Ionicons name="return-up-back-outline" size={18} color="white" />
+            ) : isGenerating ? (
               <ActivityIndicator color="white" />
             ) : (
               <Ionicons name="sparkles" size={18} color="white" />
             )}
             <Text className="font-semibold text-white">
-              {isGenerating
-                ? "Building plan..."
-                : meals.length
-                  ? "Refresh"
-                  : "Generate"}
+              {viewingWeekIndex > 0
+                ? "Current Week"
+                : isGenerating
+                  ? "Building plan..."
+                  : meals.length
+                    ? "Refresh"
+                    : "Generate"}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1147,11 +1233,15 @@ export default function PlanScreen() {
         </View>
       ) : null}
 
-      {mealPlan === undefined ? (
+      {displayPlan === undefined ? (
         <LoadingCard
           icon="calendar-outline"
           title="Loading weekly plan"
-          detail="Checking this week's dinners and pantry matches."
+          detail={
+            viewingWeekIndex === 0
+              ? "Checking this week's dinners and pantry matches."
+              : "Loading dinners from a past week."
+          }
         />
       ) : meals.length === 0 ? (
         <View className="items-center rounded-2xl border border-border bg-card p-6">
@@ -1159,11 +1249,12 @@ export default function PlanScreen() {
             <Ionicons name="calendar" size={26} color="#248f58" />
           </View>
           <Text className="mb-1 text-center text-lg font-semibold text-foreground">
-            No dinner plan yet
+            {viewingWeekIndex === 0 ? "No dinner plan yet" : "No dinners saved"}
           </Text>
           <Text className="text-center text-sm leading-5 text-muted-foreground">
-            Generate a weekly plan from your pantry, preferences, and household
-            size.
+            {viewingWeekIndex === 0
+              ? "Generate a weekly plan from your pantry, preferences, and household size."
+              : "This past week does not have a saved dinner plan to review."}
           </Text>
           <View className="mt-5 w-full gap-2">
             <EmptyGuideRow

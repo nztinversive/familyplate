@@ -2,7 +2,7 @@
   "expo": {
     "name": "FamilyPlate",
     "slug": "familyplate",
-    "version": "1.16.8",
+    "version": "1.16.9",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "familyplate",

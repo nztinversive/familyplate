@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.8
+- Version under prep: 1.16.9
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate now makes household invites easier to accept on iPhone, so new family members can join the shared household without leaving the app.
-- App Review status: Current live version is `1.16.7` build `58` in `READY_FOR_SALE`. Version `1.16.8` build `59` is approved and `PENDING_DEVELOPER_RELEASE` with manual release as of 2026-07-01; the attached build `59` is `VALID` and not expired.
+- What's New: FamilyPlate now lets you revisit past weekly plans on iPhone, so you can review earlier dinner progress without losing the current week.
+- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE` as of 2026-07-01. No newer iOS App Store version is currently pending review, in review, processing, or pending manual release before this `1.16.9` prep run.
 
 ## App Preview
 
@@ -33,11 +33,11 @@ Use a reviewer-only account that stays active through review.
 - Demo password: use the password for that dedicated test account
 - Notes:
 
-FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking with estimated expiration dates, Pantry cook-this-first shortcuts into Tonight, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Tonight suggestions, shop-first dinner suggestions, Weekly Plan, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, barcode scanning, household invite codes, and native in-app household joining.
+FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking with estimated expiration dates, Pantry cook-this-first shortcuts into Tonight, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Weekly Plan history browsing, Tonight suggestions, shop-first dinner suggestions, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, barcode scanning, household invite codes, and native in-app household joining.
 
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
 
-To test the new invite flow, copy the invite code from Settings while signed in to the demo account, then sign out and create or sign in to a second account on the device. Enter that invite code during setup or open the shared invite link in the app to join the same household without leaving iOS.
+If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week, then return to Current Week and confirm the active plan is still available without losing the current progress view.
 
 There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account.
 
@@ -98,14 +98,15 @@ Recommended age rating answers:
 12. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
 13. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
 14. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
-15. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
-16. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
-17. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
-18. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
-19. Use Snap Groceries to test camera/photo recognition and barcode scanning.
-20. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
-21. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
-22. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
-23. Submit a fresh dinner check-in again and verify the updated response saves successfully.
-24. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
-25. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+15. If multiple saved weeks are available on the demo household, use the header chevrons to move to a past week, confirm its dinners and progress load, then return to Current Week.
+16. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
+17. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
+18. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
+19. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
+20. Use Snap Groceries to test camera/photo recognition and barcode scanning.
+21. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
+22. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
+23. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
+24. Submit a fresh dinner check-in again and verify the updated response saves successfully.
+25. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+26. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.

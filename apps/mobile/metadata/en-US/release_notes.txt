@@ -1,5 +1,5 @@
-FamilyPlate now makes household invites easier to accept on iPhone.
+FamilyPlate now lets you revisit past weekly plans on iPhone.
 
-- Open a shared invite and join the household without leaving the iPhone app.
-- Enter an invite code during setup when a family member already shared one.
-- Keep new members moving straight into the shared pantry, Tonight, and weekly plan.
+- Jump back into older saved weeks right from Weekly Plan.
+- Review past dinner progress without losing your current week.
+- Return to the active week in one tap when you are ready to plan again.
