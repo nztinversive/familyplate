@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now lets you revisit past weekly plans on iPhone, so you can review earlier dinner progress without losing the current week.
-- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE`. The retry worker re-checked App Store Connect on 2026-07-01, found build `60` visible and `VALID`, reran `npx eas-cli@latest metadata:push --profile production --non-interactive` to create/sync the `1.16.9` App Store version, and submitted the same verified build with Fastlane deliver. App Store Connect now reports `1.16.9` build `60` in `WAITING_FOR_REVIEW` with manual release; build `60` is attached, `VALID`, not expired, and uploaded on 2026-07-01.
+- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE`. The retry worker re-checked App Store Connect on 2026-07-01, found build `60` visible and `VALID`, reran `npx eas-cli@latest metadata:push --profile production --non-interactive` to create/sync the `1.16.9` App Store version, and submitted the same verified build with Fastlane deliver. App Store Connect re-check on 2026-07-02 reports `1.16.9` build `60` in `IN_REVIEW` with manual release; build `60` is attached, `VALID`, not expired, and uploaded on 2026-07-01.
 
 ## App Preview
 
