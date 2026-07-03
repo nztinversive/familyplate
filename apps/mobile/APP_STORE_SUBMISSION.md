@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.9
+- Version under prep: 1.16.10
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate now lets you revisit past weekly plans on iPhone, so you can review earlier dinner progress without losing the current week.
-- App Review status: Current live version is `1.16.8` build `59` in `READY_FOR_SALE`. The retry worker re-checked App Store Connect on 2026-07-01, found build `60` visible and `VALID`, reran `npx eas-cli@latest metadata:push --profile production --non-interactive` to create/sync the `1.16.9` App Store version, and submitted the same verified build with Fastlane deliver. App Store Connect re-check on 2026-07-02 reports `1.16.9` build `60` in `IN_REVIEW` with manual release; build `60` is attached, `VALID`, not expired, and uploaded on 2026-07-01.
+- What's New: FamilyPlate now keeps past weekly plans safer to review on iPhone, so older saved weeks stay history-only while your current week remains editable.
+- App Review status: Current live version is `1.16.9` build `60` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-03. There is no newer App Store version or in-review iOS build at the start of this `1.16.10` release lane.
 
 ## App Preview
 
@@ -37,7 +37,7 @@ FamilyPlate is an AI meal planning app for households. Reviewers can test pantry
 
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
 
-If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week, then return to Current Week and confirm the active plan is still available without losing the current progress view.
+If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week. Confirm that older dinners open in a read-only history view, then return to Current Week and confirm the active plan is still available for edits without losing the current progress view.
 
 There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account.
 
@@ -98,7 +98,7 @@ Recommended age rating answers:
 12. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
 13. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
 14. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
-15. If multiple saved weeks are available on the demo household, use the header chevrons to move to a past week, confirm its dinners and progress load, then return to Current Week.
+15. If multiple saved weeks are available on the demo household, use the header chevrons to move to a past week, confirm its dinners and progress load in read-only history mode, then return to Current Week.
 16. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
 17. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
 18. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.

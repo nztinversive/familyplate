@@ -1,5 +1,5 @@
-FamilyPlate now lets you revisit past weekly plans on iPhone.
+FamilyPlate now keeps past weekly plans safer to review on iPhone.
 
-- Jump back into older saved weeks right from Weekly Plan.
-- Review past dinner progress without losing your current week.
-- Return to the active week in one tap when you are ready to plan again.
+- Older saved weeks now open in a read-only history view.
+- Review past dinner progress without accidentally changing groceries or pantry state.
+- Return to the active week in one tap when you are ready to edit dinners again.

@@ -89,6 +89,9 @@ const STATUS_STYLES: Record<
   },
 };
 
+const PAST_WEEK_READ_ONLY_NOTICE =
+  "Past weeks are read-only. Return to Current Week to make changes.";
+
 function getErrorMessage(err: unknown) {
   if (err instanceof Error && err.message) return err.message;
   return "Something went wrong. Please try again.";
@@ -337,6 +340,7 @@ export default function PlanScreen() {
       : "skip",
   );
   const displayPlan = viewingPastWeek ? pastWeekPlan : mealPlan;
+  const planIsEditable = !viewingPastWeek;
   const canGoBack = viewingWeekIndex < sortedWeeks.length - 1;
   const canGoForward = viewingWeekIndex > 0;
 
@@ -581,6 +585,12 @@ export default function PlanScreen() {
   };
 
   const handleSetStatus = async (meal: PlannedMeal, status: MealStatus) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(PAST_WEEK_READ_ONLY_NOTICE);
+      return;
+    }
+
     if (status === "cooked" && meal.status !== "cooked") {
       Alert.alert(
         "Mark dinner cooked?",
@@ -634,6 +644,12 @@ export default function PlanScreen() {
   };
 
   const handleStartCookMode = (meal: PlannedMeal) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(PAST_WEEK_READ_ONLY_NOTICE);
+      return;
+    }
+
     setError("");
     setNotice("");
     const openCookMode = () => {
@@ -702,6 +718,14 @@ export default function PlanScreen() {
   };
 
   const handleGenerateGroceries = async (source = "weekly_plan") => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(
+        "Past weeks are read-only. Return to Current Week to update groceries.",
+      );
+      return;
+    }
+
     setIsGeneratingGroceries(true);
     setError("");
     setNotice("");
@@ -792,6 +816,14 @@ export default function PlanScreen() {
     meal: PlannedMeal,
     targetServings: number,
   ) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(
+        "Past weeks are read-only. Return to Current Week to add groceries.",
+      );
+      return;
+    }
+
     const missingIngredients = scaleIngredients(
       meal.recipe.ingredients,
       meal.recipe.servings,
@@ -874,6 +906,12 @@ export default function PlanScreen() {
     meal: PlannedMeal,
     adjustmentType: AdjustmentType,
   ) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(PAST_WEEK_READ_ONLY_NOTICE);
+      return;
+    }
+
     if (meal.status === "cooked") {
       setError("Cooked dinners are locked to preserve pantry history.");
       return;
@@ -972,6 +1010,12 @@ export default function PlanScreen() {
   };
 
   const handleStartMove = (meal: PlannedMeal) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(PAST_WEEK_READ_ONLY_NOTICE);
+      return;
+    }
+
     setError("");
     setNotice("");
 
@@ -990,6 +1034,12 @@ export default function PlanScreen() {
   };
 
   const handleMoveToTarget = async (targetMeal: PlannedMeal) => {
+    if (!planIsEditable) {
+      setError("");
+      setNotice(PAST_WEEK_READ_ONLY_NOTICE);
+      return;
+    }
+
     if (!movingMealId || movingMealId === targetMeal._id) return;
 
     setBusyMealId(targetMeal._id);
@@ -1052,6 +1102,24 @@ export default function PlanScreen() {
             >
               <Ionicons name="chevron-forward" size={18} color="#26211b" />
             </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {viewingPastWeek ? (
+          <View className="mb-4 flex-row items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <View className="h-10 w-10 items-center justify-center rounded-xl bg-white">
+              <Ionicons name="lock-closed-outline" size={18} color="#b45309" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-sm font-semibold text-foreground">
+                History view is locked
+              </Text>
+              <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                Review past dinners without changing statuses, groceries, or
+                pantry history. Return to Current Week when you are ready to
+                edit.
+              </Text>
+            </View>
           </View>
         ) : null}
 
@@ -1148,11 +1216,23 @@ export default function PlanScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowGroceryReview(true)}
-            disabled={isGeneratingGroceries || meals.length === 0}
+            disabled={
+              viewingWeekIndex > 0 || isGeneratingGroceries || meals.length === 0
+            }
             className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
             style={{
-              opacity: isGeneratingGroceries || meals.length === 0 ? 0.55 : 1,
+              opacity:
+                viewingWeekIndex > 0 || isGeneratingGroceries || meals.length === 0
+                  ? 0.55
+                  : 1,
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Review groceries"
+            accessibilityHint={
+              viewingWeekIndex > 0
+                ? "Return to the current week before updating groceries."
+                : undefined
+            }
           >
             {isGeneratingGroceries ? (
               <ActivityIndicator color="#248f58" />
@@ -1279,6 +1359,7 @@ export default function PlanScreen() {
               meal={meal}
               busy={busyMealId === meal._id}
               movingMealId={movingMealId}
+              readOnly={viewingPastWeek}
               saved={savedRecipeIds.has(meal.recipe._id)}
               saving={savingRecipeId === meal.recipe._id}
               onOpen={() => setSelectedMeal(meal)}
@@ -1295,6 +1376,7 @@ export default function PlanScreen() {
       <MealDetailModal
         meal={selectedMeal}
         busy={busyMealId === selectedMeal?._id}
+        readOnly={viewingPastWeek}
         saved={
           selectedMeal ? savedRecipeIds.has(selectedMeal.recipe._id) : false
         }
@@ -1641,6 +1723,7 @@ function MealCard({
   meal,
   busy,
   movingMealId,
+  readOnly,
   saved,
   saving,
   onOpen,
@@ -1653,6 +1736,7 @@ function MealCard({
   meal: PlannedMeal;
   busy: boolean;
   movingMealId: string | null;
+  readOnly: boolean;
   saved: boolean;
   saving: boolean;
   onOpen: () => void;
@@ -1668,7 +1752,7 @@ function MealCard({
   const pantry = getPantryMatch(meal.recipe);
   const isMoveSource = movingMealId === meal._id;
   const isMoveTarget = !!movingMealId && movingMealId !== meal._id;
-  const canMoveTarget = isMoveTarget && meal.status !== "cooked";
+  const canMoveTarget = !readOnly && isMoveTarget && meal.status !== "cooked";
 
   return (
     <View
@@ -1765,149 +1849,163 @@ function MealCard({
         <InfoPill icon="leaf-outline" label={pantry.label} />
       </View>
 
-      <TouchableOpacity
-        onPress={(event) => {
-          event.stopPropagation();
-          onStartCookMode(meal);
-        }}
-        disabled={busy}
-        className="mb-2 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
-        style={{ opacity: busy ? 0.55 : 1 }}
-        accessibilityRole="button"
-        accessibilityLabel="Start Cook Mode"
-      >
-        <Ionicons name="restaurant-outline" size={16} color="white" />
-        <Text className="font-semibold text-white">Start Cook Mode</Text>
-      </TouchableOpacity>
-
-      <View className="flex-row gap-2">
-        {meal.status !== "cooked" ? (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              void onSetStatus(meal, "cooked");
-            }}
-            disabled={busy}
-            className="flex-1 items-center rounded-xl bg-primary py-2.5"
-            style={{ opacity: busy ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel="Mark dinner cooked"
-          >
-            <Text className="font-semibold text-white">
-              {busy ? "Saving..." : "Cooked"}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              void onSetStatus(meal, "planned");
-            }}
-            disabled={busy}
-            className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
-            style={{ opacity: busy ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel="Plan dinner again"
-          >
-            <Text className="font-semibold text-primary">Plan Again</Text>
-          </TouchableOpacity>
-        )}
-
-        {meal.status !== "skipped" ? (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              void onSetStatus(meal, "skipped");
-            }}
-            disabled={busy}
-            className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
-            style={{ opacity: busy ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel="Skip dinner"
-          >
-            <Text className="font-semibold text-foreground">Skip</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              void onSetStatus(meal, "planned");
-            }}
-            disabled={busy}
-            className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
-            style={{ opacity: busy ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel="Plan dinner"
-          >
-            <Text className="font-semibold text-foreground">Plan</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View className="mt-2 flex-row gap-2">
-        {isMoveTarget ? (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              if (canMoveTarget) void onMoveToTarget(meal);
-            }}
-            disabled={busy || !canMoveTarget}
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
-            style={{ opacity: busy || !canMoveTarget ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              canMoveTarget ? "Move dinner here" : "Dinner slot locked"
-            }
-          >
-            <Ionicons name="swap-horizontal" size={16} color="white" />
-            <Text className="font-semibold text-white">
-              {canMoveTarget ? "Move Here" : "Locked"}
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={(event) => {
-              event.stopPropagation();
-              onStartMove(meal);
-            }}
-            disabled={busy || meal.status === "cooked"}
-            className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
-            style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isMoveSource ? "Cancel dinner move" : "Move dinner"
-            }
-          >
-            <Ionicons name="move-outline" size={16} color="#248f58" />
-            <Text className="font-semibold text-primary">
-              {isMoveSource ? "Cancel Move" : "Move"}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          onPress={(event) => {
-            event.stopPropagation();
-            void onToggleSavedRecipe(meal.recipe._id);
-          }}
-          disabled={saving}
-          className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
-          style={{ opacity: saving ? 0.55 : 1 }}
-          accessibilityRole="button"
-          accessibilityLabel={
-            saved ? "Remove from cookbook" : "Save to cookbook"
-          }
-        >
-          <Ionicons
-            name={saved ? "heart" : "heart-outline"}
-            size={16}
-            color="#248f58"
-          />
-          <Text className="font-semibold text-primary">
-            {saving ? "Saving..." : saved ? "Saved" : "Save"}
+      {readOnly ? (
+        <View className="rounded-xl bg-muted p-3">
+          <Text className="text-sm font-semibold text-foreground">
+            Past week history
           </Text>
-        </TouchableOpacity>
-      </View>
+          <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+            Open dinner details to review ingredients and progress. Return to
+            Current Week to cook, move, or update this dinner.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            onPress={(event) => {
+              event.stopPropagation();
+              onStartCookMode(meal);
+            }}
+            disabled={busy}
+            className="mb-2 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+            style={{ opacity: busy ? 0.55 : 1 }}
+            accessibilityRole="button"
+            accessibilityLabel="Start Cook Mode"
+          >
+            <Ionicons name="restaurant-outline" size={16} color="white" />
+            <Text className="font-semibold text-white">Start Cook Mode</Text>
+          </TouchableOpacity>
+
+          <View className="flex-row gap-2">
+            {meal.status !== "cooked" ? (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  void onSetStatus(meal, "cooked");
+                }}
+                disabled={busy}
+                className="flex-1 items-center rounded-xl bg-primary py-2.5"
+                style={{ opacity: busy ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel="Mark dinner cooked"
+              >
+                <Text className="font-semibold text-white">
+                  {busy ? "Saving..." : "Cooked"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  void onSetStatus(meal, "planned");
+                }}
+                disabled={busy}
+                className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
+                style={{ opacity: busy ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel="Plan dinner again"
+              >
+                <Text className="font-semibold text-primary">Plan Again</Text>
+              </TouchableOpacity>
+            )}
+
+            {meal.status !== "skipped" ? (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  void onSetStatus(meal, "skipped");
+                }}
+                disabled={busy}
+                className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
+                style={{ opacity: busy ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel="Skip dinner"
+              >
+                <Text className="font-semibold text-foreground">Skip</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  void onSetStatus(meal, "planned");
+                }}
+                disabled={busy}
+                className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
+                style={{ opacity: busy ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel="Plan dinner"
+              >
+                <Text className="font-semibold text-foreground">Plan</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View className="mt-2 flex-row gap-2">
+            {isMoveTarget ? (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  if (canMoveTarget) void onMoveToTarget(meal);
+                }}
+                disabled={busy || !canMoveTarget}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+                style={{ opacity: busy || !canMoveTarget ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  canMoveTarget ? "Move dinner here" : "Dinner slot locked"
+                }
+              >
+                <Ionicons name="swap-horizontal" size={16} color="white" />
+                <Text className="font-semibold text-white">
+                  {canMoveTarget ? "Move Here" : "Locked"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={(event) => {
+                  event.stopPropagation();
+                  onStartMove(meal);
+                }}
+                disabled={busy || meal.status === "cooked"}
+                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
+                style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isMoveSource ? "Cancel dinner move" : "Move dinner"
+                }
+              >
+                <Ionicons name="move-outline" size={16} color="#248f58" />
+                <Text className="font-semibold text-primary">
+                  {isMoveSource ? "Cancel Move" : "Move"}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={(event) => {
+                event.stopPropagation();
+                void onToggleSavedRecipe(meal.recipe._id);
+              }}
+              disabled={saving}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5"
+              style={{ opacity: saving ? 0.55 : 1 }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                saved ? "Remove from cookbook" : "Save to cookbook"
+              }
+            >
+              <Ionicons
+                name={saved ? "heart" : "heart-outline"}
+                size={16}
+                color="#248f58"
+              />
+              <Text className="font-semibold text-primary">
+                {saving ? "Saving..." : saved ? "Saved" : "Save"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -2120,6 +2218,7 @@ function GroceryReviewModal({
 function MealDetailModal({
   meal,
   busy,
+  readOnly,
   saved,
   saving,
   onClose,
@@ -2141,6 +2240,7 @@ function MealDetailModal({
 }: {
   meal: PlannedMeal | null;
   busy: boolean;
+  readOnly: boolean;
   saved: boolean;
   saving: boolean;
   onClose: () => void;
@@ -2233,6 +2333,28 @@ function MealDetailModal({
               {recipe.description}
             </Text>
 
+            {readOnly ? (
+              <View className="mt-4 flex-row items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-white">
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={18}
+                    color="#b45309"
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-sm font-semibold text-foreground">
+                    Past week dinners are locked
+                  </Text>
+                  <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                    Review this recipe without changing dinner status, groceries,
+                    pantry history, or cook-mode progress. Return to Current
+                    Week for edits.
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             <View className="my-4 flex-row flex-wrap gap-2">
               <InfoPill
                 icon="time-outline"
@@ -2260,157 +2382,174 @@ function MealDetailModal({
               onChangeServings={setTargetServings}
             />
 
-            <TouchableOpacity
-              onPress={() => void onAddMissingIngredients(meal, targetServings)}
-              disabled={
-                addingMissingMealId === meal._id || missingIngredients.length === 0
-              }
-              className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-              style={{
-                opacity:
-                  addingMissingMealId === meal._id ||
-                  missingIngredients.length === 0
-                    ? 0.55
-                    : 1,
-              }}
-            >
-              {addingMissingMealId === meal._id ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Ionicons name="cart-outline" size={18} color="white" />
-              )}
-              <Text className="font-semibold text-white">
-                {addingMissingMealId === meal._id
-                  ? "Adding..."
-                  : `Add missing for ${formatServingsLabel(targetServings)}`}
-              </Text>
-            </TouchableOpacity>
+            {!readOnly ? (
+              <>
+                <TouchableOpacity
+                  onPress={() =>
+                    void onAddMissingIngredients(meal, targetServings)
+                  }
+                  disabled={
+                    addingMissingMealId === meal._id ||
+                    missingIngredients.length === 0
+                  }
+                  className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+                  style={{
+                    opacity:
+                      addingMissingMealId === meal._id ||
+                      missingIngredients.length === 0
+                        ? 0.55
+                        : 1,
+                  }}
+                >
+                  {addingMissingMealId === meal._id ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Ionicons name="cart-outline" size={18} color="white" />
+                  )}
+                  <Text className="font-semibold text-white">
+                    {addingMissingMealId === meal._id
+                      ? "Adding..."
+                      : `Add missing for ${formatServingsLabel(targetServings)}`}
+                  </Text>
+                </TouchableOpacity>
 
-            <Text className="mb-2 text-base font-bold text-foreground">
-              Adjust This Dinner
-            </Text>
-            <View className="mb-5 rounded-2xl border border-border bg-card p-3">
-              <View className="flex-row flex-wrap gap-2">
-                <AdjustmentButton
-                  label="Swap meal"
-                  icon="swap-horizontal"
-                  busy={adjustingMealId === `${meal._id}:swap`}
-                  disabled={
-                    busy || meal.status === "cooked" || !!adjustingMealId
-                  }
-                  onPress={() => void onAdjustMeal(meal, "swap")}
-                />
-                <AdjustmentButton
-                  label="Make faster"
-                  icon="flash-outline"
-                  busy={adjustingMealId === `${meal._id}:faster`}
-                  disabled={
-                    busy || meal.status === "cooked" || !!adjustingMealId
-                  }
-                  onPress={() => void onAdjustMeal(meal, "faster")}
-                />
-                <AdjustmentButton
-                  label="Kid-friendly"
-                  icon="happy-outline"
-                  busy={adjustingMealId === `${meal._id}:kid_friendly`}
-                  disabled={
-                    busy || meal.status === "cooked" || !!adjustingMealId
-                  }
-                  onPress={() => void onAdjustMeal(meal, "kid_friendly")}
-                />
-                <AdjustmentButton
-                  label="Use pantry"
-                  icon="cube-outline"
-                  busy={adjustingMealId === `${meal._id}:use_pantry`}
-                  disabled={
-                    busy || meal.status === "cooked" || !!adjustingMealId
-                  }
-                  onPress={() => void onAdjustMeal(meal, "use_pantry")}
-                />
-                <AdjustmentButton
-                  label="Regenerate day"
-                  icon="refresh-outline"
-                  busy={adjustingMealId === `${meal._id}:regenerate_day`}
-                  disabled={
-                    busy || meal.status === "cooked" || !!adjustingMealId
-                  }
-                  onPress={() => void onAdjustMeal(meal, "regenerate_day")}
-                />
-              </View>
-
-              <View className="mt-3 rounded-xl bg-muted p-3">
-                <Text className="mb-2 text-sm font-semibold text-foreground">
-                  Avoid something next time
+                <Text className="mb-2 text-base font-bold text-foreground">
+                  Adjust This Dinner
                 </Text>
-                <TextInput
-                  value={avoidText}
-                  onChangeText={onChangeAvoidText}
-                  placeholder="Example: beef, spicy meals, casseroles"
-                  placeholderTextColor="#9a9489"
-                  className="rounded-xl border border-border bg-background px-3 py-3 text-foreground"
-                  editable={!adjustingMealId}
-                />
-                <View className="mt-2 flex-row gap-2">
-                  <TouchableOpacity
-                    onPress={() => void onAdjustMeal(meal, "avoid")}
-                    disabled={
-                      busy ||
-                      meal.status === "cooked" ||
-                      !!adjustingMealId ||
-                      avoidText.trim().length === 0
-                    }
-                    className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
-                    style={{
-                      opacity:
-                        busy ||
-                        meal.status === "cooked" ||
-                        !!adjustingMealId ||
-                        avoidText.trim().length === 0
-                          ? 0.55
-                          : 1,
-                    }}
-                  >
-                    {adjustingMealId === `${meal._id}:avoid` ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <Ionicons name="ban-outline" size={16} color="white" />
-                    )}
-                    <Text className="font-semibold text-white">Adjust</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => void onSaveAvoidPreference()}
-                    disabled={
-                      !canSaveAvoidPreference ||
-                      savedAvoidText === avoidText.trim()
-                    }
-                    className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
-                    style={{
-                      opacity:
-                        !canSaveAvoidPreference ||
-                        savedAvoidText === avoidText.trim()
-                          ? 0.55
-                          : 1,
-                    }}
-                  >
-                    <Text className="font-semibold text-primary">
-                      {savedAvoidText === avoidText.trim()
-                        ? "Saved"
-                        : "Save dislike"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
+                <View className="mb-5 rounded-2xl border border-border bg-card p-3">
+                  <View className="flex-row flex-wrap gap-2">
+                    <AdjustmentButton
+                      label="Swap meal"
+                      icon="swap-horizontal"
+                      busy={adjustingMealId === `${meal._id}:swap`}
+                      disabled={
+                        busy || meal.status === "cooked" || !!adjustingMealId
+                      }
+                      onPress={() => void onAdjustMeal(meal, "swap")}
+                    />
+                    <AdjustmentButton
+                      label="Make faster"
+                      icon="flash-outline"
+                      busy={adjustingMealId === `${meal._id}:faster`}
+                      disabled={
+                        busy || meal.status === "cooked" || !!adjustingMealId
+                      }
+                      onPress={() => void onAdjustMeal(meal, "faster")}
+                    />
+                    <AdjustmentButton
+                      label="Kid-friendly"
+                      icon="happy-outline"
+                      busy={adjustingMealId === `${meal._id}:kid_friendly`}
+                      disabled={
+                        busy || meal.status === "cooked" || !!adjustingMealId
+                      }
+                      onPress={() => void onAdjustMeal(meal, "kid_friendly")}
+                    />
+                    <AdjustmentButton
+                      label="Use pantry"
+                      icon="cube-outline"
+                      busy={adjustingMealId === `${meal._id}:use_pantry`}
+                      disabled={
+                        busy || meal.status === "cooked" || !!adjustingMealId
+                      }
+                      onPress={() => void onAdjustMeal(meal, "use_pantry")}
+                    />
+                    <AdjustmentButton
+                      label="Regenerate day"
+                      icon="refresh-outline"
+                      busy={adjustingMealId === `${meal._id}:regenerate_day`}
+                      disabled={
+                        busy || meal.status === "cooked" || !!adjustingMealId
+                      }
+                      onPress={() => void onAdjustMeal(meal, "regenerate_day")}
+                    />
+                  </View>
 
-            <TouchableOpacity
-              onPress={() => onStartCookMode(meal)}
-              className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
-              accessibilityRole="button"
-              accessibilityLabel="Start Cook Mode"
-            >
-              <Ionicons name="restaurant-outline" size={18} color="white" />
-              <Text className="font-semibold text-white">Start Cook Mode</Text>
-            </TouchableOpacity>
+                  <View className="mt-3 rounded-xl bg-muted p-3">
+                    <Text className="mb-2 text-sm font-semibold text-foreground">
+                      Avoid something next time
+                    </Text>
+                    <TextInput
+                      value={avoidText}
+                      onChangeText={onChangeAvoidText}
+                      placeholder="Example: beef, spicy meals, casseroles"
+                      placeholderTextColor="#9a9489"
+                      className="rounded-xl border border-border bg-background px-3 py-3 text-foreground"
+                      editable={!adjustingMealId}
+                    />
+                    <View className="mt-2 flex-row gap-2">
+                      <TouchableOpacity
+                        onPress={() => void onAdjustMeal(meal, "avoid")}
+                        disabled={
+                          busy ||
+                          meal.status === "cooked" ||
+                          !!adjustingMealId ||
+                          avoidText.trim().length === 0
+                        }
+                        className="flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
+                        style={{
+                          opacity:
+                            busy ||
+                            meal.status === "cooked" ||
+                            !!adjustingMealId ||
+                            avoidText.trim().length === 0
+                              ? 0.55
+                              : 1,
+                        }}
+                      >
+                        {adjustingMealId === `${meal._id}:avoid` ? (
+                          <ActivityIndicator color="white" />
+                        ) : (
+                          <Ionicons
+                            name="ban-outline"
+                            size={16}
+                            color="white"
+                          />
+                        )}
+                        <Text className="font-semibold text-white">Adjust</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => void onSaveAvoidPreference()}
+                        disabled={
+                          !canSaveAvoidPreference ||
+                          savedAvoidText === avoidText.trim()
+                        }
+                        className="flex-1 items-center rounded-xl border border-border bg-card py-2.5"
+                        style={{
+                          opacity:
+                            !canSaveAvoidPreference ||
+                            savedAvoidText === avoidText.trim()
+                              ? 0.55
+                              : 1,
+                        }}
+                      >
+                        <Text className="font-semibold text-primary">
+                          {savedAvoidText === avoidText.trim()
+                            ? "Saved"
+                            : "Save dislike"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => onStartCookMode(meal)}
+                  className="mb-5 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-3"
+                  accessibilityRole="button"
+                  accessibilityLabel="Start Cook Mode"
+                >
+                  <Ionicons
+                    name="restaurant-outline"
+                    size={18}
+                    color="white"
+                  />
+                  <Text className="font-semibold text-white">
+                    Start Cook Mode
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
 
             <Text className="mb-2 text-base font-bold text-foreground">
               Ingredients
@@ -2467,7 +2606,7 @@ function MealDetailModal({
               ))}
             </View>
 
-            {meal.alternatives.length > 0 ? (
+            {!readOnly && meal.alternatives.length > 0 ? (
               <>
                 <Text className="mb-2 text-base font-bold text-foreground">
                   Swap Dinner
@@ -2509,15 +2648,19 @@ function MealDetailModal({
             ) : null}
 
             <View className="mb-2 flex-row gap-2">
-              <TouchableOpacity
-                onPress={() => onStartMove(meal)}
-                disabled={busy || meal.status === "cooked"}
-                className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
-                style={{ opacity: busy || meal.status === "cooked" ? 0.55 : 1 }}
-              >
-                <Ionicons name="move-outline" size={17} color="#248f58" />
-                <Text className="font-semibold text-primary">Move</Text>
-              </TouchableOpacity>
+              {!readOnly ? (
+                <TouchableOpacity
+                  onPress={() => onStartMove(meal)}
+                  disabled={busy || meal.status === "cooked"}
+                  className="flex-1 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+                  style={{
+                    opacity: busy || meal.status === "cooked" ? 0.55 : 1,
+                  }}
+                >
+                  <Ionicons name="move-outline" size={17} color="#248f58" />
+                  <Text className="font-semibold text-primary">Move</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity
                 onPress={() => void onToggleSavedRecipe(recipe._id)}
                 disabled={saving}
@@ -2535,76 +2678,106 @@ function MealDetailModal({
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => onShareRecipe(recipe, targetServings)}
-                className="h-12 w-12 items-center justify-center rounded-xl border border-border bg-card"
+                className={`${readOnly ? "flex-1" : "h-12 w-12"} items-center justify-center rounded-xl border border-border bg-card`}
                 accessibilityRole="button"
                 accessibilityLabel={`Share ${recipe.title}`}
               >
                 <Ionicons name="share-outline" size={18} color="#248f58" />
+                {readOnly ? (
+                  <Text className="mt-1 font-semibold text-primary">Share</Text>
+                ) : null}
               </TouchableOpacity>
             </View>
 
-            <View className="flex-row gap-2">
-              {meal.status !== "cooked" ? (
-                <TouchableOpacity
-                  onPress={() => void onSetStatus(meal, "cooked")}
-                  disabled={busy}
-                  className="flex-1 items-center rounded-xl bg-primary py-3"
-                  style={{ opacity: busy ? 0.55 : 1 }}
-                >
-                  <Text className="font-semibold text-white">
-                    {busy ? "Saving..." : "Mark Cooked"}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => void onSetStatus(meal, "planned")}
-                  disabled={busy}
-                  className="flex-1 items-center rounded-xl border border-border bg-card py-3"
-                  style={{ opacity: busy ? 0.55 : 1 }}
-                >
-                  <Text className="font-semibold text-primary">Plan Again</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity
-                onPress={() =>
-                  void onSetStatus(
-                    meal,
-                    meal.status === "skipped" ? "planned" : "skipped",
-                  )
-                }
-                disabled={busy}
-                className="flex-1 items-center rounded-xl border border-border bg-card py-3"
-                style={{ opacity: busy ? 0.55 : 1 }}
-              >
-                <Text className="font-semibold text-foreground">
-                  {meal.status === "skipped" ? "Plan" : "Skip"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {!readOnly ? (
+              <>
+                <View className="flex-row gap-2">
+                  {meal.status !== "cooked" ? (
+                    <TouchableOpacity
+                      onPress={() => void onSetStatus(meal, "cooked")}
+                      disabled={busy}
+                      className="flex-1 items-center rounded-xl bg-primary py-3"
+                      style={{ opacity: busy ? 0.55 : 1 }}
+                    >
+                      <Text className="font-semibold text-white">
+                        {busy ? "Saving..." : "Mark Cooked"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => void onSetStatus(meal, "planned")}
+                      disabled={busy}
+                      className="flex-1 items-center rounded-xl border border-border bg-card py-3"
+                      style={{ opacity: busy ? 0.55 : 1 }}
+                    >
+                      <Text className="font-semibold text-primary">
+                        Plan Again
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    onPress={() =>
+                      void onSetStatus(
+                        meal,
+                        meal.status === "skipped" ? "planned" : "skipped",
+                      )
+                    }
+                    disabled={busy}
+                    className="flex-1 items-center rounded-xl border border-border bg-card py-3"
+                    style={{ opacity: busy ? 0.55 : 1 }}
+                  >
+                    <Text className="font-semibold text-foreground">
+                      {meal.status === "skipped" ? "Plan" : "Skip"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-            {meal.status === "cooked" ? (
-              <View className="mt-5">
-                <RecipeFeedback
-                  recipeId={recipe._id as Id<"recipeSuggestions">}
-                />
-              </View>
+                {meal.status === "cooked" ? (
+                  <View className="mt-5">
+                    <RecipeFeedback
+                      recipeId={recipe._id as Id<"recipeSuggestions">}
+                    />
+                  </View>
+                ) : (
+                  <View className="mt-5 rounded-2xl border border-border bg-muted/40 p-4">
+                    <View className="flex-row items-start gap-3">
+                      <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                        <Ionicons
+                          name="restaurant-outline"
+                          size={18}
+                          color="#248f58"
+                        />
+                      </View>
+                      <View className="flex-1">
+                        <Text className="font-semibold text-foreground">
+                          Cook, then rate it
+                        </Text>
+                        <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                          Mark this dinner cooked to update pantry and record
+                          what your family thought.
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </>
             ) : (
               <View className="mt-5 rounded-2xl border border-border bg-muted/40 p-4">
                 <View className="flex-row items-start gap-3">
                   <View className="h-9 w-9 items-center justify-center rounded-full bg-primary/10">
                     <Ionicons
-                      name="restaurant-outline"
+                      name="time-outline"
                       size={18}
                       color="#248f58"
                     />
                   </View>
                   <View className="flex-1">
                     <Text className="font-semibold text-foreground">
-                      Cook, then rate it
+                      Past week history stays preserved
                     </Text>
                     <Text className="mt-1 text-sm leading-5 text-muted-foreground">
-                      Mark this dinner cooked to update pantry and record what
-                      your family thought.
+                      FamilyPlate keeps older dinner results locked so your
+                      household history does not drift after the week is over.
                     </Text>
                   </View>
                 </View>
