@@ -3,6 +3,8 @@ import { mutation, type MutationCtx } from "../_generated/server";
 import { v } from "convex/values";
 import { resolveExpirationDate } from "../lib/pantryExpiration";
 
+const EXPIRATION_BACKFILL_BATCH_SIZE = 50;
+
 function requireNonEmptyString(value: string, fieldName: string) {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -293,12 +295,21 @@ export const backfillMissingExpirationDates = mutation({
       .collect();
 
     let updated = 0;
+    let hasMore = false;
     for (const item of items) {
-      if (item.expirationDate && item.expirationDateSource) {
+      const hasExpirationDate = item.expirationDate !== undefined;
+      const hasExpirationDateSource = item.expirationDateSource !== undefined;
+
+      if (hasExpirationDate && hasExpirationDateSource) {
         continue;
       }
 
-      if (item.expirationDate && !item.expirationDateSource) {
+      if (updated >= EXPIRATION_BACKFILL_BATCH_SIZE) {
+        hasMore = true;
+        break;
+      }
+
+      if (hasExpirationDate && !hasExpirationDateSource) {
         await ctx.db.patch(item._id, { expirationDateSource: "manual" });
         updated++;
         continue;
@@ -313,7 +324,7 @@ export const backfillMissingExpirationDates = mutation({
       updated++;
     }
 
-    return { updated };
+    return { updated, hasMore };
   },
 });
 
