@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now keeps past weekly plans safer to review on iPhone, so older saved weeks stay history-only while your current week remains editable.
-- App Review status: Current live version is `1.16.9` build `60` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-03. There is no newer App Store version or in-review iOS build at the start of this `1.16.10` release lane.
+- App Review status: Current live version is `1.16.9` build `60` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-03. Local release source `ea32aa9fd64fe77c47fc7f52776bfd64f41d8477` built and pushed `1.16.10` build `61`, `npx eas-cli@latest metadata:push --profile production --non-interactive` synced the App Store version, and `npx eas-cli@latest submit --platform ios --profile production --path /Users/noahthies/.codex/worktrees/49ea/familyplate/apps/mobile/build-1783088429303.ipa --non-interactive` uploaded the same IPA on 2026-07-03. Apple accepted the binary and is processing build `61`; App Review submission is waiting on that same build to surface as selectable in App Store Connect.
 
 ## App Preview
 
