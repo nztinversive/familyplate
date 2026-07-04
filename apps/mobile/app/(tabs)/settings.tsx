@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import * as WebBrowser from "expo-web-browser";
 import { usePostHog } from "posthog-react-native";
 import { api } from "@familyplate/convex/_generated/api";
@@ -131,6 +131,10 @@ function getUniqueValues(values: string[]) {
   );
 }
 
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 function buildInviteShareText(householdName: string, inviteCode: string) {
   const inviteUrl = `${APP_URL}/join/${inviteCode}`;
   return `Join ${householdName} on FamilyPlate.\n\nInvite code: ${inviteCode}\n${inviteUrl}`;
@@ -156,11 +160,13 @@ export default function SettingsScreen() {
   const updateProfile = useMutation(api.mutations.profiles.updateProfile);
   const addFamilyMember = useMutation(api.mutations.profiles.addFamilyMember);
   const deleteAccount = useMutation(api.mutations.profiles.deleteMyAccount);
+  const sendInviteEmail = useAction(api.actions.sendInviteEmail.sendInviteEmail);
 
   const [allergiesInput, setAllergiesInput] = useState("");
   const [dislikesInput, setDislikesInput] = useState("");
   const [showEaterForm, setShowEaterForm] = useState(false);
   const [eaterName, setEaterName] = useState("");
+  const [eaterEmail, setEaterEmail] = useState("");
   const [eaterAge, setEaterAge] = useState("");
   const [eaterIsChild, setEaterIsChild] = useState(true);
   const [eaterDietaryInput, setEaterDietaryInput] = useState("");
@@ -169,6 +175,7 @@ export default function SettingsScreen() {
   const [isAddingEater, setIsAddingEater] = useState(false);
   const [eaterError, setEaterError] = useState("");
   const [eaterSaved, setEaterSaved] = useState(false);
+  const [eaterSavedMessage, setEaterSavedMessage] = useState("Eater profile added.");
   const [isSaving, setIsSaving] = useState(false);
   const [removingDislike, setRemovingDislike] = useState<string | null>(null);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -369,6 +376,7 @@ export default function SettingsScreen() {
 
   const resetEaterForm = () => {
     setEaterName("");
+    setEaterEmail("");
     setEaterAge("");
     setEaterIsChild(true);
     setEaterDietaryInput("");
@@ -386,33 +394,78 @@ export default function SettingsScreen() {
     }
 
     const parsedAge = eaterAge.trim() ? Number(eaterAge.trim()) : undefined;
+    const normalizedEmail = eaterEmail.trim().toLowerCase();
     if (parsedAge !== undefined && (!Number.isFinite(parsedAge) || parsedAge <= 0)) {
       setEaterError("Age must be a positive number.");
+      return;
+    }
+    if (!eaterIsChild && normalizedEmail && !isValidEmail(normalizedEmail)) {
+      setEaterError("Enter a valid email to send an invite.");
       return;
     }
 
     setIsAddingEater(true);
     setEaterError("");
     setEaterSaved(false);
+    setEaterSavedMessage("Eater profile added.");
 
     try {
       await addFamilyMember({
         householdId: currentUser.householdId,
         name,
+        email: !eaterIsChild && normalizedEmail ? normalizedEmail : undefined,
         isChild: eaterIsChild,
         age: parsedAge,
         dietaryPreferences: parseCommaSeparatedList(eaterDietaryInput),
         allergies: parseCommaSeparatedList(eaterAllergiesInput),
         dislikes: parseCommaSeparatedList(eaterDislikesInput),
       });
+      let nextSavedMessage = "Eater profile added.";
+
+      if (!eaterIsChild && normalizedEmail && household?._id) {
+        try {
+          const result = await sendInviteEmail({
+            toEmail: normalizedEmail,
+            memberName: name,
+            householdId: household._id,
+          });
+
+          if (result.success) {
+            nextSavedMessage = `Eater profile added and invite emailed to ${normalizedEmail}.`;
+            track(posthog, "household_invite_email_sent", {
+              source: "ios_settings",
+              has_existing_household: true,
+            });
+          } else {
+            nextSavedMessage =
+              "Eater profile added. Invite email could not be sent yet.";
+            track(posthog, "household_invite_email_failed", {
+              source: "ios_settings",
+              reason: result.error ?? "unknown",
+            });
+          }
+        } catch (err) {
+          Sentry.captureException(err, {
+            tags: { area: "settings", action: "send_invite_email", platform: "ios" },
+          });
+          nextSavedMessage =
+            "Eater profile added. Invite email could not be sent yet.";
+          track(posthog, "household_invite_email_failed", {
+            source: "ios_settings",
+            reason: err instanceof Error ? err.message : "unknown",
+          });
+        }
+      }
       track(posthog, "eater_profile_added", {
         is_child: eaterIsChild,
+        sent_invite_email: !eaterIsChild && !!normalizedEmail,
         has_allergies: parseCommaSeparatedList(eaterAllergiesInput).length > 0,
         has_dislikes: parseCommaSeparatedList(eaterDislikesInput).length > 0,
       });
       resetEaterForm();
       setShowEaterForm(false);
       setEaterSaved(true);
+      setEaterSavedMessage(nextSavedMessage);
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: "settings", action: "add_eater_profile", platform: "ios" },
@@ -605,6 +658,7 @@ export default function SettingsScreen() {
             canManageMembers={canManageMembers}
             showForm={showEaterForm}
             eaterName={eaterName}
+            eaterEmail={eaterEmail}
             eaterAge={eaterAge}
             eaterIsChild={eaterIsChild}
             eaterDietaryInput={eaterDietaryInput}
@@ -613,19 +667,29 @@ export default function SettingsScreen() {
             isAddingEater={isAddingEater}
             eaterError={eaterError}
             eaterSaved={eaterSaved}
+            eaterSavedMessage={eaterSavedMessage}
             onToggleForm={() => {
               setShowEaterForm((current) => !current);
               setEaterError("");
               setEaterSaved(false);
+              setEaterSavedMessage("Eater profile added.");
             }}
             onCancel={() => {
               resetEaterForm();
               setShowEaterForm(false);
               setEaterError("");
+              setEaterSaved(false);
+              setEaterSavedMessage("Eater profile added.");
             }}
             onChangeName={setEaterName}
+            onChangeEmail={setEaterEmail}
             onChangeAge={setEaterAge}
-            onChangeIsChild={setEaterIsChild}
+            onChangeIsChild={(value) => {
+              setEaterIsChild(value);
+              if (value) {
+                setEaterEmail("");
+              }
+            }}
             onChangeDietary={setEaterDietaryInput}
             onChangeAllergies={setEaterAllergiesInput}
             onChangeDislikes={setEaterDislikesInput}
@@ -1084,6 +1148,7 @@ function EaterProfilesCard({
   canManageMembers,
   showForm,
   eaterName,
+  eaterEmail,
   eaterAge,
   eaterIsChild,
   eaterDietaryInput,
@@ -1092,9 +1157,11 @@ function EaterProfilesCard({
   isAddingEater,
   eaterError,
   eaterSaved,
+  eaterSavedMessage,
   onToggleForm,
   onCancel,
   onChangeName,
+  onChangeEmail,
   onChangeAge,
   onChangeIsChild,
   onChangeDietary,
@@ -1106,6 +1173,7 @@ function EaterProfilesCard({
   canManageMembers: boolean;
   showForm: boolean;
   eaterName: string;
+  eaterEmail: string;
   eaterAge: string;
   eaterIsChild: boolean;
   eaterDietaryInput: string;
@@ -1114,9 +1182,11 @@ function EaterProfilesCard({
   isAddingEater: boolean;
   eaterError: string;
   eaterSaved: boolean;
+  eaterSavedMessage: string;
   onToggleForm: () => void;
   onCancel: () => void;
   onChangeName: (value: string) => void;
+  onChangeEmail: (value: string) => void;
   onChangeAge: (value: string) => void;
   onChangeIsChild: (value: boolean) => void;
   onChangeDietary: (value: string) => void;
@@ -1155,7 +1225,7 @@ function EaterProfilesCard({
         <View className="mb-3 flex-row items-start gap-2 rounded-xl border border-primary/20 bg-primary/10 p-3">
           <Ionicons name="checkmark-circle" size={18} color="#248f58" />
           <Text className="flex-1 text-sm leading-5 text-primary">
-            Eater profile added.
+            {eaterSavedMessage}
           </Text>
         </View>
       ) : null}
@@ -1220,6 +1290,27 @@ function EaterProfilesCard({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {!eaterIsChild ? (
+            <View>
+              <Text className="mb-2 text-sm font-bold text-foreground">
+                Invite email optional
+              </Text>
+              <TextInput
+                value={eaterEmail}
+                onChangeText={onChangeEmail}
+                placeholder="they@example.com"
+                placeholderTextColor="#9a9489"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                className="rounded-xl bg-muted p-3 text-base text-foreground"
+              />
+              <Text className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                Adult members can get the household invite link by email right after you add them.
+              </Text>
+            </View>
+          ) : null}
 
           <View>
             <Text className="mb-2 text-sm font-bold text-foreground">

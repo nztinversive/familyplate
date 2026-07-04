@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.10
+- Version under prep: 1.16.11
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate now keeps past weekly plans safer to review on iPhone, so older saved weeks stay history-only while your current week remains editable.
-- App Review status: Current live version is `1.16.9` build `60` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-03. Local release source `ea32aa9fd64fe77c47fc7f52776bfd64f41d8477` built and pushed `1.16.10` build `61`, `npx eas-cli@latest metadata:push --profile production --non-interactive` synced the App Store version, `npx eas-cli@latest submit --platform ios --profile production --path /Users/noahthies/.codex/worktrees/49ea/familyplate/apps/mobile/build-1783088429303.ipa --non-interactive` uploaded the same IPA on 2026-07-03, and `fastlane deliver submit_build` then submitted that exact processed build for App Review. Direct App Store Connect read-back at 2026-07-03T16:02:42Z shows version `1.16.10` build `61` in `WAITING_FOR_REVIEW` with manual release.
+- What's New: FamilyPlate now makes adult household invites easier to finish from iPhone, so admins can add an adult eater profile, attach an invite email, and send the shared household link from the same Settings flow.
+- App Review status: Current live version is `1.16.10` build `61` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-04. `origin/master` is now preparing `1.16.11` as the next iOS version from the same cumulative release source chain.
 
 ## App Preview
 
@@ -33,9 +33,11 @@ Use a reviewer-only account that stays active through review.
 - Demo password: use the password for that dedicated test account
 - Notes:
 
-FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking with estimated expiration dates, Pantry cook-this-first shortcuts into Tonight, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Weekly Plan history browsing, Tonight suggestions, shop-first dinner suggestions, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, barcode scanning, household invite codes, and native in-app household joining.
+FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking with estimated expiration dates, Pantry cook-this-first shortcuts into Tonight, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Weekly Plan history browsing, Tonight suggestions, shop-first dinner suggestions, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, barcode scanning, household invite codes, adult invite emails from Settings, and native in-app household joining.
 
 AI features show a consent prompt before sending app data to third-party AI providers. Meal planning and photo recognition may send pantry items, grocery photos, household preferences, dietary notes, allergies, and recipe requests to OpenAI to provide the requested app functionality.
+
+In Settings > Eater Profiles, adults now support an optional invite email while child profiles still hide that field. Add an adult profile with a test email address and confirm the success message reflects whether the invite email was sent without blocking the profile save.
 
 If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week. Confirm that older dinners open in a read-only history view, then return to Current Week and confirm the active plan is still available for edits without losing the current progress view.
 
@@ -86,27 +88,29 @@ Recommended age rating answers:
 
 1. Sign in with the demo account.
 2. Open Settings and note the household invite code.
-3. Sign out, create or sign in to a second account, and confirm setup now offers a Join an existing household path with invite-code entry.
-4. Enter the invite code from step 2 and confirm the second account joins the shared household without leaving the iPhone app.
-5. Open Pantry and add a pantry item manually without entering an expiration date.
-6. Confirm the saved pantry item shows an `Est.` expiration label based on its name and storage location.
-7. Edit that pantry item, enter a manual expiration date, save it, and confirm the label no longer shows `Est.`.
-8. Add or edit another pantry item so it expires soon, then confirm the Pantry alerts call out expired or expiring-soon items near the top.
-9. In Pantry, confirm the new `Cook these first` section lists leftovers or soon-expiring items and tap one item to open Tonight suggestions for it.
-10. In Tonight, confirm suggestions start from the pantry item selected in Pantry and still show pantry ingredient highlights on each card.
-11. Tap Suggest What to Buy, expand one shop-first recipe, and confirm the card clearly separates ingredients you already have from the ones you need to buy.
-12. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
-13. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
-14. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
-15. If multiple saved weeks are available on the demo household, use the header chevrons to move to a past week, confirm its dinners and progress load in read-only history mode, then return to Current Week.
-16. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
-17. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
-18. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
-19. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
-20. Use Snap Groceries to test camera/photo recognition and barcode scanning.
-21. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
-22. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
-23. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
-24. Submit a fresh dinner check-in again and verify the updated response saves successfully.
-25. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
-26. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+3. In Eater Profiles, add an adult profile with a test email address and confirm the invite email field is shown only for adults.
+4. Save that adult profile and confirm the success message reports the profile save and invite-email outcome without blocking the save.
+5. Sign out, create or sign in to a second account, and confirm setup now offers a Join an existing household path with invite-code entry.
+6. Enter the invite code from step 2 and confirm the second account joins the shared household without leaving the iPhone app.
+7. Open Pantry and add a pantry item manually without entering an expiration date.
+8. Confirm the saved pantry item shows an `Est.` expiration label based on its name and storage location.
+9. Edit that pantry item, enter a manual expiration date, save it, and confirm the label no longer shows `Est.`.
+10. Add or edit another pantry item so it expires soon, then confirm the Pantry alerts call out expired or expiring-soon items near the top.
+11. In Pantry, confirm the new `Cook these first` section lists leftovers or soon-expiring items and tap one item to open Tonight suggestions for it.
+12. In Tonight, confirm suggestions start from the pantry item selected in Pantry and still show pantry ingredient highlights on each card.
+13. Tap Suggest What to Buy, expand one shop-first recipe, and confirm the card clearly separates ingredients you already have from the ones you need to buy.
+14. Leave Tonight and return to it, then confirm the fuller generated suggestion list is still available.
+15. From that shop-first Tonight recipe, add missing ingredients to Grocery List and confirm the list reflects the suggested items.
+16. Open Weekly Plan, view one dinner's details, change the serving count, and confirm ingredient quantities update there as well.
+17. If multiple saved weeks are available on the demo household, use the header chevrons to move to a past week, confirm its dinners and progress load in read-only history mode, then return to Current Week.
+18. From Weekly Plan dinner details, add only that dinner's missing ingredients to Grocery List and confirm the items are added without replacing the rest of the plan.
+19. Open Cookbook, expand a saved recipe, change the serving count, and confirm the scaled ingredient quantities and Grocery action match the chosen serving size.
+20. Open Grocery List, add a manual errand item, run Generate from Plan, and confirm the manual item stays on the list beside the planned-dinner ingredients.
+21. Check off one grocery item, tap Share, and confirm the shared list includes only the remaining unchecked items.
+22. Use Snap Groceries to test camera/photo recognition and barcode scanning.
+23. Start Cook Mode from Cookbook or Weekly Plan, finish it, and optionally save leftovers with quantity and storage.
+24. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
+25. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
+26. Submit a fresh dinner check-in again and verify the updated response saves successfully.
+27. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+28. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.

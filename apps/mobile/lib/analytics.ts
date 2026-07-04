@@ -22,6 +22,8 @@ export type AnalyticsEvent =
   | "magic_link_sent"
   | "password_reset_requested"
   | "household_invite_shared"
+  | "household_invite_email_sent"
+  | "household_invite_email_failed"
   | "user_signed_in"
   | "user_signed_up"
   | "onboarding_completed"

@@ -1,5 +1,5 @@
-FamilyPlate now keeps past weekly plans safer to review on iPhone.
+FamilyPlate now makes adult household invites easier to finish from iPhone.
 
-- Older saved weeks now open in a read-only history view.
-- Review past dinner progress without accidentally changing groceries or pantry state.
-- Return to the active week in one tap when you are ready to edit dinners again.
+- Add an adult eater profile with an optional invite email in Settings.
+- Send the shared household invite link right after saving the profile.
+- Keep child profiles unchanged while adult invites stay in the same setup flow.
