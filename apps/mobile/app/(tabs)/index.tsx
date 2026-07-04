@@ -99,7 +99,14 @@ export default function PantryScreen() {
       )
     ) {
       setExpirationBackfillRequested(true);
-      void backfillMissingExpirationDates();
+      void backfillMissingExpirationDates().catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        if (/Network request failed/i.test(message)) return;
+
+        Sentry.captureException(err, {
+          tags: { area: "pantry", operation: "expiration_backfill" },
+        });
+      });
     }
   }, [
     allPantryItems,
