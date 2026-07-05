@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now makes adult household invites easier to finish from iPhone, so admins can add an adult eater profile, attach an invite email, and send the shared household link from the same Settings flow.
-- App Review status: Current live version is `1.16.10` build `61` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-04. `origin/master` is now preparing `1.16.11` as the next iOS version from the same cumulative release source chain.
+- App Review status: Current live version is `1.16.10` build `61` in `READY_FOR_SALE` after the manual release request was accepted on 2026-07-04. Version `1.16.11` build `62` was built locally, uploaded, and submitted from `origin/master` commit `61a2f510c34d9261dfeca7e48211d8f611a4ccc4` on 2026-07-04 and is now `WAITING_FOR_REVIEW` with manual release.
 
 ## App Preview
 
