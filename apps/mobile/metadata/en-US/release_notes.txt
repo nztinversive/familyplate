@@ -1,5 +1,5 @@
-FamilyPlate now makes adult household invites easier to finish from iPhone.
+FamilyPlate now helps admins finish adult household invites after the first email.
 
-- Add an adult eater profile with an optional invite email in Settings.
-- Send the shared household invite link right after saving the profile.
-- Keep child profiles unchanged while adult invites stay in the same setup flow.
+- Show which adult household members are still waiting to join.
+- Resend the invite email from the household member card in Settings.
+- Keep joined adults and child profiles unchanged in the same shared-household flow.

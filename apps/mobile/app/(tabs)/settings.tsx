@@ -140,6 +140,14 @@ function buildInviteShareText(householdName: string, inviteCode: string) {
   return `Join ${householdName} on FamilyPlate.\n\nInvite code: ${inviteCode}\n${inviteUrl}`;
 }
 
+function hasJoinedHousehold(member: Profile) {
+  return member.authId.trim().length > 0;
+}
+
+function isPendingInviteMember(member: Profile) {
+  return !member.isChild && !!member.email && !hasJoinedHousehold(member);
+}
+
 export default function SettingsScreen() {
   const { signOut } = useAuthActions();
   const posthog = usePostHog();
@@ -187,6 +195,7 @@ export default function SettingsScreen() {
   const [isLoadingBilling, setIsLoadingBilling] = useState(false);
   const [isPurchasingPackage, setIsPurchasingPackage] = useState<string | null>(null);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
+  const [resendingInviteProfileId, setResendingInviteProfileId] = useState<string | null>(null);
   const syncedProfileId = useRef<string | null>(null);
   const trackedPaywallForUser = useRef<string | null>(null);
 
@@ -241,6 +250,41 @@ export default function SettingsScreen() {
         tags: { area: "settings", action: "share_invite", platform: "ios" },
       });
       setError(err instanceof Error ? err.message : "Couldn't share invite.");
+    }
+  };
+
+  const handleResendInvite = async (member: Profile) => {
+    if (!household?._id || !isPendingInviteMember(member)) return;
+
+    setResendingInviteProfileId(member._id);
+    setError("");
+
+    try {
+      const result = await sendInviteEmail({
+        toEmail: member.email,
+        memberName: member.name,
+        householdId: household._id,
+      });
+
+      if (!result.success) {
+        throw new Error(result.error ?? "Invite email could not be sent.");
+      }
+
+      track(posthog, "household_invite_email_resent", {
+        source: "ios_settings_household_card",
+      });
+      Alert.alert("Invite resent", `FamilyPlate emailed ${member.email} again.`);
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { area: "settings", action: "resend_invite_email", platform: "ios" },
+      });
+      track(posthog, "household_invite_email_resend_failed", {
+        source: "ios_settings_household_card",
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+      Alert.alert("Invite not sent", getErrorMessage(err));
+    } finally {
+      setResendingInviteProfileId(null);
     }
   };
 
@@ -650,7 +694,10 @@ export default function SettingsScreen() {
           <HouseholdCard
             household={household}
             members={members ?? []}
+            canManageMembers={canManageMembers}
             onShareInvite={() => void shareHouseholdInvite()}
+            onResendInvite={(member) => void handleResendInvite(member)}
+            resendingInviteProfileId={resendingInviteProfileId}
           />
 
           <EaterProfilesCard
@@ -1008,12 +1055,20 @@ function ProfileStat({
 function HouseholdCard({
   household,
   members,
+  canManageMembers,
   onShareInvite,
+  onResendInvite,
+  resendingInviteProfileId,
 }: {
   household: Doc<"households"> | null;
   members: Profile[];
+  canManageMembers: boolean;
   onShareInvite: () => void;
+  onResendInvite: (member: Profile) => void;
+  resendingInviteProfileId: string | null;
 }) {
+  const pendingInviteCount = members.filter(isPendingInviteMember).length;
+
   return (
     <View className="mb-4 rounded-2xl border border-border bg-card p-4">
       <View className="mb-4 flex-row items-start justify-between gap-3">
@@ -1073,49 +1128,116 @@ function HouseholdCard({
         </View>
       </View>
 
+      {pendingInviteCount > 0 ? (
+        <View className="mb-3 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2.5">
+          <Text className="text-sm font-semibold text-foreground">
+            {pendingInviteCount} adult invite
+            {pendingInviteCount === 1 ? "" : "s"} pending
+          </Text>
+          <Text className="mt-1 text-xs leading-4 text-muted-foreground">
+            Pending adults have not joined the shared household yet. You can resend their invite email below.
+          </Text>
+        </View>
+      ) : null}
+
       <View className="gap-2">
-        {members.map((member) => (
-          <View key={member._id} className="rounded-xl bg-muted p-3">
-            <View className="flex-row items-center gap-3">
-              <View className="h-9 w-9 items-center justify-center rounded-xl bg-card">
-                <Text className="font-bold text-foreground">
-                  {member.name[0]?.toUpperCase() ?? "?"}
-                </Text>
+        {members.map((member) => {
+          const pendingInvite = isPendingInviteMember(member);
+          const isResendingInvite = resendingInviteProfileId === member._id;
+
+          return (
+            <View key={member._id} className="rounded-xl bg-muted p-3">
+              <View className="flex-row items-center gap-3">
+                <View className="h-9 w-9 items-center justify-center rounded-xl bg-card">
+                  <Text className="font-bold text-foreground">
+                    {member.name[0]?.toUpperCase() ?? "?"}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="font-semibold text-foreground">
+                    {member.name}
+                  </Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {member.email || "Managed eater profile"}
+                  </Text>
+                  {pendingInvite ? (
+                    <Text className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
+                      Pending invite
+                    </Text>
+                  ) : null}
+                </View>
+                <View className="rounded-full bg-card px-2 py-1">
+                  <Text className="text-xs font-semibold capitalize text-muted-foreground">
+                    {member.isChild ? "child" : member.role}
+                  </Text>
+                </View>
               </View>
-              <View className="flex-1">
-                <Text className="font-semibold text-foreground">
-                  {member.name}
-                </Text>
-                <Text className="text-xs text-muted-foreground">
-                  {member.email || "Managed eater profile"}
-                </Text>
-              </View>
-              <View className="rounded-full bg-card px-2 py-1">
-                <Text className="text-xs font-semibold capitalize text-muted-foreground">
-                  {member.isChild ? "child" : member.role}
-                </Text>
-              </View>
+              {member.allergies.length > 0 || member.dislikes.length > 0 ? (
+                <View className="mt-3 gap-2">
+                  {member.allergies.length > 0 ? (
+                    <MemberSafetyRow
+                      icon="medical-outline"
+                      label="Allergies"
+                      values={member.allergies}
+                    />
+                  ) : null}
+                  {member.dislikes.length > 0 ? (
+                    <MemberSafetyRow
+                      icon="close-circle-outline"
+                      label="Dislikes"
+                      values={member.dislikes}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+
+              {pendingInvite ? (
+                <View className="mt-3 rounded-xl border border-primary/20 bg-card px-3 py-3">
+                  <View className="flex-row items-start gap-2">
+                    <Ionicons
+                      name="mail-unread-outline"
+                      size={16}
+                      color="#248f58"
+                    />
+                    <View className="flex-1">
+                      <Text className="text-sm font-semibold text-foreground">
+                        Waiting for this adult to join
+                      </Text>
+                      <Text className="mt-1 text-xs leading-5 text-muted-foreground">
+                        FamilyPlate will attach this member to the shared
+                        household once they sign in with {member.email}.
+                      </Text>
+                    </View>
+                  </View>
+
+                  {canManageMembers ? (
+                    <TouchableOpacity
+                      onPress={() => onResendInvite(member)}
+                      disabled={isResendingInvite}
+                      className="mt-3 flex-row items-center justify-center gap-2 rounded-xl border border-primary/25 bg-primary/10 py-2.5"
+                      style={{ opacity: isResendingInvite ? 0.55 : 1 }}
+                    >
+                      {isResendingInvite ? (
+                        <ActivityIndicator color="#248f58" />
+                      ) : (
+                        <Ionicons
+                          name="paper-plane-outline"
+                          size={16}
+                          color="#248f58"
+                        />
+                      )}
+                      <Text className="font-semibold text-primary">
+                        {isResendingInvite
+                          ? "Sending invite..."
+                          : "Resend invite email"}
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
-            {member.allergies.length > 0 || member.dislikes.length > 0 ? (
-              <View className="mt-3 gap-2">
-                {member.allergies.length > 0 ? (
-                  <MemberSafetyRow
-                    icon="medical-outline"
-                    label="Allergies"
-                    values={member.allergies}
-                  />
-                ) : null}
-                {member.dislikes.length > 0 ? (
-                  <MemberSafetyRow
-                    icon="close-circle-outline"
-                    label="Dislikes"
-                    values={member.dislikes}
-                  />
-                ) : null}
-              </View>
-            ) : null}
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );

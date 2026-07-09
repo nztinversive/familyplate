@@ -1,26 +1,24 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { usePathname } from "expo-router";
 import { useQuery } from "convex/react";
-import { PostHogProvider, usePostHog } from "posthog-react-native";
+import { PostHogProvider, usePostHog, type PostHog } from "posthog-react-native";
 import { api } from "@familyplate/convex/_generated/api";
 import { Sentry } from "@/lib/sentry";
 
 const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
 const posthogHost = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
+const noOpPostHog = new Proxy(
+  {},
+  {
+    get: () => () => undefined,
+  },
+) as PostHog;
 
 export function MonitoringProvider({ children }: { children: ReactNode }) {
-  if (!posthogKey) {
-    return (
-      <>
-        <SentryUserTracker />
-        {children}
-      </>
-    );
-  }
-
   return (
     <PostHogProvider
       apiKey={posthogKey}
+      client={posthogKey ? undefined : noOpPostHog}
       options={{
         host: posthogHost,
         captureAppLifecycleEvents: true,
@@ -30,8 +28,13 @@ export function MonitoringProvider({ children }: { children: ReactNode }) {
         captureTouches: false,
       }}
     >
-      <UserAnalyticsTracker />
-      <ScreenTracker />
+      <SentryUserTracker />
+      {posthogKey ? (
+        <>
+          <UserAnalyticsTracker />
+          <ScreenTracker />
+        </>
+      ) : null}
       {children}
     </PostHogProvider>
   );

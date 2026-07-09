@@ -24,6 +24,8 @@ export type AnalyticsEvent =
   | "household_invite_shared"
   | "household_invite_email_sent"
   | "household_invite_email_failed"
+  | "household_invite_email_resent"
+  | "household_invite_email_resend_failed"
   | "user_signed_in"
   | "user_signed_up"
   | "onboarding_completed"
