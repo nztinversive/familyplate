@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate now helps admins finish adult household invites after the first email by showing which adults are still pending and letting Settings resend the same household invite email without removing the profile.
-- App Review status: Current live version is `1.16.11` build `62` in `READY_FOR_SALE` as confirmed in App Store Connect on 2026-07-09. Version `1.16.12` is the next local release candidate from the current `origin/master` source and has not been built or submitted yet in this run.
+- App Review status: Current live version is `1.16.11` build `62` in `READY_FOR_SALE`, and version `1.16.12` build `64` is attached in `WAITING_FOR_REVIEW` with manual release as confirmed in App Store Connect on 2026-07-10.
 
 ## App Preview
 
