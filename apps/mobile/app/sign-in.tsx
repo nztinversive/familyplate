@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,10 +11,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useConvexAuth } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { usePostHog } from "posthog-react-native";
+import { api } from "@familyplate/convex/_generated/api";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
 
@@ -43,6 +44,16 @@ function getAuthErrorMessage(err: unknown, mode: Mode) {
   return "Couldn't sign in. Check your email and password.";
 }
 
+function getInviteCodeFromReturnTo(returnTo: string) {
+  const match = returnTo.match(/^\/join\/([^/?#]+)/);
+  if (!match) return "";
+  try {
+    return decodeURIComponent(match[1]).trim().toUpperCase();
+  } catch {
+    return match[1].trim().toUpperCase();
+  }
+}
+
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
@@ -57,6 +68,23 @@ export default function SignInScreen() {
     typeof params.returnTo === "string" && params.returnTo.startsWith("/")
       ? params.returnTo
       : "/(tabs)";
+  const inviteCode = useMemo(
+    () => getInviteCodeFromReturnTo(returnTo),
+    [returnTo],
+  );
+  const invitePreview = useQuery(
+    api.queries.households.getHouseholdByInviteCode,
+    inviteCode ? { inviteCode } : "skip",
+  );
+  const isInviteFlow = inviteCode.length > 0;
+  const inviteHeadline =
+    invitePreview && invitePreview !== null
+      ? `Join ${invitePreview.name}`
+      : "Join your household";
+  const inviteDescription =
+    invitePreview && invitePreview !== null
+      ? `Invited by ${invitePreview.invitedBy}. Sign in or create an account, then finish joining ${invitePreview.name}.`
+      : "Sign in or create an account to finish joining from this invite link.";
 
   if (isAuthenticated) {
     return <Redirect href={returnTo as never} />;
@@ -128,9 +156,13 @@ export default function SignInScreen() {
                 FamilyPlate
               </Text>
               <Text className="text-center text-base text-muted-foreground">
-                {mode === "signIn"
-                  ? "Sign in to your account."
-                  : "Create your account — free, no credit card."}
+                {isInviteFlow
+                  ? mode === "signIn"
+                    ? "Sign in to keep your household invite in view."
+                    : "Create your account, then join the shared household."
+                  : mode === "signIn"
+                    ? "Sign in to your account."
+                    : "Create your account — free, no credit card."}
               </Text>
             </View>
 
@@ -143,6 +175,53 @@ export default function SignInScreen() {
                 shadowRadius: 24,
               }}
             >
+              {isInviteFlow ? (
+                <View className="mb-4 rounded-xl border border-primary/20 bg-primary/10 p-4">
+                  <View className="flex-row items-start gap-3">
+                    <View className="mt-0.5 h-10 w-10 items-center justify-center rounded-2xl bg-white">
+                      <Ionicons
+                        name={
+                          invitePreview === null
+                            ? "alert-circle-outline"
+                            : "people-outline"
+                        }
+                        size={20}
+                        color={invitePreview === null ? "#c2410c" : "#248f58"}
+                      />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-lg font-bold text-foreground">
+                        {invitePreview === null
+                          ? "Invite needs a refresh"
+                          : inviteHeadline}
+                      </Text>
+                      <Text className="mt-1 text-sm leading-5 text-muted-foreground">
+                        {invitePreview === undefined
+                          ? "Checking which household invited you..."
+                          : invitePreview === null
+                            ? "This invite link no longer works. Ask the household admin for a new invite before you continue."
+                            : inviteDescription}
+                      </Text>
+                      <View className="mt-3 rounded-xl bg-white/80 px-3 py-2">
+                        <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Invite code
+                        </Text>
+                        <Text className="mt-1 text-sm font-bold tracking-[0.18em] text-foreground">
+                          {inviteCode}
+                        </Text>
+                        {invitePreview && invitePreview !== null ? (
+                          <Text className="mt-2 text-xs text-muted-foreground">
+                            {invitePreview.memberCount} member
+                            {invitePreview.memberCount === 1 ? "" : "s"} already
+                            in this household.
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+
               <View className="mb-4">
                 <View className="mb-2 flex-row rounded-xl bg-muted p-1">
                   {(["signIn", "signUp"] as const).map((option) => {
@@ -209,7 +288,9 @@ export default function SignInScreen() {
                   />
                   {mode === "signUp" ? (
                     <Text className="mt-2 text-xs text-muted-foreground">
-                      Use at least 8 characters.
+                      {isInviteFlow
+                        ? "Use at least 8 characters. If the household admin invited a specific adult profile, sign up with that same email."
+                        : "Use at least 8 characters."}
                     </Text>
                   ) : null}
                 </View>

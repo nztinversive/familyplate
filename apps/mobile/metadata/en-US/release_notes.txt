@@ -1,5 +1,5 @@
-FamilyPlate now helps admins finish adult household invites after the first email.
+FamilyPlate keeps the shared-household invite context visible through sign in.
 
-- Show which adult household members are still waiting to join.
-- Resend the invite email from the household member card in Settings.
-- Keep joined adults and child profiles unchanged in the same shared-household flow.
+- Show the invited household, admin, and invite code on the mobile sign-in screen.
+- Keep the join context visible before invited adults create or use an account.
+- Remind new invited adults to use the same email address when the household admin already added them.
