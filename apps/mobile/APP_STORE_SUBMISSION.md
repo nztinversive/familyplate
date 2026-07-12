@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate keeps the shared-household invite context visible through sign in by showing the invited household, inviter, and invite code on the mobile sign-in screen before invited adults create or use an account.
-- App Review status: Current live version is `1.16.12` build `64` in `READY_FOR_SALE` after manual release on 2026-07-12. Version `1.16.13` has not been built or submitted yet in this run.
+- App Review status: Current live version is `1.16.12` build `64` in `READY_FOR_SALE` after manual release on 2026-07-12. Version `1.16.13` build `65` is now attached in `WAITING_FOR_REVIEW` with manual release after EAS upload, metadata sync, and same-build Fastlane App Review submission on 2026-07-12.
 
 ## App Preview
 
