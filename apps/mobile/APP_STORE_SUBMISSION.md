@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.13
+- Version under prep: 1.16.14
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate keeps the shared-household invite context visible through sign in by showing the invited household, inviter, and invite code on the mobile sign-in screen before invited adults create or use an account.
-- App Review status: Current live version is `1.16.12` build `64` in `READY_FOR_SALE` after manual release on 2026-07-12. Version `1.16.13` build `65` is now attached in `WAITING_FOR_REVIEW` with manual release after EAS upload, metadata sync, and same-build Fastlane App Review submission on 2026-07-12.
+- What's New: FamilyPlate keeps emailed household invites tied to the right adult account by carrying the invited email address into the join and sign-in flow.
+- App Review status: Current live version is `1.16.13` build `65` in `READY_FOR_SALE` after manual release on 2026-07-13. No `1.16.14` build is attached yet in App Store Connect.
 
 ## App Preview
 
@@ -39,7 +39,7 @@ AI features show a consent prompt before sending app data to third-party AI prov
 
 In Settings > Eater Profiles, adults now support an optional invite email while child profiles still hide that field. Add an adult profile with a test email address and confirm the success message reflects whether the invite email was sent without blocking the profile save. Then open the Household card, confirm that adult shows Pending invite until they join, and use Resend invite email to send the same household link again.
 
-After you sign out, open that same invite link. Confirm the mobile sign-in screen still shows the invited household name, inviter, and invite code before you sign in or create a second account. If you create a second account from that screen, use the same invited adult email address so the pending adult profile can be claimed when you join.
+After you sign out, open that same invite email link. Confirm the mobile sign-in screen still shows the invited household name, inviter, invite code, and the invited adult email address before you sign in or create a second account. If you create a second account from that screen, keep the prefilled invited adult email address so the pending adult profile can be claimed when you join.
 
 If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week. Confirm that older dinners open in a read-only history view, then return to Current Week and confirm the active plan is still available for edits without losing the current progress view.
 
@@ -93,9 +93,9 @@ Recommended age rating answers:
 3. In Eater Profiles, add an adult profile with a test email address and confirm the invite email field is shown only for adults.
 4. Save that adult profile and confirm the success message reports the profile save and invite-email outcome without blocking the profile save.
 5. Stay in Settings, open the Household card, confirm that adult shows `Pending invite`, and use `Resend invite email` without removing the profile.
-6. Sign out and open the shared invite link from the adult invite email or the Household card share action.
-7. Confirm the mobile sign-in screen still shows the invited household name, inviter, and invite code before you continue.
-8. Create or sign in to a second account, using the invited adult email if you created an adult placeholder in step 3.
+6. Sign out and open the invite email link for that adult, or the shared Household card invite if you want the generic flow.
+7. Confirm the mobile sign-in screen still shows the invited household name, inviter, invite code, and the invited adult email address before you continue.
+8. Create or sign in to a second account, keeping the invited adult email prefilled if you created an adult placeholder in step 3.
 9. Confirm the second account joins the shared household without leaving the iPhone app.
 10. Open Pantry and add a pantry item manually without entering an expiration date.
 11. Confirm the saved pantry item shows an `Est.` expiration label based on its name and storage location.

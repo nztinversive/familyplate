@@ -1,20 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import { UtensilsCrossed, Users, ArrowRight, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+function normalizeInviteEmail(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.includes("@") ? normalized : "";
+}
+
 export default function JoinHouseholdPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
 
   const inviteCode = typeof params.inviteCode === "string" ? params.inviteCode : "";
-  const signInHref = `/?returnTo=${encodeURIComponent(`/join/${encodeURIComponent(inviteCode)}`)}`;
+  const inviteEmail = normalizeInviteEmail(searchParams.get("email"));
+  const returnTo = inviteEmail
+    ? `/join/${encodeURIComponent(inviteCode)}?email=${encodeURIComponent(inviteEmail)}`
+    : `/join/${encodeURIComponent(inviteCode)}`;
+  const signInHref = inviteEmail
+    ? `/?returnTo=${encodeURIComponent(returnTo)}&email=${encodeURIComponent(inviteEmail)}`
+    : `/?returnTo=${encodeURIComponent(returnTo)}`;
 
   const household = useQuery(
     api.queries.households.getHouseholdByInviteCode,
@@ -117,6 +133,11 @@ export default function JoinHouseholdPage() {
                     {household.memberCount} member{household.memberCount !== 1 ? "s" : ""}
                   </div>
                 )}
+                {inviteEmail && (
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Continue with <span className="text-foreground">{inviteEmail}</span> to claim the invited adult profile automatically.
+                  </p>
+                )}
               </div>
 
               {error && (
@@ -128,10 +149,12 @@ export default function JoinHouseholdPage() {
               {!isAuthenticated ? (
                 <div className="w-full space-y-3">
                   <p className="text-sm text-muted-foreground">
-                    Sign in or create an account to join this household.
+                    {inviteEmail
+                      ? "Sign in or create an account with the invited email to join this household."
+                      : "Sign in or create an account to join this household."}
                   </p>
                   <Button onClick={() => router.push(signInHref)} className="w-full gap-2 rounded-xl" size="lg">
-                    Continue to Sign In / Sign Up
+                    {inviteEmail ? "Continue with invited email" : "Continue to Sign In / Sign Up"}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>

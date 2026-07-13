@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -54,13 +54,37 @@ function getInviteCodeFromReturnTo(returnTo: string) {
   }
 }
 
+function normalizeInviteEmail(value: string | string[] | undefined) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.includes("@") ? normalized : "";
+}
+
+function getInviteEmailFromReturnTo(returnTo: string) {
+  const queryIndex = returnTo.indexOf("?");
+  if (queryIndex === -1) {
+    return "";
+  }
+
+  return normalizeInviteEmail(
+    new URLSearchParams(returnTo.slice(queryIndex + 1)).get("email") ?? "",
+  );
+}
+
 export default function SignInScreen() {
   const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
-  const params = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    returnTo?: string | string[];
+    inviteEmail?: string | string[];
+  }>();
   const posthog = usePostHog();
   const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
+  const [hasPrefilledInviteEmail, setHasPrefilledInviteEmail] = useState(false);
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -71,6 +95,12 @@ export default function SignInScreen() {
   const inviteCode = useMemo(
     () => getInviteCodeFromReturnTo(returnTo),
     [returnTo],
+  );
+  const inviteEmail = useMemo(
+    () =>
+      normalizeInviteEmail(params.inviteEmail) ||
+      getInviteEmailFromReturnTo(returnTo),
+    [params.inviteEmail, returnTo],
   );
   const invitePreview = useQuery(
     api.queries.households.getHouseholdByInviteCode,
@@ -85,6 +115,13 @@ export default function SignInScreen() {
     invitePreview && invitePreview !== null
       ? `Invited by ${invitePreview.invitedBy}. Sign in or create an account, then finish joining ${invitePreview.name}.`
       : "Sign in or create an account to finish joining from this invite link.";
+
+  useEffect(() => {
+    if (inviteEmail && !email && !hasPrefilledInviteEmail) {
+      setEmail(inviteEmail);
+      setHasPrefilledInviteEmail(true);
+    }
+  }, [inviteEmail, email, hasPrefilledInviteEmail]);
 
   if (isAuthenticated) {
     return <Redirect href={returnTo as never} />;
@@ -200,7 +237,9 @@ export default function SignInScreen() {
                           ? "Checking which household invited you..."
                           : invitePreview === null
                             ? "This invite link no longer works. Ask the household admin for a new invite before you continue."
-                            : inviteDescription}
+                            : inviteEmail
+                              ? `${inviteDescription} Use ${inviteEmail} so FamilyPlate can attach the pending adult profile to the right account.`
+                              : inviteDescription}
                       </Text>
                       <View className="mt-3 rounded-xl bg-white/80 px-3 py-2">
                         <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -215,6 +254,16 @@ export default function SignInScreen() {
                             {invitePreview.memberCount === 1 ? "" : "s"} already
                             in this household.
                           </Text>
+                        ) : null}
+                        {inviteEmail ? (
+                          <View className="mt-3 rounded-xl bg-primary/10 px-3 py-2">
+                            <Text className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                              Invite email
+                            </Text>
+                            <Text className="mt-1 text-sm font-semibold text-foreground">
+                              {inviteEmail}
+                            </Text>
+                          </View>
                         ) : null}
                       </View>
                     </View>

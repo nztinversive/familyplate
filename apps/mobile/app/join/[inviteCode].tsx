@@ -20,8 +20,20 @@ function getJoinErrorMessage(err: unknown) {
   return "Unable to join this household right now.";
 }
 
+function normalizeInviteEmail(value: string | string[] | undefined) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.includes("@") ? normalized : "";
+}
+
 export default function JoinHouseholdScreen() {
-  const params = useLocalSearchParams<{ inviteCode?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    inviteCode?: string | string[];
+    email?: string | string[];
+  }>();
   const router = useRouter();
   const posthog = usePostHog();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -31,6 +43,10 @@ export default function JoinHouseholdScreen() {
     if (typeof params.inviteCode !== "string") return "";
     return params.inviteCode.trim().toUpperCase();
   }, [params.inviteCode]);
+  const inviteEmail = useMemo(
+    () => normalizeInviteEmail(params.email),
+    [params.email],
+  );
 
   const household = useQuery(
     api.queries.households.getHouseholdByInviteCode,
@@ -40,10 +56,18 @@ export default function JoinHouseholdScreen() {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState("");
 
+  const inviteReturnTo = inviteCode
+    ? inviteEmail
+      ? `/join/${inviteCode}?email=${encodeURIComponent(inviteEmail)}`
+      : `/join/${inviteCode}`
+    : "/sign-in";
   const signInTarget = inviteCode
     ? {
         pathname: "/sign-in" as const,
-        params: { returnTo: `/join/${inviteCode}` },
+        params: {
+          returnTo: inviteReturnTo,
+          inviteEmail,
+        },
       }
     : "/sign-in";
 
@@ -164,6 +188,11 @@ export default function JoinHouseholdScreen() {
                   {household.memberCount === 1 ? "" : "s"} already in this
                   household.
                 </Text>
+                {inviteEmail ? (
+                  <Text className="mt-2 text-sm text-muted-foreground">
+                    Sign in with <Text className="font-semibold text-foreground">{inviteEmail}</Text> to claim the invited adult profile automatically.
+                  </Text>
+                ) : null}
               </View>
 
               {error ? (
@@ -179,7 +208,7 @@ export default function JoinHouseholdScreen() {
                 >
                   <Ionicons name="log-in-outline" size={19} color="white" />
                   <Text className="text-base font-bold text-white">
-                    Sign in to join
+                    {inviteEmail ? "Sign in with invite email" : "Sign in to join"}
                   </Text>
                 </TouchableOpacity>
               ) : (

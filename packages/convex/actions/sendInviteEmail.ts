@@ -47,7 +47,7 @@ export const sendInviteEmail = action({
       }
     );
 
-    const inviteUrl = `${appUrl.replace(/\/$/, "")}/join/${inviteContext.inviteCode}`;
+    const inviteUrl = `${appUrl.replace(/\/$/, "")}/join/${inviteContext.inviteCode}?email=${encodeURIComponent(toEmail)}`;
 
     try {
       const response = await fetch("https://api.resend.com/emails", {
@@ -69,6 +69,9 @@ export const sendInviteEmail = action({
               </p>
               <p style="color: #555; font-size: 16px; line-height: 1.5;">
                 Your profile name: <strong>${args.memberName}</strong>
+              </p>
+              <p style="color: #555; font-size: 16px; line-height: 1.5;">
+                Sign in or create your account with <strong>${toEmail}</strong> so FamilyPlate can attach this pending adult profile automatically.
               </p>
               <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 20px; text-align: center; margin: 24px 0;">
                 <p style="color: #555; font-size: 14px; margin: 0 0 8px;">Your invite code:</p>

@@ -154,6 +154,25 @@ function readRequestedReturnToFromWindow() {
   return sanitizeReturnTo(new URLSearchParams(window.location.search).get("returnTo"));
 }
 
+function normalizeInviteEmailParam(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized.includes("@") ? normalized : "";
+}
+
+function readRequestedInviteEmailFromWindow() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return normalizeInviteEmailParam(
+    new URLSearchParams(window.location.search).get("email"),
+  );
+}
+
 function isLikelyAuthTransitionError(message: string) {
   const normalized = message.toLowerCase();
   return (
@@ -198,6 +217,7 @@ export default function LandingPage() {
 
   const [hasMounted, setHasMounted] = useState(false);
   const [email, setEmail] = useState("");
+  const [requestedInviteEmail, setRequestedInviteEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<AuthMode>("magic-link");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -213,6 +233,11 @@ export default function LandingPage() {
     const requestedReturnTo = readRequestedReturnToFromWindow();
     if (requestedReturnTo) {
       persistPostAuthRedirect(requestedReturnTo);
+    }
+    const requestedInviteEmail = readRequestedInviteEmailFromWindow();
+    if (requestedInviteEmail) {
+      setRequestedInviteEmail(requestedInviteEmail);
+      setEmail((current) => current || requestedInviteEmail);
     }
   }, []);
 
@@ -916,6 +941,11 @@ export default function LandingPage() {
                 ) : authMode === "magic-link" ? (
                   <>
                     <form onSubmit={handleMagicLink} className="space-y-4">
+                      {requestedInviteEmail ? (
+                        <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm text-muted-foreground">
+                          Continue with <strong className="text-foreground">{requestedInviteEmail}</strong> so FamilyPlate can attach the invited adult profile automatically.
+                        </div>
+                      ) : null}
                       {error && (
                         <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">{error}</div>
                       )}
@@ -946,6 +976,11 @@ export default function LandingPage() {
                 ) : forgotPassword ? (
                   <>
                     <form onSubmit={handleForgotPassword} className="space-y-4">
+                      {requestedInviteEmail ? (
+                        <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm text-muted-foreground">
+                          Use <strong className="text-foreground">{requestedInviteEmail}</strong> if this reset is for a pending household invite.
+                        </div>
+                      ) : null}
                       {error && (
                         <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">{error}</div>
                       )}
@@ -994,6 +1029,11 @@ export default function LandingPage() {
                 ) : (
                   <>
                     <form onSubmit={handlePassword} className="space-y-4">
+                      {requestedInviteEmail ? (
+                        <div className="rounded-xl border border-primary/20 bg-primary/10 p-3 text-sm text-muted-foreground">
+                          Continue with <strong className="text-foreground">{requestedInviteEmail}</strong> so FamilyPlate can attach the invited adult profile automatically.
+                        </div>
+                      ) : null}
                       {error && (
                         <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm animate-scale-in">{error}</div>
                       )}

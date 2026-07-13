@@ -1,5 +1,5 @@
-FamilyPlate keeps the shared-household invite context visible through sign in.
+FamilyPlate keeps emailed household invites tied to the right adult account.
 
-- Show the invited household, admin, and invite code on the mobile sign-in screen.
-- Keep the join context visible before invited adults create or use an account.
-- Remind new invited adults to use the same email address when the household admin already added them.
+- Add the invited email address to adult invite links from Settings.
+- Prefill the invited address on sign in so pending adults can claim the right profile faster.
+- Keep the join flow clear across invite email, sign in, and household acceptance.
