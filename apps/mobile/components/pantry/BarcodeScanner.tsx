@@ -93,12 +93,28 @@ function parseQuantity(rawQuantity?: string): {
   };
 }
 
+function createMissingProductResult(barcode: string): BarcodeScannerResult {
+  return {
+    barcode,
+    name: "",
+    category: "Other",
+    quantity: "1",
+    unit: "items",
+    found: false,
+    message: `No product match found for ${barcode}. Fill in the details manually.`,
+  };
+}
+
 async function lookupProduct(barcode: string): Promise<BarcodeScannerResult> {
   const response = await fetch(
     `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(
       barcode,
     )}.json`,
   );
+
+  if (response.status === 404) {
+    return createMissingProductResult(barcode);
+  }
 
   if (!response.ok) {
     throw new Error("Product lookup failed.");
@@ -108,15 +124,7 @@ async function lookupProduct(barcode: string): Promise<BarcodeScannerResult> {
   const product = data?.product;
 
   if (data?.status !== 1 || !product) {
-    return {
-      barcode,
-      name: "",
-      category: "Other",
-      quantity: "1",
-      unit: "items",
-      found: false,
-      message: `No product match found for ${barcode}. Fill in the details manually.`,
-    };
+    return createMissingProductResult(barcode);
   }
 
   const name =
