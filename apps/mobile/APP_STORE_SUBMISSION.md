@@ -13,7 +13,7 @@
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
 - What's New: FamilyPlate keeps emailed household invites tied to the right adult account by carrying the invited email address into the join and sign-in flow.
-- App Review status: Current live version is `1.16.13` build `65` in `READY_FOR_SALE` after manual release on 2026-07-13. Version `1.16.14` is now `WAITING_FOR_REVIEW` with attached build `66` (`processingState=VALID`) and manual release after approval.
+- App Review status: Current live version is `1.16.13` build `65` in `READY_FOR_SALE` after manual release on 2026-07-13. Version `1.16.14` is now `PENDING_DEVELOPER_RELEASE` with attached build `66` (`processingState=VALID`) and manual release required before the next iOS upload lane starts.
 
 ## App Preview
 
