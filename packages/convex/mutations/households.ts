@@ -105,6 +105,7 @@ export const createHousehold = mutation({
 export const joinHousehold = mutation({
   args: {
     inviteCode: v.string(),
+    inviteEmail: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -116,6 +117,7 @@ export const joinHousehold = mutation({
     const user = await ctx.db.get(userId);
     const email = user?.email ?? "";
     const normalizedEmail = normalizeEmail(email);
+    const normalizedInviteEmail = normalizeEmail(args.inviteEmail);
     const userName = user?.name || email.split("@")[0] || "User";
 
     const household = await ctx.db
@@ -146,6 +148,27 @@ export const joinHousehold = mutation({
       .query("userProfiles")
       .withIndex("by_householdId", (q) => q.eq("householdId", household._id))
       .collect();
+
+    if (normalizedInviteEmail) {
+      const pendingInvite = householdProfiles.find(
+        (profile) =>
+          !profile.authId &&
+          !profile.isChild &&
+          normalizeEmail(profile.email) === normalizedInviteEmail,
+      );
+
+      if (!pendingInvite) {
+        throw new Error(
+          "This emailed invite is no longer available. Ask the household admin to resend it.",
+        );
+      }
+
+      if (normalizedEmail !== normalizedInviteEmail) {
+        throw new Error(
+          `This invite was sent to ${normalizedInviteEmail}. Sign in with that email to join this household.`,
+        );
+      }
+    }
 
     const invitedPlaceholder = normalizedEmail
       ? householdProfiles.find(

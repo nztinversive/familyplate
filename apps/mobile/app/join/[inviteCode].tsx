@@ -85,7 +85,10 @@ export default function JoinHouseholdScreen() {
         source: "mobile_invite_link",
         invite_code_length: inviteCode.length,
       });
-      await joinHousehold({ inviteCode });
+      await joinHousehold({
+        inviteCode,
+        inviteEmail: inviteEmail || undefined,
+      });
       track(posthog, "household_join_completed", {
         source: "mobile_invite_link",
         household_name: household?.name,

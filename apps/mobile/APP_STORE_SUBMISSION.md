@@ -2,7 +2,7 @@
 
 ## Public Listing
 
-- Version under prep: 1.16.14
+- Version under prep: 1.16.15
 - Name: FamilyPlate Meal Planner
 - Subtitle: AI dinners from your pantry
 - Category: Food & Drink
@@ -12,8 +12,8 @@
 - FamilyPlate Terms URL: https://familyplate.co/terms
 - Support URL: https://familyplate.co/support
 - Release: manual after approval
-- What's New: FamilyPlate keeps emailed household invites tied to the right adult account by carrying the invited email address into the join and sign-in flow.
-- App Review status: Current live version is `1.16.14` build `66` in `READY_FOR_SALE` after manual release. No newer iOS version is waiting for review, in review, pending developer release, or blocked by Apple processing as of 2026-07-20.
+- What's New: FamilyPlate now keeps emailed household invite links reserved for the right adult account by validating the pending invite and signed-in email before joining.
+- App Review status: Current live version is `1.16.14` build `66` in `READY_FOR_SALE` with manual release type. No newer `WAITING_FOR_REVIEW`, `IN_REVIEW`, `PROCESSING`, or `PENDING_DEVELOPER_RELEASE` iOS version is visible as of 2026-07-24.
 
 ## App Preview
 
@@ -39,7 +39,7 @@ AI features show a consent prompt before sending app data to third-party AI prov
 
 In Settings > Eater Profiles, adults now support an optional invite email while child profiles still hide that field. Add an adult profile with a test email address and confirm the success message reflects whether the invite email was sent without blocking the profile save. Then open the Household card, confirm that adult shows Pending invite until they join, and use Resend invite email to send the same household link again.
 
-After you sign out, open that same invite email link. Confirm the mobile sign-in screen still shows the invited household name, inviter, invite code, and the invited adult email address before you sign in or create a second account. If you create a second account from that screen, keep the prefilled invited adult email address so the pending adult profile can be claimed when you join.
+After you sign out, open that same invite email link. Confirm the mobile sign-in screen still shows the invited household name, inviter, invite code, and the invited adult email address before you sign in or create a second account. If you continue while already signed in with a different email, FamilyPlate should block the join and ask you to use the invited email instead. If you create a second account from that screen, keep the prefilled invited adult email address so the pending adult profile can be claimed when you join.
 
 If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week. Confirm that older dinners open in a read-only history view, then return to Current Week and confirm the active plan is still available for edits without losing the current progress view.
 
@@ -117,5 +117,6 @@ Recommended age rating answers:
 27. Complete the dinner check-in with a rating and tag, then confirm Recently Cooked appears in Cookbook and Learned Meal Memory appears in Settings.
 28. Delete that dinner check-in and confirm the form resets instead of restoring the deleted response.
 29. Submit a fresh dinner check-in again and verify the updated response saves successfully.
-30. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
-31. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.
+30. While still signed in with the wrong account from step 8, reopen the invite link and confirm FamilyPlate blocks the join until you use the invited email address.
+31. Use Cook Again from Recently Cooked to place a prior dinner back onto the weekly plan.
+32. Open Settings, view Privacy/Terms/Support, confirm Delete Account is visible, and verify Restore Purchases appears under Plan Usage.

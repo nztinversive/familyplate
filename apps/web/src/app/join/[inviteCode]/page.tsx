@@ -46,7 +46,10 @@ export default function JoinHouseholdPage() {
     setIsJoining(true);
     setError(null);
     try {
-      await joinHousehold({ inviteCode });
+      await joinHousehold({
+        inviteCode,
+        inviteEmail: inviteEmail || undefined,
+      });
       setJoined(true);
       setTimeout(() => router.push("/plan"), 1500);
     } catch (err) {

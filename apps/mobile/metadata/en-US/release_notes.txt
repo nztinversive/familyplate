@@ -1,5 +1,5 @@
-FamilyPlate keeps emailed household invites tied to the right adult account.
+FamilyPlate now keeps emailed household invite links reserved for the right adult account.
 
-- Add the invited email address to adult invite links from Settings.
-- Prefill the invited address on sign in so pending adults can claim the right profile faster.
-- Keep the join flow clear across invite email, sign in, and household acceptance.
+- Validate the pending adult invite and signed-in email before joining.
+- Keep invite links clear on mobile and web when the wrong account is signed in.
+- Preserve generic invite-code joins for households that share an open invite.
