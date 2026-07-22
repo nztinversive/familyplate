@@ -17,7 +17,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePostHog } from "posthog-react-native";
 import { api } from "@familyplate/convex/_generated/api";
 import { track } from "@/lib/analytics";
-import { Sentry } from "@/lib/sentry";
 
 type Mode = "signIn" | "signUp";
 
@@ -157,13 +156,6 @@ export default function SignInScreen() {
         method: "password",
         flow: mode,
         reason: err instanceof Error ? err.message : "unknown",
-      });
-      Sentry.captureException(err, {
-        tags: {
-          area: "auth",
-          flow: mode,
-          platform: "ios",
-        },
       });
       setError(getAuthErrorMessage(err, mode));
       setIsSubmitting(false);
