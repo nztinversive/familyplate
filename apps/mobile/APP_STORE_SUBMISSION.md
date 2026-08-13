@@ -43,7 +43,7 @@ After you sign out, open that same invite email link. Confirm the mobile sign-in
 
 If the demo household already has multiple saved weeks, open Weekly Plan and use the header chevrons to move to a past week. Confirm that older dinners open in a read-only history view, then return to Current Week and confirm the active plan is still available for edits without losing the current progress view.
 
-There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account.
+There are no external purchase links shown in the iOS app. FamilyPlate subscriptions are sold through Apple in-app purchase and managed by RevenueCat. Account deletion is available in Settings under Privacy & Account. Use Restore Purchases from Settings > Plan Usage to verify subscription recovery.
 
 The App Store description includes the standard Apple Terms of Use (EULA) link:
 https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
