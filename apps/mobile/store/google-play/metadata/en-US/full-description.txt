@@ -1,0 +1,34 @@
+Turn the food you already have into a practical plan for dinner.
+
+FamilyPlate helps busy households track pantry ingredients, generate meal ideas, organize a weekly dinner plan, save recipes, and build a grocery list for what is missing.
+
+PLAN FROM YOUR PANTRY
+- Add ingredients manually or scan grocery barcodes
+- Keep quantities, storage locations, and expiration dates organized
+- See ingredients to use first
+
+GET DINNER IDEAS
+- Generate AI-assisted dinner suggestions based on pantry items
+- Account for household preferences, allergies, dislikes, and available time
+- Review ingredients and cooking instructions before saving or planning
+
+ORGANIZE THE WEEK
+- Build and adjust a weekly dinner plan
+- Save favorite and custom recipes in your cookbook
+- Add missing ingredients to a shared grocery list
+- Mark meals cooked and record household feedback
+
+SHOP AND COOK
+- Scan groceries to add pantry items faster
+- Share remaining grocery-list items
+- Use step-by-step Cook Mode and adjust recipe servings
+
+FamilyPlate offers optional paid Family features. Subscription price, billing period, renewal terms, and available trial or offer details are shown before purchase. Subscriptions purchased on Android are billed through Google Play and can be managed or canceled in Google Play.
+
+AI-generated suggestions and grocery recognition may be inaccurate. Always check ingredient labels, preparation instructions, allergy information, and food safety before cooking or serving.
+
+FamilyPlate is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Consult a healthcare professional for medical advice, diagnosis, or treatment.
+
+Privacy Policy: https://familyplate.co/privacy
+Terms: https://familyplate.co/terms
+Support: https://familyplate.co/support

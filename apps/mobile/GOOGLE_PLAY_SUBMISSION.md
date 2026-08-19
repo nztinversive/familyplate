@@ -21,7 +21,7 @@ Status: **BLOCKED** until every item marked `MANUAL BLOCKER` is completed and th
 
 ## Store listing metadata
 
-The copy-ready English (United States) listing is in [`store/google-play/en-US/listing.json`](store/google-play/en-US/listing.json). Run this from the repository root before copying it into Play Console:
+The copy-ready English (United States) listing is in [`store/google-play/metadata/en-US`](store/google-play/metadata/en-US). Each Play Console field has a separate text file. Run this from the repository root before copying it into Play Console:
 
 ```sh
 npm run validate:google-play-launch
@@ -31,8 +31,8 @@ Draft fields:
 
 - Title: `FamilyPlate Meal Planner`
 - Short description: `Plan dinners from your pantry with AI recipes, grocery lists, and meal planning.`
-- Full description: use `fullDescription` from the JSON file. It includes the required health disclaimer, subscription disclosure, and legal links.
-- Initial release notes: use `releaseNotes` from the JSON file.
+- Full description: use `full-description.txt`. It includes the required health disclaimer, subscription disclosure, and legal links.
+- Initial release notes: use `release-notes.txt`.
 - Default language: English (United States)
 
 The validator enforces the current limits of 30 characters for the title, 80 for the short description, 4,000 for the full description, and 500 for release notes. Re-run it after every copy change.

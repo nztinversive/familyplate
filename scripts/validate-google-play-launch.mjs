@@ -9,9 +9,20 @@ function assert(condition, message) {
   }
 }
 
-const listing = JSON.parse(
-  await readText("apps/mobile/store/google-play/en-US/listing.json"),
-);
+async function readMetadataField(filename) {
+  const raw = await readText(
+    `apps/mobile/store/google-play/metadata/en-US/${filename}`,
+  );
+  assert(raw.endsWith("\n"), `${filename} must end with one newline.`);
+  return raw.slice(0, -1);
+}
+
+const listing = {
+  title: await readMetadataField("title.txt"),
+  shortDescription: await readMetadataField("short-description.txt"),
+  fullDescription: await readMetadataField("full-description.txt"),
+  releaseNotes: await readMetadataField("release-notes.txt"),
+};
 
 const limits = {
   title: 30,

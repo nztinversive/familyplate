@@ -1,0 +1,1 @@
+Initial Android release with pantry tracking, grocery scanning, AI dinner ideas, weekly meal planning, saved recipes, shared grocery lists, subscriptions, and in-app account deletion.
