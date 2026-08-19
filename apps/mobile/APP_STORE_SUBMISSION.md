@@ -29,8 +29,8 @@ The production preview is built with Remotion from `apps/store-preview`. Source 
 Use a reviewer-only account that stays active through review.
 
 - Demo required: Yes
-- Demo username: create a dedicated test email account
-- Demo password: use the password for that dedicated test account
+- Demo username: set the dedicated reviewer email directly in App Store Connect
+- Demo password: set or rotate it directly in App Store Connect; never commit it to this repository
 - Notes:
 
 FamilyPlate is an AI meal planning app for households. Reviewers can test pantry tracking with estimated expiration dates, Pantry cook-this-first shortcuts into Tonight, grocery list management, Cookbook, custom family recipes, Recently Cooked, Cook Again planning, Weekly Plan history browsing, Tonight suggestions, shop-first dinner suggestions, post-dinner check-ins, learned meal memory in Settings, camera grocery scanning, barcode scanning, household invite codes, adult invite emails from Settings, pending adult invite status, resend invite emails from the Household card, invite-link sign-in context, and native in-app household joining.
