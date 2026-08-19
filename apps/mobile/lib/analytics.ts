@@ -80,7 +80,9 @@ export type AnalyticsEvent =
   | "barcode_scan_started"
   | "barcode_scan_completed"
   | "barcode_scan_failed"
-  | "ai_consent_accepted";
+  | "ai_consent_accepted"
+  | "ai_content_report_submitted"
+  | "ai_content_report_failed";
 
 type EventPayload = Record<string, string | number | boolean | undefined>;
 

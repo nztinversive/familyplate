@@ -16,6 +16,7 @@ import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
@@ -889,6 +890,15 @@ function SuggestionCard({
           </TouchableOpacity>
         </View>
       </Pressable>
+
+      {suggestion._id ? (
+        <View className="border-t border-border px-4 py-3">
+          <ReportAiContentButton
+            recipeId={suggestion._id as Id<"recipeSuggestions">}
+            sourceSurface="tonight"
+          />
+        </View>
+      ) : null}
 
       {expanded ? (
         <View className="border-t border-border p-4">

@@ -21,6 +21,7 @@ import {
 import { CustomRecipeModal } from "@/components/CustomRecipeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { LoadingCard } from "@/components/LoadingCard";
@@ -645,6 +646,14 @@ function RecentlyCookedCard({
                 ))}
               </View>
             ) : null}
+            {meal.recipe.source === "ai" ? (
+              <View className="mt-3">
+                <ReportAiContentButton
+                  recipeId={meal.recipe._id}
+                  sourceSurface="cookbook"
+                />
+              </View>
+            ) : null}
             <TouchableOpacity
               onPress={() => onTogglePlanning(meal.recipe._id)}
               className="mt-3 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
@@ -918,6 +927,15 @@ function RecipeCard({
           />
         </View>
       </Pressable>
+
+      {recipe.source === "ai" ? (
+        <View className="border-t border-border px-4 py-3">
+          <ReportAiContentButton
+            recipeId={recipe._id}
+            sourceSurface="cookbook"
+          />
+        </View>
+      ) : null}
 
       {expanded ? (
         <View className="border-t border-border p-4">

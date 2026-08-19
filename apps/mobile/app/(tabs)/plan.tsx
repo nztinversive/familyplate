@@ -23,6 +23,7 @@ import {
 } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
@@ -1848,6 +1849,15 @@ function MealCard({
         ) : null}
         <InfoPill icon="leaf-outline" label={pantry.label} />
       </View>
+
+      {meal.recipe.source === "ai" ? (
+        <View className="mb-3">
+          <ReportAiContentButton
+            recipeId={meal.recipe._id}
+            sourceSurface="weekly_plan"
+          />
+        </View>
+      ) : null}
 
       {readOnly ? (
         <View className="rounded-xl bg-muted p-3">

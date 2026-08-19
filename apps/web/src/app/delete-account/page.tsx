@@ -68,14 +68,17 @@ export default function DeleteAccountPage() {
               FamilyPlate removes the sign-in account and personal profile from
               the active service. If you are the only authenticated member of a
               household, the household pantry, recipes, meal plans, grocery
-              lists, and household profiles are also removed.
+              lists, and household profiles are also removed. Account-linked
+              agent connections and access tokens are removed in both cases.
             </p>
             <p>
               If other authenticated members remain, shared household content
-              may remain available to them. Limited records may also be retained
-              when reasonably necessary for security, fraud prevention, legal
-              compliance, financial recordkeeping, or dispute resolution. See
-              the{" "}
+              may remain available to them. Deletion requests for account-linked
+              analytics, monitoring, and subscription identifiers are queued
+              for staff or provider processing. Limited records may also be
+              retained when reasonably necessary for security, fraud prevention,
+              legal compliance, financial recordkeeping, or dispute resolution.
+              See the{" "}
               <Link className="text-primary" href="/privacy">
                 Privacy Policy
               </Link>{" "}

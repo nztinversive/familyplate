@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "cd ../.. && npm run convex:dev --",
     "deploy": "cd ../.. && npm run convex:deploy --",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test lib/*.test.mjs"
   },
   "dependencies": {
     "@auth/core": "^0.41.3",
