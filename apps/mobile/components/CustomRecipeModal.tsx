@@ -359,7 +359,7 @@ export function CustomRecipeModal({
           tags: {
             area: "cookbook",
             action: "create_custom_recipe",
-            platform: "ios",
+            platform: process.env.EXPO_OS ?? "unknown",
           },
         });
       }

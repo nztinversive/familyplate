@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Share,
   Text,
   TextInput,
@@ -29,6 +30,7 @@ import {
   restoreFamilyPurchases,
   type RevenueCatPackage,
 } from "@/lib/revenuecat";
+import { getBillingPlatformConfig } from "@/lib/billing-platform";
 
 type Profile = Doc<"userProfiles">;
 type CurrentUser = {
@@ -64,8 +66,12 @@ type LearningSummary = {
 const PRIVACY_URL = "https://familyplate.co/privacy";
 const TERMS_URL = "https://familyplate.co/terms";
 const SUPPORT_URL = "https://familyplate.co/support";
-const APP_STORE_SUBSCRIPTIONS_URL = "https://apps.apple.com/account/subscriptions";
 const APP_URL = "https://familyplate.co";
+const billingPlatform = getBillingPlatformConfig(Platform.OS);
+const billingStoreName = billingPlatform.storeName;
+const billingAccountName = billingPlatform.accountName;
+const subscriptionSettingsDescription =
+  billingPlatform.subscriptionSettingsDescription;
 
 function parseCommaSeparatedList(value: string) {
   return Array.from(
@@ -93,7 +99,7 @@ function getErrorMessage(err: unknown) {
 }
 
 function getBillingError(err: unknown) {
-  const fallback = "App Store billing is unavailable right now. Please try again.";
+  const fallback = `${billingStoreName} billing is unavailable right now. Please try again.`;
   if (typeof err === "object" && err !== null) {
     const maybeError = err as {
       message?: unknown;
@@ -105,11 +111,12 @@ function getBillingError(err: unknown) {
     const isStoreConfigurationError =
       message.includes("offerings-empty") ||
       message.includes("None of the products registered") ||
-      message.includes("could be fetched from App Store Connect");
+      message.includes("could be fetched from App Store Connect") ||
+      message.includes("There are no products registered in the RevenueCat dashboard");
 
     return {
       message: isStoreConfigurationError
-        ? "App Store plans are not available yet. Please try again soon."
+        ? `${billingStoreName} plans are not available yet. Please try again soon.`
         : message,
       userCancelled:
         maybeError.userCancelled === true ||
@@ -196,6 +203,7 @@ export default function SettingsScreen() {
   const [isPurchasingPackage, setIsPurchasingPackage] = useState<string | null>(null);
   const [isRestoringPurchases, setIsRestoringPurchases] = useState(false);
   const [resendingInviteProfileId, setResendingInviteProfileId] = useState<string | null>(null);
+  const billingAvailable = isRevenueCatAvailable();
   const syncedProfileId = useRef<string | null>(null);
   const trackedPaywallForUser = useRef<string | null>(null);
 
@@ -247,7 +255,7 @@ export default function SettingsScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "settings", action: "share_invite", platform: "ios" },
+        tags: { area: "settings", action: "share_invite", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(err instanceof Error ? err.message : "Couldn't share invite.");
     }
@@ -271,15 +279,15 @@ export default function SettingsScreen() {
       }
 
       track(posthog, "household_invite_email_resent", {
-        source: "ios_settings_household_card",
+        source: "mobile_settings_household_card",
       });
       Alert.alert("Invite resent", `FamilyPlate emailed ${member.email} again.`);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "settings", action: "resend_invite_email", platform: "ios" },
+        tags: { area: "settings", action: "resend_invite_email", platform: process.env.EXPO_OS ?? "unknown" },
       });
       track(posthog, "household_invite_email_resend_failed", {
-        source: "ios_settings_household_card",
+        source: "mobile_settings_household_card",
         reason: err instanceof Error ? err.message : "unknown",
       });
       Alert.alert("Invite not sent", getErrorMessage(err));
@@ -294,9 +302,9 @@ export default function SettingsScreen() {
     async function loadBilling() {
       if (!currentUser?.authId) return;
 
-      if (!isRevenueCatAvailable()) {
+      if (!billingAvailable) {
         setFamilyPackages([]);
-        setBillingMessage("App Store subscriptions are being configured.");
+        setBillingMessage(`${billingStoreName} subscriptions are being configured.`);
         return;
       }
 
@@ -316,7 +324,7 @@ export default function SettingsScreen() {
         setBillingMessage(
           packages.length > 0
             ? ""
-            : "No App Store subscription products are available yet.",
+            : `No ${billingStoreName} subscription products are available yet.`,
         );
         track(posthog, "subscription_products_loaded", {
           package_count: packages.length,
@@ -340,7 +348,7 @@ export default function SettingsScreen() {
     return () => {
       isMounted = false;
     };
-  }, [currentUser?.authId, currentUser?.email, posthog, subscription?.tier]);
+  }, [billingAvailable, currentUser?.authId, currentUser?.email, posthog, subscription?.tier]);
 
   useEffect(() => {
     if (!currentUser?.authId) return;
@@ -409,7 +417,7 @@ export default function SettingsScreen() {
         tags: {
           area: "settings",
           action: "remove_learned_dislike",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -477,25 +485,25 @@ export default function SettingsScreen() {
           if (result.success) {
             nextSavedMessage = `Eater profile added and invite emailed to ${normalizedEmail}.`;
             track(posthog, "household_invite_email_sent", {
-              source: "ios_settings",
+              source: "mobile_settings",
               has_existing_household: true,
             });
           } else {
             nextSavedMessage =
               "Eater profile added. Invite email could not be sent yet.";
             track(posthog, "household_invite_email_failed", {
-              source: "ios_settings",
+              source: "mobile_settings",
               reason: result.error ?? "unknown",
             });
           }
         } catch (err) {
           Sentry.captureException(err, {
-            tags: { area: "settings", action: "send_invite_email", platform: "ios" },
+            tags: { area: "settings", action: "send_invite_email", platform: process.env.EXPO_OS ?? "unknown" },
           });
           nextSavedMessage =
             "Eater profile added. Invite email could not be sent yet.";
           track(posthog, "household_invite_email_failed", {
-            source: "ios_settings",
+            source: "mobile_settings",
             reason: err instanceof Error ? err.message : "unknown",
           });
         }
@@ -512,7 +520,7 @@ export default function SettingsScreen() {
       setEaterSavedMessage(nextSavedMessage);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "settings", action: "add_eater_profile", platform: "ios" },
+        tags: { area: "settings", action: "add_eater_profile", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setEaterError(getErrorMessage(err));
     } finally {
@@ -550,6 +558,7 @@ export default function SettingsScreen() {
   };
 
   const handlePurchasePackage = async (pack: RevenueCatPackage) => {
+    if (!billingAvailable) return;
     setBillingMessage("");
     track(posthog, "purchase_started", {
       product_id: pack.product.identifier,
@@ -569,13 +578,13 @@ export default function SettingsScreen() {
       setBillingNotice(
         isFamily
           ? "Family plan activated. Unlimited weekly planning is ready for this household."
-          : "Apple completed the purchase. FamilyPlate is refreshing your household plan.",
+          : `${billingStoreName} completed the purchase. FamilyPlate is refreshing your household plan.`,
       );
       Alert.alert(
         isFamily ? "Family plan active" : "Purchase complete",
         isFamily
           ? "Your FamilyPlate family plan is active. It may take a moment to refresh across your household."
-          : "Apple completed the purchase. FamilyPlate will refresh your plan shortly.",
+          : `${billingStoreName} completed the purchase. FamilyPlate will refresh your plan shortly.`,
       );
     } catch (err) {
       const billingError = getBillingError(err);
@@ -599,6 +608,7 @@ export default function SettingsScreen() {
   };
 
   const handleRestorePurchases = async () => {
+    if (!billingAvailable) return;
     setIsRestoringPurchases(true);
     setBillingNotice("");
     track(posthog, "purchase_restore_started", {
@@ -612,13 +622,13 @@ export default function SettingsScreen() {
       setBillingNotice(
         isFamily
           ? "Purchases restored. Your Family plan should appear here shortly."
-          : "No active Family plan was found for this Apple ID.",
+          : `No active Family plan was found for this ${billingAccountName}.`,
       );
       Alert.alert(
         isFamily ? "Purchases restored" : "No family plan found",
         isFamily
           ? "Your FamilyPlate family plan was restored. It may take a moment to refresh across your household."
-          : "We did not find an active FamilyPlate family plan on this Apple ID.",
+          : `We did not find an active FamilyPlate family plan on this ${billingAccountName}.`,
       );
     } catch (err) {
       const message = getBillingErrorMessage(err);
@@ -631,18 +641,23 @@ export default function SettingsScreen() {
   };
 
   const handleManageSubscription = async () => {
+    if (!billingAvailable || !billingPlatform.manageSubscriptionsUrl) return;
     track(posthog, "subscription_manage_opened", {
       source: "settings_plan_usage",
     });
     try {
-      await WebBrowser.openBrowserAsync(APP_STORE_SUBSCRIPTIONS_URL);
+      await WebBrowser.openBrowserAsync(billingPlatform.manageSubscriptionsUrl);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "settings", action: "manage_subscription", platform: "ios" },
+        tags: {
+          area: "settings",
+          action: "manage_subscription",
+          platform: Platform.OS,
+        },
       });
       Alert.alert(
         "Could not open subscriptions",
-        "Open the App Store app, tap your account, then choose Subscriptions.",
+        subscriptionSettingsDescription,
       );
     }
   };
@@ -748,6 +763,7 @@ export default function SettingsScreen() {
             familyPackages={familyPackages}
             billingMessage={billingMessage}
             billingNotice={billingNotice}
+            billingAvailable={billingAvailable}
             isLoadingBilling={isLoadingBilling}
             isPurchasingPackage={isPurchasingPackage}
             isRestoringPurchases={isRestoringPurchases}
@@ -1509,6 +1525,7 @@ function PlanUsageCard({
   familyPackages,
   billingMessage,
   billingNotice,
+  billingAvailable,
   isLoadingBilling,
   isPurchasingPackage,
   isRestoringPurchases,
@@ -1520,6 +1537,7 @@ function PlanUsageCard({
   familyPackages: RevenueCatPackage[];
   billingMessage: string;
   billingNotice: string;
+  billingAvailable: boolean;
   isLoadingBilling: boolean;
   isPurchasingPackage: string | null;
   isRestoringPurchases: boolean;
@@ -1538,7 +1556,7 @@ function PlanUsageCard({
         : `${subscription.plansUsed}/${subscription.plansLimit} free weekly plans used`;
   const planDetail =
     subscription === undefined
-      ? "Checking Apple billing and household usage."
+      ? `Checking ${billingStoreName} billing and household usage.`
       : isFamily
         ? "Your household can generate unlimited weekly plans."
         : subscription.canGenerate
@@ -1612,23 +1630,27 @@ function PlanUsageCard({
                   Family plan is active
                 </Text>
                 <Text className="mt-1 text-xs leading-4 text-muted-foreground">
-                  App Store manages billing. FamilyPlate syncs entitlement
+                  {billingStoreName} manages billing. FamilyPlate syncs entitlement
                   changes back to this household automatically.
                 </Text>
               </View>
             </View>
           </View>
-          <SettingsAction
-            icon="card-outline"
-            label="Manage Subscription"
-            onPress={() => void onManageSubscription()}
-          />
-          <SettingsAction
-            icon="refresh-outline"
-            label={isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
-            disabled={isRestoringPurchases}
-            onPress={() => void onRestorePurchases()}
-          />
+          {billingAvailable ? (
+            <>
+              <SettingsAction
+                icon="card-outline"
+                label="Manage Subscription"
+                onPress={() => void onManageSubscription()}
+              />
+              <SettingsAction
+                icon="refresh-outline"
+                label={isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
+                disabled={isRestoringPurchases}
+                onPress={() => void onRestorePurchases()}
+              />
+            </>
+          ) : null}
         </View>
       ) : (
         <View className="rounded-xl border border-border bg-card p-3">
@@ -1642,7 +1664,7 @@ function PlanUsageCard({
               </Text>
               <Text className="mt-1 text-xs leading-4 text-muted-foreground">
                 Unlock unlimited weekly plans for the whole household. Billing
-                stays inside your Apple ID.
+                stays inside your {billingAccountName}.
               </Text>
             </View>
           </View>
@@ -1666,7 +1688,7 @@ function PlanUsageCard({
             <View className="mb-2 flex-row items-center gap-2 rounded-xl bg-muted p-3">
               <ActivityIndicator color="#248f58" />
               <Text className="text-sm text-muted-foreground">
-                Loading App Store plans...
+                Loading {billingStoreName} plans...
               </Text>
             </View>
           ) : null}
@@ -1718,7 +1740,7 @@ function PlanUsageCard({
                 );
               })}
               <Text className="mt-1 text-center text-[11px] leading-4 text-muted-foreground">
-                Tap a plan to confirm with Apple before you are charged.
+                Tap a plan to confirm with {billingStoreName} before you are charged.
               </Text>
             </View>
           ) : null}
@@ -1731,34 +1753,36 @@ function PlanUsageCard({
             </View>
           ) : null}
 
-          <TouchableOpacity
-            onPress={() => void onRestorePurchases()}
-            disabled={isPurchasingPackage !== null || isRestoringPurchases}
-            className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
-            style={{
-              opacity:
-                isPurchasingPackage !== null || isRestoringPurchases ? 0.65 : 1,
-            }}
-          >
-            {isRestoringPurchases ? (
-              <ActivityIndicator color="#248f58" />
-            ) : (
-              <Ionicons name="refresh-outline" size={17} color="#248f58" />
-            )}
-            <Text className="font-semibold text-foreground">
-              {isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
-            </Text>
-          </TouchableOpacity>
+          {billingAvailable ? (
+            <TouchableOpacity
+              onPress={() => void onRestorePurchases()}
+              disabled={isPurchasingPackage !== null || isRestoringPurchases}
+              className="mt-2 flex-row items-center justify-center gap-2 rounded-xl border border-border bg-card py-3"
+              style={{
+                opacity:
+                  isPurchasingPackage !== null || isRestoringPurchases ? 0.65 : 1,
+              }}
+            >
+              {isRestoringPurchases ? (
+                <ActivityIndicator color="#248f58" />
+              ) : (
+                <Ionicons name="refresh-outline" size={17} color="#248f58" />
+              )}
+              <Text className="font-semibold text-foreground">
+                {isRestoringPurchases ? "Restoring..." : "Restore Purchases"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
 
           <Text className="mt-3 text-center text-[11px] leading-4 text-muted-foreground">
-            Purchases are handled by Apple. Cancel or manage anytime in your
-            App Store subscription settings.
+            Purchases are handled by {billingStoreName}. Cancel or manage
+            anytime in your subscription settings.
           </Text>
         </View>
       )}
       <View className="mt-4 rounded-xl bg-muted p-3">
         <Text className="text-center text-[11px] leading-4 text-muted-foreground">
-          Family subscriptions renew automatically through Apple unless canceled
+          Family subscriptions renew automatically through {billingStoreName} unless canceled
           at least 24 hours before renewal.
         </Text>
         <View className="mt-2 flex-row justify-center gap-4">

@@ -119,7 +119,7 @@ export default function HouseholdSetupScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "onboarding", action: "join_household", platform: "ios" },
+        tags: { area: "onboarding", action: "join_household", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -173,7 +173,7 @@ export default function HouseholdSetupScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "onboarding", action: "create_household", platform: "ios" },
+        tags: { area: "onboarding", action: "create_household", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {

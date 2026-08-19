@@ -76,11 +76,13 @@ function getConfidenceTone(confidence: RecognizedItem["confidence"]) {
 
 export function SnapGroceries({
   onClose,
+  onCloseDisabledChange,
   onAdd,
   onManualAdd,
   onScanBarcode,
 }: {
   onClose: () => void;
+  onCloseDisabledChange?: (isDisabled: boolean) => void;
   onAdd: (items: SnapGroceryItem[]) => Promise<void>;
   onManualAdd?: () => void;
   onScanBarcode?: () => void;
@@ -110,6 +112,11 @@ export function SnapGroceries({
   const [isCapturing, setIsCapturing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    onCloseDisabledChange?.(phase === "analyzing" || isAdding);
+    return () => onCloseDisabledChange?.(false);
+  }, [isAdding, onCloseDisabledChange, phase]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
@@ -248,7 +255,7 @@ export function SnapGroceries({
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "snap_groceries", platform: "ios" },
+        tags: { area: "snap_groceries", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getRecognitionErrorMessage(err));
       setPhase("camera");
@@ -302,7 +309,7 @@ export function SnapGroceries({
         tags: {
           area: "snap_groceries",
           action: "add_review_items",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(err instanceof Error ? err.message : "Couldn't add groceries.");
@@ -347,7 +354,11 @@ export function SnapGroceries({
   return (
     <View className="flex-1 bg-background">
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
-        <TouchableOpacity onPress={onClose} disabled={phase === "analyzing"}>
+        <TouchableOpacity
+          onPress={onClose}
+          disabled={phase === "analyzing" || isAdding}
+          style={{ opacity: phase === "analyzing" || isAdding ? 0.55 : 1 }}
+        >
           <Text className="text-base text-muted-foreground">Cancel</Text>
         </TouchableOpacity>
         <Text className="text-base font-semibold text-foreground">

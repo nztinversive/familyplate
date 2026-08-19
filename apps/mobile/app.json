@@ -35,7 +35,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "FamilyPlate uses the camera to scan grocery barcodes for pantry items."
+          "cameraPermission": "FamilyPlate uses the camera to scan grocery barcodes and photograph groceries you choose to add.",
+          "recordAudioAndroid": false
         }
       ],
       [

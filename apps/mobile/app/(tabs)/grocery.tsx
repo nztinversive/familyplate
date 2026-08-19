@@ -113,7 +113,7 @@ export default function GroceryScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "generate_from_plan", platform: "ios" },
+        tags: { area: "grocery", action: "generate_from_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -186,7 +186,7 @@ export default function GroceryScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "move_to_pantry", platform: "ios" },
+        tags: { area: "grocery", action: "move_to_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -219,7 +219,7 @@ export default function GroceryScreen() {
       if (result.remainingCount === 0) setStoreMode(false);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "move_checked_to_pantry", platform: "ios" },
+        tags: { area: "grocery", action: "move_checked_to_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -322,7 +322,7 @@ export default function GroceryScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "share_list", platform: "ios" },
+        tags: { area: "grocery", action: "share_list", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }

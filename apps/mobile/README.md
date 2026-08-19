@@ -1,6 +1,6 @@
 # FamilyPlate Mobile
 
-Expo Router iOS app for FamilyPlate. The app uses the shared Convex backend and expects a Convex deployment URL in `EXPO_PUBLIC_CONVEX_URL`.
+Expo Router mobile app for FamilyPlate. The app uses the shared Convex backend and expects a Convex deployment URL in `EXPO_PUBLIC_CONVEX_URL`.
 
 ## Local Development
 
@@ -22,6 +22,25 @@ Start Expo from the mobile app directory:
 cd apps/mobile
 npx expo start
 ```
+
+## Android Development
+
+The Android application ID is `co.familyplate.app`. Native modules such as
+RevenueCat and Sentry require a development client or internal APK instead of
+Expo Go.
+
+```bash
+cd apps/mobile
+npx eas-cli@latest build --platform android --profile development
+npx expo start --dev-client
+```
+
+The `development` and `preview` profiles produce installable APKs. The
+`production` profile produces the signed AAB used by Google Play.
+
+Android paid-plan testing additionally requires Google Play subscription
+products connected to RevenueCat and
+`EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY` in the matching EAS environment.
 
 ## iOS Delivery
 
@@ -54,6 +73,15 @@ npx eas-cli@latest build --platform ios --profile simulator
 
 # Internal device build for ad hoc testing.
 npx eas-cli@latest build --platform ios --profile preview
+
+# Android development-client APK.
+npx eas-cli@latest build --platform android --profile development
+
+# Android internal-testing APK.
+npx eas-cli@latest build --platform android --profile preview
+
+# Signed Google Play AAB.
+npx eas-cli@latest build --platform android --profile production
 
 # App Store/TestFlight build.
 npx eas-cli@latest build --platform ios --profile production

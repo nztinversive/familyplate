@@ -1,5 +1,6 @@
 import * as Sentry from "@sentry/react-native";
 import * as Application from "expo-application";
+import { Platform } from "react-native";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const appVersion = Application.nativeApplicationVersion ?? "development";
@@ -44,12 +45,17 @@ if (dsn) {
     beforeSend(event) {
       delete event.request?.cookies;
       delete event.request?.headers;
+      event.tags = {
+        ...event.tags,
+        platform: Platform.OS,
+      };
       if (isLocalDevelopmentNoise(event)) {
         return null;
       }
       return event;
     },
   });
+  Sentry.setTag("platform", Platform.OS);
 }
 
 export { Sentry };

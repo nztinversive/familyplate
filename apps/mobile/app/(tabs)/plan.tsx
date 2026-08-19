@@ -576,7 +576,7 @@ export default function PlanScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "generate_plan", platform: "ios" },
+        tags: { area: "plan", action: "generate_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -709,7 +709,7 @@ export default function PlanScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cook_mode", action: "finish", platform: "ios" },
+        tags: { area: "cook_mode", action: "finish", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -752,7 +752,7 @@ export default function PlanScreen() {
         tags: {
           area: "grocery",
           action: "generate_from_plan",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -781,7 +781,7 @@ export default function PlanScreen() {
       }
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+        tags: { area: "recipe", action: "toggle_save", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -806,7 +806,7 @@ export default function PlanScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "share_recipe", platform: "ios" },
+        tags: { area: "plan", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }
@@ -867,7 +867,7 @@ export default function PlanScreen() {
         tags: {
           area: "plan",
           action: "add_missing_to_grocery",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -969,7 +969,7 @@ export default function PlanScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "adjust_meal", platform: "ios" },
+        tags: { area: "plan", action: "adjust_meal", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -1002,7 +1002,7 @@ export default function PlanScreen() {
         tags: {
           area: "profile",
           action: "save_avoid_preference",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));

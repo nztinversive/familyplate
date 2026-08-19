@@ -256,7 +256,7 @@ export default function TonightScreen() {
         mode,
       });
       Sentry.captureException(err, {
-        tags: { area: "tonight", action: "suggest_from_pantry", platform: "ios" },
+        tags: { area: "tonight", action: "suggest_from_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -322,7 +322,7 @@ export default function TonightScreen() {
       }
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+        tags: { area: "recipe", action: "toggle_save", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -378,7 +378,7 @@ export default function TonightScreen() {
         tags: {
           area: "tonight",
           action: "add_missing_to_grocery",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -404,7 +404,7 @@ export default function TonightScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "tonight", action: "share_recipe", platform: "ios" },
+        tags: { area: "tonight", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }

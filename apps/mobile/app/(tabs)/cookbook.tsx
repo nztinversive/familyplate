@@ -164,7 +164,7 @@ export default function CookbookScreen() {
               })
               .catch((err) => {
                 Sentry.captureException(err, {
-                  tags: { area: "cookbook", action: "remove_recipe", platform: "ios" },
+                  tags: { area: "cookbook", action: "remove_recipe", platform: process.env.EXPO_OS ?? "unknown" },
                 });
                 setError(
                   err instanceof Error
@@ -221,7 +221,7 @@ export default function CookbookScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "add_missing_to_grocery", platform: "ios" },
+        tags: { area: "cookbook", action: "add_missing_to_grocery", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error
@@ -278,7 +278,7 @@ export default function CookbookScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "add_recipe_to_plan", platform: "ios" },
+        tags: { area: "cookbook", action: "add_recipe_to_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error
@@ -307,7 +307,7 @@ export default function CookbookScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "share_recipe", platform: "ios" },
+        tags: { area: "cookbook", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error ? err.message : "Couldn't share this recipe.",
@@ -353,7 +353,7 @@ export default function CookbookScreen() {
       setNotice("Cook Mode finished. Add feedback below so future plans learn what worked.");
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "finish_cook_mode", platform: "ios" },
+        tags: { area: "cookbook", action: "finish_cook_mode", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error

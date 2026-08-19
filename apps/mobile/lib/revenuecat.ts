@@ -6,6 +6,8 @@ import type {
 } from "react-native-purchases";
 
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
+const REVENUECAT_ANDROID_API_KEY =
+  process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 const FAMILY_ENTITLEMENT_ID = "family";
 
 let configuredAppUserId: string | null = null;
@@ -13,8 +15,14 @@ let purchasesClient: typeof import("react-native-purchases").default | null = nu
 
 export type RevenueCatPackage = PurchasesPackage;
 
+function getRevenueCatApiKey() {
+  if (Platform.OS === "ios") return REVENUECAT_IOS_API_KEY;
+  if (Platform.OS === "android") return REVENUECAT_ANDROID_API_KEY;
+  return undefined;
+}
+
 export function isRevenueCatAvailable() {
-  return Platform.OS === "ios" && Boolean(REVENUECAT_IOS_API_KEY);
+  return Boolean(getRevenueCatApiKey());
 }
 
 async function getPurchasesClient() {
@@ -33,14 +41,15 @@ export async function configureRevenueCat({
   appUserId?: string | null;
   email?: string | null;
 }) {
-  if (!isRevenueCatAvailable() || !REVENUECAT_IOS_API_KEY) return false;
+  const apiKey = getRevenueCatApiKey();
+  if (!apiKey) return false;
   if (!appUserId) return false;
 
   const Purchases = await getPurchasesClient();
   const isConfigured = await Purchases.isConfigured();
   if (!isConfigured) {
     Purchases.configure({
-      apiKey: REVENUECAT_IOS_API_KEY,
+      apiKey,
       appUserID: appUserId,
       automaticDeviceIdentifierCollectionEnabled: false,
     });

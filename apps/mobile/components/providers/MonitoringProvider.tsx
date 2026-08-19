@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
+import { Platform } from "react-native";
 import { usePathname } from "expo-router";
 import { useQuery } from "convex/react";
 import { PostHogProvider, usePostHog, type PostHog } from "posthog-react-native";
@@ -86,7 +87,7 @@ function UserAnalyticsTracker() {
         email: currentUser.email,
         userName: currentUser.userName,
         app: "familyplate",
-        platform: "ios",
+        platform: Platform.OS,
       });
       identifiedUserId.current = currentUser.authId;
     } catch {
@@ -105,7 +106,7 @@ function ScreenTracker() {
     if (!pathname) return;
     posthog.screen(pathname, {
       app: "familyplate",
-      platform: "ios",
+      platform: Platform.OS,
     });
   }, [pathname, posthog]);
 

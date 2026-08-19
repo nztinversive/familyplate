@@ -124,7 +124,7 @@ export function RecipeFeedback({
       }
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "feedback", action: "submit", platform: "ios" },
+        tags: { area: "feedback", action: "submit", platform: process.env.EXPO_OS ?? "unknown" },
       });
     } finally {
       setIsSubmitting(false);
@@ -145,7 +145,7 @@ export function RecipeFeedback({
       setHasInitialized(true);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "feedback", action: "delete", platform: "ios" },
+        tags: { area: "feedback", action: "delete", platform: process.env.EXPO_OS ?? "unknown" },
       });
     } finally {
       setIsSubmitting(false);

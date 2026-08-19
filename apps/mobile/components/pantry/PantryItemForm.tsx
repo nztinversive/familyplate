@@ -209,7 +209,7 @@ export function PantryItemForm({
         tags: {
           area: "pantry",
           action: item ? "update_item" : "add_item",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(err instanceof Error ? err.message : "Couldn't save item.");

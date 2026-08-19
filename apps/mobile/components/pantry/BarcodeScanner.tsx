@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Text,
@@ -161,9 +161,11 @@ function getCameraErrorMessage(error: unknown) {
 
 export function BarcodeScanner({
   onClose,
+  onCloseDisabledChange,
   onScan,
 }: {
   onClose: () => void;
+  onCloseDisabledChange?: (isDisabled: boolean) => void;
   onScan: (result: BarcodeScannerResult) => void;
 }) {
   const posthog = usePostHog();
@@ -173,6 +175,11 @@ export function BarcodeScanner({
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [lookupError, setLookupError] = useState("");
+
+  useEffect(() => {
+    onCloseDisabledChange?.(isLookingUp);
+    return () => onCloseDisabledChange?.(false);
+  }, [isLookingUp, onCloseDisabledChange]);
 
   const handleBarcode = async (barcode: string) => {
     const trimmed = barcode.trim();
@@ -196,7 +203,7 @@ export function BarcodeScanner({
         reason: err instanceof Error ? err.message : "lookup_failed",
       });
       Sentry.captureException(err, {
-        tags: { area: "barcode", platform: "ios" },
+        tags: { area: "barcode", platform: process.env.EXPO_OS ?? "unknown" },
       });
       const result: BarcodeScannerResult = {
         barcode: trimmed,

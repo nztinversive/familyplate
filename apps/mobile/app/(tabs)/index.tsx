@@ -65,6 +65,9 @@ export default function PantryScreen() {
   const [showForm, setShowForm] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showSnapGroceries, setShowSnapGroceries] = useState(false);
+  const [scannerCloseDisabled, setScannerCloseDisabled] = useState(false);
+  const [snapGroceriesCloseDisabled, setSnapGroceriesCloseDisabled] =
+    useState(false);
   const [editingItem, setEditingItem] = useState<PantryItem | null>(null);
   const [prefillValues, setPrefillValues] =
     useState<BarcodeScannerResult | null>(null);
@@ -208,7 +211,7 @@ export default function PantryScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "pantry", action: "quick_add", platform: "ios" },
+        tags: { area: "pantry", action: "quick_add", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setQuickAddError(
         err instanceof Error ? err.message : "Couldn't add pantry items.",
@@ -249,7 +252,7 @@ export default function PantryScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "pantry", action: "photo_scan_add", platform: "ios" },
+        tags: { area: "pantry", action: "photo_scan_add", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setQuickAddError(
         err instanceof Error ? err.message : "Couldn't add photo items.",
@@ -528,9 +531,12 @@ export default function PantryScreen() {
         visible={showScanner}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowScanner(false)}
+        onRequestClose={() => {
+          if (!scannerCloseDisabled) setShowScanner(false);
+        }}
       >
         <BarcodeScanner
+          onCloseDisabledChange={setScannerCloseDisabled}
           onClose={() => setShowScanner(false)}
           onScan={handleScannerResult}
         />
@@ -540,9 +546,12 @@ export default function PantryScreen() {
         visible={showSnapGroceries}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowSnapGroceries(false)}
+        onRequestClose={() => {
+          if (!snapGroceriesCloseDisabled) setShowSnapGroceries(false);
+        }}
       >
         <SnapGroceries
+          onCloseDisabledChange={setSnapGroceriesCloseDisabled}
           onClose={() => setShowSnapGroceries(false)}
           onAdd={handleSnapAdd}
           onManualAdd={() => {
