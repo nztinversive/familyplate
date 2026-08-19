@@ -19,6 +19,7 @@
     "agent:pack": "npm pack --workspace=@familyplate/agent-tools --dry-run && npm pack --workspace=@familyplate/cli --dry-run",
     "agent:publish": "npm publish --workspace=@familyplate/agent-tools --access public && npm publish --workspace=@familyplate/cli --access public",
     "validate:google-play-launch": "node scripts/validate-google-play-launch.mjs",
+    "test:mobile-dependencies": "node --test scripts/mobile-dependency-health.test.mjs",
     "store-preview:dev": "npm run dev --workspace=@familyplate/store-preview",
     "store-preview:render": "npm run render --workspace=@familyplate/store-preview",
     "store-preview:poster": "npm run poster --workspace=@familyplate/store-preview",
@@ -27,7 +28,16 @@
     "convex:deploy": "convex deploy"
   },
   "devDependencies": {
-    "convex": "1.35.1",
+    "@react-native/metro-config": "0.81.5",
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.11",
+    "convex": "1.44.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-css-interop": "0.2.6",
+    "react-native-reanimated": "4.1.7",
+    "react-native-worklets": "0.5.1",
     "typescript": "5.9.3"
   }
 }
