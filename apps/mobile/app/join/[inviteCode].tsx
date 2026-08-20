@@ -97,7 +97,7 @@ export default function JoinHouseholdScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "invite", action: "join_household", platform: "ios" },
+        tags: { area: "invite", action: "join_household", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getJoinErrorMessage(err));
     } finally {

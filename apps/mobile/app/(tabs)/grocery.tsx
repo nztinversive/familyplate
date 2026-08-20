@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
@@ -22,6 +23,7 @@ import { PANTRY_CATEGORIES, PANTRY_UNITS } from "@/lib/pantry";
 import { isAlwaysAvailableIngredient } from "@/lib/ingredientAvailability";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentWeekStartDate } from "@/lib/week";
 
 type GroceryList = Doc<"groceryLists">;
 type GroceryItem = GroceryList["items"][number] & { originalIndex: number };
@@ -41,7 +43,9 @@ function getErrorMessage(err: unknown) {
 export default function GroceryScreen() {
   const posthog = usePostHog();
   const groceryList = useQuery(api.queries.grocery.getMyGroceryList, {});
-  const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
+  const mealPlan = useQuery(api.queries.planner.getMyMealPlanByWeek, {
+    weekStartDate: getCurrentWeekStartDate(),
+  });
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const generateFromPlan = useMutation(api.mutations.grocery.generateFromPlan);
   const addCustomItem = useMutation(api.mutations.grocery.addMyCustomItem);
@@ -55,6 +59,7 @@ export default function GroceryScreen() {
 
   const [activeTab, setActiveTab] = useState<GroceryTab>("all");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [addFormCloseDisabled, setAddFormCloseDisabled] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -102,7 +107,11 @@ export default function GroceryScreen() {
     setError("");
     setNotice("");
     try {
-      await generateFromPlan({});
+      await generateFromPlan(
+        mealPlan
+          ? { mealPlanId: mealPlan.plan._id }
+          : {},
+      );
       track(posthog, "grocery_list_generated", {
         source: "grocery_tab",
       });
@@ -113,7 +122,7 @@ export default function GroceryScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "generate_from_plan", platform: "ios" },
+        tags: { area: "grocery", action: "generate_from_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -186,7 +195,7 @@ export default function GroceryScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "move_to_pantry", platform: "ios" },
+        tags: { area: "grocery", action: "move_to_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -219,7 +228,7 @@ export default function GroceryScreen() {
       if (result.remainingCount === 0) setStoreMode(false);
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "move_checked_to_pantry", platform: "ios" },
+        tags: { area: "grocery", action: "move_checked_to_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -322,7 +331,7 @@ export default function GroceryScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "grocery", action: "share_list", platform: "ios" },
+        tags: { area: "grocery", action: "share_list", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }
@@ -650,9 +659,12 @@ export default function GroceryScreen() {
         visible={showAddForm}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowAddForm(false)}
+        onRequestClose={() => {
+          if (!addFormCloseDisabled) setShowAddForm(false);
+        }}
       >
         <AddGroceryItemForm
+          onCloseDisabledChange={setAddFormCloseDisabled}
           onClose={() => setShowAddForm(false)}
           onSubmit={handleAddItem}
         />
@@ -835,9 +847,11 @@ function EmptyGuideRow({
 
 function AddGroceryItemForm({
   onClose,
+  onCloseDisabledChange,
   onSubmit,
 }: {
   onClose: () => void;
+  onCloseDisabledChange?: (isDisabled: boolean) => void;
   onSubmit: (values: {
     name: string;
     quantity: number;
@@ -851,6 +865,11 @@ function AddGroceryItemForm({
   const [category, setCategory] = useState("Other");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    onCloseDisabledChange?.(isSubmitting);
+    return () => onCloseDisabledChange?.(false);
+  }, [isSubmitting, onCloseDisabledChange]);
 
   const handleSubmit = async () => {
     const parsedQuantity = Number.parseFloat(quantity);
@@ -882,11 +901,12 @@ function AddGroceryItemForm({
   };
 
   return (
-    <View
+    <SafeAreaView
       className="flex-1 bg-background"
       style={{ backgroundColor: "#fbfaf7" }}
+      edges={["top", "bottom"]}
     >
-      <View className="flex-row items-center justify-between border-b border-border bg-card px-4 pb-3 pt-14">
+      <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
         <TouchableOpacity onPress={onClose} disabled={isSubmitting}>
           <Text className="text-base text-muted-foreground">Cancel</Text>
         </TouchableOpacity>
@@ -984,7 +1004,7 @@ function AddGroceryItemForm({
           </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 

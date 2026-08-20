@@ -1,9 +1,18 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { normalizeIngredientName } from "../lib/mealPlanning";
 import { validateRecipeAllergens } from "../lib/allergenCheck";
 import { checkRecipeForDislikes } from "../lib/recipeSafety";
+import { getSafeFallbackIngredients } from "../lib/curatedFallback";
+import {
+  canReserveFreePlan,
+  countActivePlanReservations,
+  FREE_PLAN_LIMIT,
+  getCompletedPlanUsage,
+  isCompleteWeeklyPlan,
+} from "../lib/planQuota";
+import { formatUtcDate, resolveWeekStartDate } from "../lib/weekStart";
 
 const PLACEHOLDER_DINNERS = [
   {
@@ -187,8 +196,10 @@ function parseDate(date: string) {
 }
 
 export const generatePlaceholderPlan = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    weekStartDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
@@ -199,12 +210,46 @@ export const generatePlaceholderPlan = mutation({
     if (!profile) throw new Error("No profile found");
 
     const householdId = profile.householdId;
+    const household = await ctx.db.get(householdId);
+    if (!household) throw new ConvexError("Household not found.");
 
     // Collect ALL household allergies and dislikes separately
     const allProfiles = await ctx.db
       .query("userProfiles")
       .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
       .collect();
+    const isFamily = allProfiles.some(
+      (member) =>
+        member.subscriptionTier === "family" &&
+        (member.subscriptionStatus === "active" ||
+          member.subscriptionStatus === "on_trial"),
+    );
+    const createdAt = Date.now();
+    const reservations = await ctx.db
+      .query("planGenerationReservations")
+      .withIndex("by_householdId_and_expiresAt", (q) =>
+        q.eq("householdId", householdId).gt("expiresAt", createdAt),
+      )
+      .collect();
+    const usage = getCompletedPlanUsage({
+      now: createdAt,
+      resetAt: household.planGenerationsResetAt,
+      completed: household.planGenerationsThisMonth,
+    });
+    if (
+      !isFamily &&
+      !canReserveFreePlan({
+        plansUsed: usage.plansUsed,
+        activeReservations: countActivePlanReservations(
+          reservations,
+          createdAt,
+        ),
+      })
+    ) {
+      throw new ConvexError(
+        `You've used ${usage.plansUsed}/${FREE_PLAN_LIMIT} free plans this month.`,
+      );
+    }
     const allAllergies = Array.from(
       new Set(
         allProfiles
@@ -229,55 +274,40 @@ export const generatePlaceholderPlan = mutation({
     const pantryNames = new Set(
       pantryItems.map((item) => normalizeIngredientName(item.name))
     );
-    const existingPlans = await ctx.db
-      .query("weeklyMealPlans")
-      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
-      .collect();
-
-    for (const plan of existingPlans) {
-      if (plan.status === "active") {
-        await ctx.db.patch(plan._id, { status: "completed" });
-      }
-    }
-
-    const weekStart = getStartOfWeek(new Date());
-    const weekStartDate = formatDate(weekStart);
-    const createdAt = Date.now();
+    const { weekStart, weekStartDate } = resolveWeekStartDate(
+      args.weekStartDate,
+    );
     // Filter out placeholder dinners that contain allergens OR dislikes
     const safeDinners = PLACEHOLDER_DINNERS.map((dinner, index) => {
-      // Check allergens
-      if (allAllergies.length > 0) {
-        const violations = validateRecipeAllergens(
-          dinner.ingredients,
-          allAllergies
-        );
-        if (violations.length > dinner.ingredients.length / 2) {
-          return { ...dinner, originalIndex: index, safe: false };
-        }
-        if (violations.length > 0) {
-          const violatingNames = new Set(violations.map((v) => v.ingredient));
-          return {
-            ...dinner,
-            ingredients: dinner.ingredients.filter((ing) => !violatingNames.has(ing.name)),
-            originalIndex: index,
-            safe: true,
-          };
-        }
+      const violations = validateRecipeAllergens(
+        dinner.ingredients,
+        allAllergies,
+      );
+      const safeIngredients = getSafeFallbackIngredients({
+        ingredients: dinner.ingredients,
+        violatingIngredientNames: violations.map(
+          (violation) => violation.ingredient,
+        ),
+        rejectForAllergens: violations.length > dinner.ingredients.length / 2,
+        // Always evaluate dislikes against the allergen-filtered recipe.
+        isDisliked: (ingredients) =>
+          checkRecipeForDislikes(
+            dinner.title,
+            ingredients,
+            allDislikes,
+          ).length > 0,
+      });
+
+      if (!safeIngredients) {
+        return { ...dinner, originalIndex: index, safe: false };
       }
 
-      // Check dislikes — if recipe contains disliked items, skip entirely
-      if (allDislikes.length > 0) {
-        const dislikeHits = checkRecipeForDislikes(
-          dinner.title,
-          dinner.ingredients,
-          allDislikes
-        );
-        if (dislikeHits.length > 0) {
-          return { ...dinner, originalIndex: index, safe: false };
-        }
-      }
-
-      return { ...dinner, originalIndex: index, safe: true };
+      return {
+        ...dinner,
+        ingredients: safeIngredients,
+        originalIndex: index,
+        safe: true,
+      };
     }).filter((d) => d.safe);
 
     const dinners = safeDinners.map((dinner) => ({
@@ -290,6 +320,23 @@ export const generatePlaceholderPlan = mutation({
     }))
       .sort((a, b) => b.pantryScore - a.pantryScore || a.originalIndex - b.originalIndex)
       .slice(0, 7);
+
+    if (!isCompleteWeeklyPlan(dinners)) {
+      throw new ConvexError(
+        "FamilyPlate couldn't build a complete allergy-safe fallback plan. Try AI planning again or update the household's food preferences.",
+      );
+    }
+
+    const existingPlans = await ctx.db
+      .query("weeklyMealPlans")
+      .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
+      .collect();
+
+    for (const plan of existingPlans) {
+      if (plan.status === "active") {
+        await ctx.db.patch(plan._id, { status: "completed" });
+      }
+    }
 
     const mealPlanId = await ctx.db.insert("weeklyMealPlans", {
       householdId,
@@ -328,10 +375,17 @@ export const generatePlaceholderPlan = mutation({
         mealPlanId,
         recipeId,
         alternativeRecipeIds: [],
-        date: formatDate(mealDate),
+        date: formatUtcDate(mealDate),
         mealType: "dinner",
         status: "planned",
         pantryDeductedAt: undefined,
+      });
+    }
+
+    if (!isFamily) {
+      await ctx.db.patch(householdId, {
+        planGenerationsThisMonth: usage.plansUsed + 1,
+        planGenerationsResetAt: usage.windowStartedAt,
       });
     }
 

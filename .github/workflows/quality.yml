@@ -1,0 +1,46 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  android-launch-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run focused launch regressions
+        run: npm run test:android-launch
+
+      - name: Typecheck every workspace
+        run: npm run typecheck:all
+
+      - name: Lint mobile and web
+        run: npm run lint:all
+
+      - name: Validate Expo dependency and configuration health
+        run: npx --yes expo-doctor@1.20.2 apps/mobile
+
+      - name: Validate Google Play listing materials
+        run: npm run validate:google-play-launch
+
+      - name: Build production web pages
+        run: npm run build --workspace=@familyplate/web
+
+      - name: Export the Android JavaScript bundle
+        run: npm exec --workspace=@familyplate/mobile expo export -- --platform android --output-dir /tmp/familyplate-android-export

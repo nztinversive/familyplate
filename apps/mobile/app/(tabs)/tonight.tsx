@@ -16,9 +16,15 @@ import type { Id } from "@familyplate/convex/_generated/dataModel";
 import { usePostHog } from "posthog-react-native";
 import { ScreenShell } from "@/components/ScreenShell";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
+import {
+  acquireOperationLock,
+  releaseOperationLock,
+} from "@/lib/privacy-and-permissions";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { useMySubscription } from "@/lib/useMySubscription";
 import {
   getUseFirstItems,
   getUseFirstLabel,
@@ -108,6 +114,7 @@ function getUsedPantryItems(
 }
 
 export default function TonightScreen() {
+  const subscription = useMySubscription();
   const router = useRouter();
   const params = useLocalSearchParams<{ ingredient?: string | string[] }>();
   const posthog = usePostHog();
@@ -118,9 +125,9 @@ export default function TonightScreen() {
     api.queries.planner.getQuickDinnerSuggestions,
     {},
   );
-  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
   const pantryItems = useQuery(api.queries.pantry.getMyPantryItems, {});
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const saveRecipe = useMutation(api.mutations.savedRecipes.saveRecipe);
   const unsaveRecipe = useMutation(api.mutations.savedRecipes.unsaveRecipe);
   const addGroceryItem = useMutation(api.mutations.grocery.addMyCustomItem);
@@ -140,6 +147,7 @@ export default function TonightScreen() {
   const trackedSuccessNudge = useRef(false);
   const handledIngredientParam = useRef<string | null>(null);
   const generateFromParamRef = useRef<(ingredient: string) => void>(() => {});
+  const generationInFlightRef = useRef(false);
 
   const initialSuggestions = useMemo<Suggestion[]>(() => {
     if (!persistedSuggestions?.length) return [];
@@ -193,20 +201,12 @@ export default function TonightScreen() {
     overrideCraving?: string,
     shoppingMode = false,
   ) => {
+    if (!acquireOperationLock(generationInFlightRef)) return;
     const cravingValue = (
       (overrideCraving ?? selectedCraving) ||
       customCraving
     ).trim();
     const mode = shoppingMode ? "shopping" : "pantry";
-
-    const consented = await ensureAiConsent();
-    if (!consented) {
-      setError("AI dinner suggestions need your permission before they can use your pantry and preference details.");
-      return;
-    }
-    track(posthog, "ai_consent_accepted", {
-      feature: "tonight_suggestions",
-    });
 
     setIsGenerating(true);
     setError("");
@@ -218,6 +218,15 @@ export default function TonightScreen() {
     setHasGenerated(true);
 
     try {
+      const consented = await ensureAiConsent(currentUser?.authId);
+      if (!consented) {
+        setError("AI dinner suggestions need your permission before they can use your pantry and preference details.");
+        return;
+      }
+      track(posthog, "ai_consent_accepted", {
+        feature: "tonight_suggestions",
+      });
+
       track(posthog, "dinner_suggestions_started", {
         has_craving: !!cravingValue,
         mode,
@@ -256,10 +265,11 @@ export default function TonightScreen() {
         mode,
       });
       Sentry.captureException(err, {
-        tags: { area: "tonight", action: "suggest_from_pantry", platform: "ios" },
+        tags: { area: "tonight", action: "suggest_from_pantry", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
+      releaseOperationLock(generationInFlightRef);
       setIsGenerating(false);
     }
   };
@@ -322,7 +332,7 @@ export default function TonightScreen() {
       }
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+        tags: { area: "recipe", action: "toggle_save", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -378,7 +388,7 @@ export default function TonightScreen() {
         tags: {
           area: "tonight",
           action: "add_missing_to_grocery",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -404,7 +414,7 @@ export default function TonightScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "tonight", action: "share_recipe", platform: "ios" },
+        tags: { area: "tonight", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }
@@ -889,6 +899,16 @@ function SuggestionCard({
           </TouchableOpacity>
         </View>
       </Pressable>
+
+      {suggestion._id ? (
+        <View className="border-t border-border px-4 py-3">
+          <ReportAiContentButton
+            key={`tonight:${suggestion._id}`}
+            recipeId={suggestion._id as Id<"recipeSuggestions">}
+            sourceSurface="tonight"
+          />
+        </View>
+      ) : null}
 
       {expanded ? (
         <View className="border-t border-border p-4">

@@ -21,6 +21,7 @@ import {
 import { CustomRecipeModal } from "@/components/CustomRecipeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { LoadingCard } from "@/components/LoadingCard";
@@ -34,6 +35,7 @@ import {
 } from "@/lib/recipeScaling";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentWeekStartDate } from "@/lib/week";
 
 type Recipe = Doc<"recipeSuggestions">;
 type RecipeIngredient = Recipe["ingredients"][number];
@@ -114,7 +116,9 @@ export default function CookbookScreen() {
   const router = useRouter();
   const posthog = usePostHog();
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
-  const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
+  const mealPlan = useQuery(api.queries.planner.getMyMealPlanByWeek, {
+    weekStartDate: getCurrentWeekStartDate(),
+  });
   const recentlyCooked = useQuery(api.queries.planner.getRecentlyCookedMeals, {
     limit: 5,
   });
@@ -164,7 +168,7 @@ export default function CookbookScreen() {
               })
               .catch((err) => {
                 Sentry.captureException(err, {
-                  tags: { area: "cookbook", action: "remove_recipe", platform: "ios" },
+                  tags: { area: "cookbook", action: "remove_recipe", platform: process.env.EXPO_OS ?? "unknown" },
                 });
                 setError(
                   err instanceof Error
@@ -221,7 +225,7 @@ export default function CookbookScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "add_missing_to_grocery", platform: "ios" },
+        tags: { area: "cookbook", action: "add_missing_to_grocery", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error
@@ -278,7 +282,7 @@ export default function CookbookScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "add_recipe_to_plan", platform: "ios" },
+        tags: { area: "cookbook", action: "add_recipe_to_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error
@@ -307,7 +311,7 @@ export default function CookbookScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "share_recipe", platform: "ios" },
+        tags: { area: "cookbook", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error ? err.message : "Couldn't share this recipe.",
@@ -353,7 +357,7 @@ export default function CookbookScreen() {
       setNotice("Cook Mode finished. Add feedback below so future plans learn what worked.");
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cookbook", action: "finish_cook_mode", platform: "ios" },
+        tags: { area: "cookbook", action: "finish_cook_mode", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(
         err instanceof Error
@@ -645,6 +649,15 @@ function RecentlyCookedCard({
                 ))}
               </View>
             ) : null}
+            {meal.recipe.source === "ai" ? (
+              <View className="mt-3">
+                <ReportAiContentButton
+                  key={`cookbook-recent:${meal.recipe._id}`}
+                  recipeId={meal.recipe._id}
+                  sourceSurface="cookbook"
+                />
+              </View>
+            ) : null}
             <TouchableOpacity
               onPress={() => onTogglePlanning(meal.recipe._id)}
               className="mt-3 flex-row items-center justify-center gap-2 rounded-xl bg-primary py-2.5"
@@ -918,6 +931,16 @@ function RecipeCard({
           />
         </View>
       </Pressable>
+
+      {recipe.source === "ai" ? (
+        <View className="border-t border-border px-4 py-3">
+          <ReportAiContentButton
+            key={`cookbook:${recipe._id}`}
+            recipeId={recipe._id}
+            sourceSurface="cookbook"
+          />
+        </View>
+      ) : null}
 
       {expanded ? (
         <View className="border-t border-border p-4">

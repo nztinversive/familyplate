@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/react-native";
 import * as Application from "expo-application";
+import { Platform } from "react-native";
+import { sanitizeSensitiveRoute } from "@/lib/privacy-and-permissions";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
 const appVersion = Application.nativeApplicationVersion ?? "development";
@@ -44,12 +46,48 @@ if (dsn) {
     beforeSend(event) {
       delete event.request?.cookies;
       delete event.request?.headers;
+      if (event.request?.url) {
+        event.request.url = sanitizeSensitiveRoute(event.request.url);
+      }
+      if (event.transaction) {
+        event.transaction = sanitizeSensitiveRoute(event.transaction);
+      }
+      if (event.message) {
+        event.message = sanitizeSensitiveRoute(event.message);
+      }
+      event.exception?.values?.forEach((exception) => {
+        if (exception.value) {
+          exception.value = sanitizeSensitiveRoute(exception.value);
+        }
+      });
+      event.breadcrumbs = event.breadcrumbs?.map((breadcrumb) => ({
+        ...breadcrumb,
+        message:
+          typeof breadcrumb.message === "string"
+            ? sanitizeSensitiveRoute(breadcrumb.message)
+            : breadcrumb.message,
+        data: breadcrumb.data
+          ? Object.fromEntries(
+              Object.entries(breadcrumb.data).map(([key, value]) => [
+                key,
+                typeof value === "string"
+                  ? sanitizeSensitiveRoute(value)
+                  : value,
+              ]),
+            )
+          : breadcrumb.data,
+      }));
+      event.tags = {
+        ...event.tags,
+        platform: Platform.OS,
+      };
       if (isLocalDevelopmentNoise(event)) {
         return null;
       }
       return event;
     },
   });
+  Sentry.setTag("platform", Platform.OS);
 }
 
 export { Sentry };

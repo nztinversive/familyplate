@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { track } from "@/lib/analytics";
 import { shareOrCopy } from "@/lib/share";
+import { useMySubscription } from "@/lib/useMySubscription";
 import * as Sentry from "@sentry/nextjs";
 
 function renderList(values?: string[]) {
@@ -85,11 +86,11 @@ const ANNUAL_CHECKOUT_URL =
   "https://familyplate.lemonsqueezy.com/checkout/buy/168542d2-9856-491a-801a-fd9d7f9c6b40";
 
 export default function SettingsPage() {
+  const subscription = useMySubscription();
   const { signOut } = useAuthActions();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const profile = useQuery(api.queries.profiles.getMyProfile, {});
   const household = useQuery(api.queries.households.getMyHousehold, {});
-  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const agentConnections = useQuery(api.queries.agentConnections.listMyAgentConnections, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,

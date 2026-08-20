@@ -1,17 +1,35 @@
 {
   "build": {
+    "base": {
+      "node": "22.22.2"
+    },
     "simulator": {
+      "extends": "base",
       "distribution": "internal",
       "environment": "preview",
       "ios": {
         "simulator": true
       }
     },
-    "preview": {
+    "development": {
+      "extends": "base",
+      "developmentClient": true,
       "distribution": "internal",
-      "environment": "preview"
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "extends": "base",
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "environment": "production",
       "env": {
@@ -26,6 +44,10 @@
     "production": {
       "ios": {
         "ascAppId": "6767450954"
+      },
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   },

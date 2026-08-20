@@ -2,12 +2,14 @@ import { Tabs, Redirect } from "expo-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const currentUser = useQuery(
     api.queries.profiles.getCurrentUser,
@@ -39,7 +41,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: "#fffffff2",
           borderTopColor: "#e7e0d6",
-          height: 86,
+          height: 64 + Math.max(insets.bottom, 16),
+          paddingBottom: Math.max(insets.bottom, 12),
           paddingTop: 8,
         },
         tabBarLabelStyle: {

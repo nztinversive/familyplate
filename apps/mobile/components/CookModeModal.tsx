@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import type { Doc } from "@familyplate/convex/_generated/dataModel";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
@@ -76,9 +77,15 @@ export function CookModeModal({
   if (!recipe) return null;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 bg-background">
-        <View className="border-b border-border px-4 pb-3 pt-14">
+    <Modal
+      visible={visible}
+      animationType="slide"
+      onRequestClose={() => {
+        if (!isFinishing) onClose();
+      }}
+    >
+      <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
+        <View className="border-b border-border px-4 py-3">
           <View className="flex-row items-center justify-between gap-3">
             <View className="flex-1">
               <Text className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -285,7 +292,7 @@ export function CookModeModal({
             )}
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

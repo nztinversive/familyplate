@@ -58,6 +58,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
 import { track } from "@/lib/analytics";
 import { shareOrCopy } from "@/lib/share";
+import { useMySubscription } from "@/lib/useMySubscription";
 import * as Sentry from "@sentry/nextjs";
 
 type RecipeDoc = Doc<"recipeSuggestions">;
@@ -292,13 +293,13 @@ function inferGroceryCategory(name: string) {
 }
 
 export default function PlanPage() {
+  const subscription = useMySubscription();
   const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
   const recipeSuggestions = useQuery(
     api.queries.planner.getMyRecipeSuggestions,
     {},
   );
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
-  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const myProfile = useQuery(api.queries.profiles.getMyProfile, {});

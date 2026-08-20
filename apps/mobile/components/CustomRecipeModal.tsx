@@ -359,7 +359,7 @@ export function CustomRecipeModal({
           tags: {
             area: "cookbook",
             action: "create_custom_recipe",
-            platform: "ios",
+            platform: process.env.EXPO_OS ?? "unknown",
           },
         });
       }
@@ -374,7 +374,9 @@ export function CustomRecipeModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (!isSubmitting) onClose();
+      }}
     >
       <SafeAreaView
         className="flex-1 bg-background"

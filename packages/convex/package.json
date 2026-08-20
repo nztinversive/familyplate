@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "cd ../.. && npm run convex:dev --",
     "deploy": "cd ../.. && npm run convex:deploy --",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test lib/*.test.mjs"
   },
   "dependencies": {
-    "@convex-dev/auth": "^0.0.91",
+    "@auth/core": "^0.41.3",
+    "@convex-dev/auth": "^0.0.95",
     "@familyplate/agent-tools": "*",
     "convex": "^1.17.0"
   },

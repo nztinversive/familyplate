@@ -1,5 +1,6 @@
 import type { PostHog } from "posthog-react-native";
 import * as Application from "expo-application";
+import { Platform } from "react-native";
 
 export type AnalyticsEvent =
   | "auth_started"
@@ -79,7 +80,9 @@ export type AnalyticsEvent =
   | "barcode_scan_started"
   | "barcode_scan_completed"
   | "barcode_scan_failed"
-  | "ai_consent_accepted";
+  | "ai_consent_accepted"
+  | "ai_content_report_submitted"
+  | "ai_content_report_failed";
 
 type EventPayload = Record<string, string | number | boolean | undefined>;
 
@@ -92,7 +95,7 @@ export function track(
     posthog?.capture(event, {
       ...payload,
       app: "familyplate",
-      platform: "ios",
+      platform: Platform.OS,
       app_version: Application.nativeApplicationVersion ?? "development",
       app_build: Application.nativeBuildVersion ?? "development",
       app_env: process.env.EXPO_PUBLIC_APP_ENV ?? "development",

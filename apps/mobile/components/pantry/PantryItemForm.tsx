@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useMutation } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import type { Doc, Id } from "@familyplate/convex/_generated/dataModel";
@@ -34,6 +35,7 @@ type Props = {
   item: PantryItem | null;
   prefillValues?: BarcodeScannerResult;
   onClose: () => void;
+  onCloseDisabledChange?: (isDisabled: boolean) => void;
 };
 
 const STORAGE_LABELS: Record<
@@ -67,6 +69,7 @@ export function PantryItemForm({
   item,
   prefillValues,
   onClose,
+  onCloseDisabledChange,
 }: Props) {
   const addItem = useMutation(api.mutations.pantry.addItem);
   const updateItem = useMutation(api.mutations.pantry.updateItem);
@@ -83,6 +86,11 @@ export function PantryItemForm({
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    onCloseDisabledChange?.(isSubmitting);
+    return () => onCloseDisabledChange?.(false);
+  }, [isSubmitting, onCloseDisabledChange]);
 
   useEffect(() => {
     if (item) {
@@ -209,7 +217,7 @@ export function PantryItemForm({
         tags: {
           area: "pantry",
           action: item ? "update_item" : "add_item",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(err instanceof Error ? err.message : "Couldn't save item.");
@@ -218,10 +226,11 @@ export function PantryItemForm({
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-background"
-    >
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1 bg-background"
+      >
       {/* Header */}
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
         <TouchableOpacity onPress={onClose} disabled={isSubmitting}>
@@ -466,6 +475,7 @@ export function PantryItemForm({
           </View>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

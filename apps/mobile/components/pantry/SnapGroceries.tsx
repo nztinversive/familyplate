@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   AppState,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAction } from "convex/react";
 import { api } from "@familyplate/convex/_generated/api";
 import { usePostHog } from "posthog-react-native";
@@ -19,6 +21,12 @@ import { ensureAiConsent, hasAiConsent } from "@/lib/aiConsent";
 import { PANTRY_CATEGORIES, type PantryCategory } from "@/lib/pantry";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
+import {
+  acquireOperationLock,
+  getCameraPermissionAction,
+  isSnapGroceriesCloseDisabled,
+  releaseOperationLock,
+} from "@/lib/privacy-and-permissions";
 
 type RecognizedItem = {
   name: string;
@@ -75,12 +83,16 @@ function getConfidenceTone(confidence: RecognizedItem["confidence"]) {
 }
 
 export function SnapGroceries({
+  authId,
   onClose,
+  onCloseDisabledChange,
   onAdd,
   onManualAdd,
   onScanBarcode,
 }: {
+  authId: string | null | undefined;
   onClose: () => void;
+  onCloseDisabledChange?: (isDisabled: boolean) => void;
   onAdd: (items: SnapGroceryItem[]) => Promise<void>;
   onManualAdd?: () => void;
   onScanBarcode?: () => void;
@@ -89,7 +101,8 @@ export function SnapGroceries({
     api.actions.recognizeGroceries.recognizeFromPhoto,
   );
   const posthog = usePostHog();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, refreshPermission] =
+    useCameraPermissions();
   const cameraRef = useRef<CameraView | null>(null);
   const cameraReadyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -110,19 +123,28 @@ export function SnapGroceries({
   const [isCapturing, setIsCapturing] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState("");
+  const closeDisabled = isSnapGroceriesCloseDisabled({
+    phase,
+    isCapturing,
+    isAdding,
+  });
+
+  useEffect(() => {
+    onCloseDisabledChange?.(closeDisabled);
+    return () => onCloseDisabledChange?.(false);
+  }, [closeDisabled, onCloseDisabledChange]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       const isActive = state === "active";
       setAppIsActive(isActive);
+      if (isActive) void refreshPermission();
       if (!isActive) {
         if (cameraReadyTimerRef.current) {
           clearTimeout(cameraReadyTimerRef.current);
         }
         setCameraReady(false);
         setCameraSettled(false);
-        isCapturingRef.current = false;
-        setIsCapturing(false);
       }
     });
 
@@ -132,7 +154,22 @@ export function SnapGroceries({
         clearTimeout(cameraReadyTimerRef.current);
       }
     };
-  }, []);
+  }, [refreshPermission]);
+
+  const handleRequestPermission = async () => {
+    setCameraError("");
+    try {
+      if (getCameraPermissionAction(permission?.canAskAgain) === "settings") {
+        await Linking.openSettings();
+        return;
+      }
+      await requestPermission();
+    } catch {
+      setCameraError(
+        "Camera settings could not be opened. Add the groceries manually instead.",
+      );
+    }
+  };
 
   const resetCameraSession = (shouldRemount = false) => {
     if (cameraReadyTimerRef.current) {
@@ -166,47 +203,47 @@ export function SnapGroceries({
 
   const handleCapture = async () => {
     const camera = cameraRef.current;
-    if (isCapturingRef.current) return;
+    if (!acquireOperationLock(isCapturingRef)) return;
     if (!camera || !cameraReady || !cameraSettled || !appIsActive) {
-      setError("Camera is still getting ready. Hold steady and try again.");
-      return;
-    }
-
-    const alreadyConsented = await hasAiConsent();
-    const consented = await ensureAiConsent();
-    if (!consented) {
-      setError(
-        "AI grocery recognition needs your permission before it can process grocery photos.",
-      );
-      return;
-    }
-    track(posthog, "ai_consent_accepted", {
-      feature: "snap_groceries",
-    });
-    if (!alreadyConsented) {
-      resetCameraSession(true);
-      setError(
-        "AI access is on. Let the camera reconnect, then take the photo again.",
-      );
-      return;
-    }
-
-    const activeCamera = cameraRef.current;
-    if (
-      !activeCamera ||
-      !cameraReady ||
-      !cameraSettled ||
-      AppState.currentState !== "active"
-    ) {
+      releaseOperationLock(isCapturingRef);
       setError("Camera is still getting ready. Hold steady and try again.");
       return;
     }
 
     setError("");
-    isCapturingRef.current = true;
     setIsCapturing(true);
 
     try {
+      const alreadyConsented = await hasAiConsent(authId);
+      const consented = await ensureAiConsent(authId);
+      if (!consented) {
+        setError(
+          "AI grocery recognition needs your permission before it can process grocery photos.",
+        );
+        return;
+      }
+      track(posthog, "ai_consent_accepted", {
+        feature: "snap_groceries",
+      });
+      if (!alreadyConsented) {
+        resetCameraSession(true);
+        setError(
+          "AI access is on. Let the camera reconnect, then take the photo again.",
+        );
+        return;
+      }
+
+      const activeCamera = cameraRef.current;
+      if (
+        !activeCamera ||
+        !cameraReady ||
+        !cameraSettled ||
+        AppState.currentState !== "active"
+      ) {
+        setError("Camera is still getting ready. Hold steady and try again.");
+        return;
+      }
+
       track(posthog, "camera_scan_started", {
         source: "snap_groceries",
       });
@@ -248,12 +285,12 @@ export function SnapGroceries({
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "snap_groceries", platform: "ios" },
+        tags: { area: "snap_groceries", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getRecognitionErrorMessage(err));
       setPhase("camera");
     } finally {
-      isCapturingRef.current = false;
+      releaseOperationLock(isCapturingRef);
       setIsCapturing(false);
     }
   };
@@ -302,7 +339,7 @@ export function SnapGroceries({
         tags: {
           area: "snap_groceries",
           action: "add_review_items",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(err instanceof Error ? err.message : "Couldn't add groceries.");
@@ -345,9 +382,13 @@ export function SnapGroceries({
   const permissionReady = permission !== null;
 
   return (
-    <View className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
-        <TouchableOpacity onPress={onClose} disabled={phase === "analyzing"}>
+        <TouchableOpacity
+          onPress={onClose}
+          disabled={closeDisabled}
+          style={{ opacity: closeDisabled ? 0.55 : 1 }}
+        >
           <Text className="text-base text-muted-foreground">Cancel</Text>
         </TouchableOpacity>
         <Text className="text-base font-semibold text-foreground">
@@ -367,12 +408,13 @@ export function SnapGroceries({
           isCapturing={isCapturing}
           appIsActive={appIsActive}
           hasPermission={hasPermission}
+          canAskAgain={permission?.canAskAgain}
           permissionReady={permissionReady}
           onCameraReady={markCameraReady}
           onCapture={() => void handleCapture()}
           onMountError={handleCameraMountError}
           onManualAdd={onManualAdd}
-          onRequestPermission={() => void requestPermission()}
+          onRequestPermission={() => void handleRequestPermission()}
           onScanBarcode={onScanBarcode}
         />
       ) : null}
@@ -404,7 +446,7 @@ export function SnapGroceries({
           onUpdate={updateItem}
         />
       ) : null}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -418,6 +460,7 @@ function CameraPhase({
   isCapturing,
   appIsActive,
   hasPermission,
+  canAskAgain,
   permissionReady,
   onCameraReady,
   onCapture,
@@ -435,6 +478,7 @@ function CameraPhase({
   isCapturing: boolean;
   appIsActive: boolean;
   hasPermission: boolean | undefined;
+  canAskAgain: boolean | undefined;
   permissionReady: boolean;
   onCameraReady: () => void;
   onCapture: () => void;
@@ -486,7 +530,11 @@ function CameraPhase({
                   onPress={onRequestPermission}
                   className="mt-4 rounded-xl bg-primary px-4 py-2.5"
                 >
-                  <Text className="font-semibold text-white">Continue</Text>
+                  <Text className="font-semibold text-white">
+                    {getCameraPermissionAction(canAskAgain) === "settings"
+                      ? "Open Settings"
+                      : "Continue"}
+                  </Text>
                 </TouchableOpacity>
               ) : null}
               <View className="mt-4 w-full">

@@ -4,6 +4,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   ...authTables,
+  authVerifiers: authTables.authVerifiers.index("sessionId", ["sessionId"]),
 
   households: defineTable({
     name: v.string(),
@@ -56,6 +57,17 @@ export default defineSchema({
     .index("by_lsCustomerId", ["lsCustomerId"])
     .index("by_rcAppUserId", ["rcAppUserId"]),
 
+  planGenerationReservations: defineTable({
+    householdId: v.id("households"),
+    authId: v.string(),
+    countsTowardQuota: v.boolean(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_householdId_and_expiresAt", ["householdId", "expiresAt"])
+    .index("by_authId", ["authId"]),
+
   agentConnections: defineTable({
     householdId: v.id("households"),
     profileId: v.id("userProfiles"),
@@ -91,6 +103,7 @@ export default defineSchema({
     addedAt: v.number(),
   })
     .index("by_householdId", ["householdId"])
+    .index("by_addedBy", ["addedBy"])
     .index("by_householdId_category", ["householdId", "category"])
     .index("by_householdId_storageLocation", ["householdId", "storageLocation"]),
 
@@ -128,7 +141,68 @@ export default defineSchema({
     usedPantryItems: v.optional(v.array(v.string())),
     source: v.union(v.literal("ai"), v.literal("curated"), v.literal("custom")),
     createdAt: v.number(),
-  }).index("by_householdId", ["householdId"]),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_createdBy", ["createdBy"]),
+
+  aiContentReports: defineTable({
+    householdId: v.id("households"),
+    reporterProfileId: v.id("userProfiles"),
+    recipeId: v.id("recipeSuggestions"),
+    sourceSurface: v.union(
+      v.literal("tonight"),
+      v.literal("weekly_plan"),
+      v.literal("cookbook")
+    ),
+    reason: v.union(
+      v.literal("unsafe"),
+      v.literal("allergy_risk"),
+      v.literal("inappropriate"),
+      v.literal("inaccurate"),
+      v.literal("other")
+    ),
+    details: v.optional(v.string()),
+    contentSnapshot: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("reviewed"),
+      v.literal("resolved")
+    ),
+    reviewedAt: v.optional(v.number()),
+    resolutionNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_reporterProfileId", ["reporterProfileId"])
+    .index("by_recipeId", ["recipeId"])
+    .index("by_reporterProfileId_and_recipeId", [
+      "reporterProfileId",
+      "recipeId",
+    ])
+    .index("by_status_and_createdAt", ["status", "createdAt"]),
+
+  accountDeletionHandoffs: defineTable({
+    accountKey: v.string(),
+    provider: v.union(
+      v.literal("posthog"),
+      v.literal("sentry"),
+      v.literal("revenuecat")
+    ),
+    externalUserId: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("processed"),
+      v.literal("failed")
+    ),
+    requestedAt: v.number(),
+    retentionUntil: v.number(),
+    processedAt: v.optional(v.number()),
+    failureReason: v.optional(v.string()),
+  })
+    .index("by_accountKey", ["accountKey"])
+    .index("by_status_and_requestedAt", ["status", "requestedAt"])
+    .index("by_status_and_retentionUntil", ["status", "retentionUntil"]),
 
   savedRecipes: defineTable({
     householdId: v.id("households"),

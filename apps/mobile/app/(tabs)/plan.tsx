@@ -23,11 +23,22 @@ import {
 } from "@/components/CookModeModal";
 import { RecipeFeedback } from "@/components/RecipeFeedback";
 import { RecipeNutrition } from "@/components/RecipeNutrition";
+import { ReportAiContentButton } from "@/components/ReportAiContentButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { LoadingCard } from "@/components/LoadingCard";
 import { ServingsAdjuster } from "@/components/ServingsAdjuster";
 import { ensureAiConsent } from "@/lib/aiConsent";
+import {
+  acquireOperationLock,
+  releaseOperationLock,
+  shouldUseCuratedPlanFallback,
+} from "@/lib/privacy-and-permissions";
 import { isIngredientAvailable } from "@/lib/ingredientAvailability";
+import { useMySubscription } from "@/lib/useMySubscription";
+import {
+  getCurrentWeekStartDate,
+  getDisplayedWeekStartDate,
+} from "@/lib/week";
 import {
   buildScaledRecipeShareText,
   formatServingsLabel,
@@ -99,22 +110,6 @@ function getErrorMessage(err: unknown) {
 
 function parseDate(date: string) {
   return new Date(`${date}T12:00:00`);
-}
-
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function getStartOfWeek(date: Date) {
-  const start = new Date(date);
-  const day = start.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + diff);
-  return start;
 }
 
 function formatWeekRange(weekStartDate?: string) {
@@ -268,9 +263,13 @@ function inferGroceryCategory(name: string) {
 }
 
 export default function PlanScreen() {
+  const subscription = useMySubscription();
   const router = useRouter();
   const posthog = usePostHog();
-  const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
+  const currentWeekStartDate = getCurrentWeekStartDate();
+  const mealPlan = useQuery(api.queries.planner.getMyMealPlanByWeek, {
+    weekStartDate: currentWeekStartDate,
+  });
   const mealPlanWeeks = useQuery(api.queries.planner.getMyMealPlanWeeks, {});
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const myProfile = useQuery(api.queries.profiles.getMyProfile, {});
@@ -280,7 +279,6 @@ export default function PlanScreen() {
       ? { householdId: currentUser.householdId }
       : "skip",
   );
-  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const generateAiPlan = useAction(
     api.actions.generateMealPlan.generateMealPlan,
   );
@@ -323,15 +321,32 @@ export default function PlanScreen() {
   const [error, setError] = useState("");
   const [viewingWeekIndex, setViewingWeekIndex] = useState(0);
   const trackedLimitPaywallForCycle = useRef<string | null>(null);
+  const planAiOperationRef = useRef(false);
 
   const sortedWeeks = useMemo(
     () =>
-      (mealPlanWeeks ?? []).sort((a, b) =>
+      [...(mealPlanWeeks ?? [])].sort((a, b) =>
         b.weekStartDate.localeCompare(a.weekStartDate),
       ),
     [mealPlanWeeks],
   );
-  const viewingWeekDate = sortedWeeks[viewingWeekIndex]?.weekStartDate ?? null;
+  const pastWeeks = useMemo(() => {
+    const seen = new Set<string>();
+    return sortedWeeks.filter((week) => {
+      if (
+        week.weekStartDate >= currentWeekStartDate ||
+        seen.has(week.weekStartDate)
+      ) {
+        return false;
+      }
+      seen.add(week.weekStartDate);
+      return true;
+    });
+  }, [currentWeekStartDate, sortedWeeks]);
+  const viewingWeekDate =
+    viewingWeekIndex === 0
+      ? currentWeekStartDate
+      : pastWeeks[viewingWeekIndex - 1]?.weekStartDate ?? null;
   const viewingPastWeek = viewingWeekIndex > 0 && !!viewingWeekDate;
   const pastWeekPlan = useQuery(
     api.queries.planner.getMyMealPlanByWeek,
@@ -340,8 +355,12 @@ export default function PlanScreen() {
       : "skip",
   );
   const displayPlan = viewingPastWeek ? pastWeekPlan : mealPlan;
+  const displayWeekStartDate = getDisplayedWeekStartDate(
+    displayPlan?.plan.weekStartDate,
+    viewingWeekDate,
+  );
   const planIsEditable = !viewingPastWeek;
-  const canGoBack = viewingWeekIndex < sortedWeeks.length - 1;
+  const canGoBack = viewingWeekIndex < pastWeeks.length;
   const canGoForward = viewingWeekIndex > 0;
 
   const meals = useMemo(
@@ -464,6 +483,10 @@ export default function PlanScreen() {
     subscription.plansUsed > 0;
 
   useEffect(() => {
+    setViewingWeekIndex((current) => Math.min(current, pastWeeks.length));
+  }, [pastWeeks.length]);
+
+  useEffect(() => {
     setSelectedMeal(null);
     setCookingMeal(null);
     setMovingMealId(null);
@@ -516,22 +539,23 @@ export default function PlanScreen() {
       return;
     }
 
-    const consented = await ensureAiConsent();
-    if (!consented) {
-      setError(
-        "AI meal planning needs your permission before it can use your household details.",
-      );
-      return;
-    }
-    track(posthog, "ai_consent_accepted", {
-      feature: "weekly_plan",
-    });
-
+    if (!acquireOperationLock(planAiOperationRef)) return;
     setIsGenerating(true);
     setError("");
     setNotice("");
 
     try {
+      const consented = await ensureAiConsent(currentUser?.authId);
+      if (!consented) {
+        setError(
+          "AI meal planning needs your permission before it can use your household details.",
+        );
+        return;
+      }
+      track(posthog, "ai_consent_accepted", {
+        feature: "weekly_plan",
+      });
+
       track(posthog, "meal_plan_generation_started", {
         source: meals.length ? "refresh" : "empty_state",
         tier: subscription?.tier ?? "unknown",
@@ -547,20 +571,23 @@ export default function PlanScreen() {
       try {
         await generateAiPlan({
           householdId: householdId as Id<"households">,
-          weekStartDate: formatDate(getStartOfWeek(new Date())),
+          weekStartDate: currentWeekStartDate,
           profileIds: audienceProfileIds,
         });
         track(posthog, "meal_plan_generated", {
           source: "ai",
-          week_start_date: formatDate(getStartOfWeek(new Date())),
+          week_start_date: currentWeekStartDate,
           tier: subscription?.tier ?? "unknown",
           audience: mealAudience,
           selected_eater_count:
             audienceProfileIds?.length ?? members?.length ?? 0,
         });
         setNotice(`Fresh weekly plan generated for ${audienceLabel}.`);
-      } catch {
-        await generateCuratedPlan({});
+      } catch (aiError) {
+        if (!shouldUseCuratedPlanFallback(aiError)) {
+          throw aiError;
+        }
+        await generateCuratedPlan({ weekStartDate: currentWeekStartDate });
         track(posthog, "meal_plan_generated", {
           source: "curated_fallback",
           tier: subscription?.tier ?? "unknown",
@@ -576,10 +603,11 @@ export default function PlanScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "generate_plan", platform: "ios" },
+        tags: { area: "plan", action: "generate_plan", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
+      releaseOperationLock(planAiOperationRef);
       setIsGenerating(false);
     }
   };
@@ -709,7 +737,7 @@ export default function PlanScreen() {
       );
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "cook_mode", action: "finish", platform: "ios" },
+        tags: { area: "cook_mode", action: "finish", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -730,7 +758,11 @@ export default function PlanScreen() {
     setError("");
     setNotice("");
     try {
-      await generateGroceryList({});
+      await generateGroceryList(
+        displayPlan
+          ? { mealPlanId: displayPlan.plan._id as Id<"weeklyMealPlans"> }
+          : {},
+      );
       track(posthog, "grocery_list_generated", {
         source,
         meal_count: meals.length,
@@ -752,7 +784,7 @@ export default function PlanScreen() {
         tags: {
           area: "grocery",
           action: "generate_from_plan",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -781,7 +813,7 @@ export default function PlanScreen() {
       }
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "recipe", action: "toggle_save", platform: "ios" },
+        tags: { area: "recipe", action: "toggle_save", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
@@ -806,7 +838,7 @@ export default function PlanScreen() {
       });
     } catch (err) {
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "share_recipe", platform: "ios" },
+        tags: { area: "plan", action: "share_recipe", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     }
@@ -867,7 +899,7 @@ export default function PlanScreen() {
         tags: {
           area: "plan",
           action: "add_missing_to_grocery",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -923,19 +955,20 @@ export default function PlanScreen() {
       return;
     }
 
-    const consented = await ensureAiConsent();
-    if (!consented) {
-      setError(
-        "AI meal adjustments need your permission before they can use your household details.",
-      );
-      return;
-    }
-
+    if (!acquireOperationLock(planAiOperationRef)) return;
     setAdjustingMealId(`${meal._id}:${adjustmentType}`);
     setError("");
     setNotice("");
 
     try {
+      const consented = await ensureAiConsent(currentUser?.authId);
+      if (!consented) {
+        setError(
+          "AI meal adjustments need your permission before they can use your household details.",
+        );
+        return;
+      }
+
       track(posthog, "plan_adjustment_started", {
         adjustment_type: adjustmentType,
         meal_id: meal._id,
@@ -969,10 +1002,11 @@ export default function PlanScreen() {
         reason: err instanceof Error ? err.message : "unknown",
       });
       Sentry.captureException(err, {
-        tags: { area: "plan", action: "adjust_meal", platform: "ios" },
+        tags: { area: "plan", action: "adjust_meal", platform: process.env.EXPO_OS ?? "unknown" },
       });
       setError(getErrorMessage(err));
     } finally {
+      releaseOperationLock(planAiOperationRef);
       setAdjustingMealId(null);
     }
   };
@@ -1002,7 +1036,7 @@ export default function PlanScreen() {
         tags: {
           area: "profile",
           action: "save_avoid_preference",
-          platform: "ios",
+          platform: process.env.EXPO_OS ?? "unknown",
         },
       });
       setError(getErrorMessage(err));
@@ -1070,7 +1104,7 @@ export default function PlanScreen() {
       }
     >
       <View className="mb-4 rounded-2xl border border-border bg-card p-4">
-        {sortedWeeks.length > 1 ? (
+        {pastWeeks.length > 0 ? (
           <View className="mb-4 flex-row items-center justify-between">
             <TouchableOpacity
               onPress={() => setViewingWeekIndex((current) => current + 1)}
@@ -1087,9 +1121,9 @@ export default function PlanScreen() {
                 {viewingWeekIndex === 0 ? "Current week" : "Past week"}
               </Text>
               <Text className="mt-1 text-sm font-semibold text-foreground">
-                {displayPlan
-                  ? formatWeekRange(displayPlan.plan.weekStartDate)
-                  : "Loading week..."}
+                {displayPlan === undefined
+                  ? "Loading week..."
+                  : formatWeekRange(displayWeekStartDate)}
               </Text>
             </View>
             <TouchableOpacity
@@ -1129,7 +1163,7 @@ export default function PlanScreen() {
               {viewingWeekIndex === 0 ? "This week" : "Past week"}
             </Text>
             <Text className="mt-1 text-2xl font-bold text-foreground">
-              {formatWeekRange(displayPlan?.plan.weekStartDate)}
+              {formatWeekRange(displayWeekStartDate)}
             </Text>
             <Text className="mt-1 text-sm leading-5 text-muted-foreground">
               {meals.length > 0
@@ -1849,6 +1883,16 @@ function MealCard({
         <InfoPill icon="leaf-outline" label={pantry.label} />
       </View>
 
+      {meal.recipe.source === "ai" ? (
+        <View className="mb-3">
+          <ReportAiContentButton
+            key={`weekly-plan:${meal.recipe._id}`}
+            recipeId={meal.recipe._id}
+            sourceSurface="weekly_plan"
+          />
+        </View>
+      ) : null}
+
       {readOnly ? (
         <View className="rounded-xl bg-muted p-3">
           <Text className="text-sm font-semibold text-foreground">
@@ -2084,7 +2128,9 @@ function GroceryReviewModal({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (!isGenerating) onClose();
+      }}
     >
       <View className="flex-1 justify-end bg-black/40">
         <View className="max-h-[82%] rounded-t-3xl bg-background">
@@ -2294,9 +2340,21 @@ function MealDetailModal({
   const missingIngredients = scaledIngredients.filter(
     (ingredient) => !isIngredientAvailable(ingredient),
   );
+  const closeDisabled =
+    busy ||
+    saving ||
+    addingMissingMealId === meal._id ||
+    adjustingMealId !== null;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible
+      transparent
+      animationType="slide"
+      onRequestClose={() => {
+        if (!closeDisabled) onClose();
+      }}
+    >
       <View className="flex-1 justify-end bg-black/40">
         <View className="max-h-[86%] rounded-t-3xl bg-background">
           <View className="flex-row items-center justify-between border-b border-border px-4 py-3">
@@ -2305,7 +2363,9 @@ function MealDetailModal({
             </Text>
             <Pressable
               onPress={onClose}
+              disabled={closeDisabled}
               className="h-10 w-10 items-center justify-center rounded-full bg-muted"
+              style={{ opacity: closeDisabled ? 0.55 : 1 }}
             >
               <Ionicons name="close" size={22} color="#26211b" />
             </Pressable>
