@@ -122,10 +122,12 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       throw new ConvexError("You must be signed in to generate a meal plan.");
     }
 
+    const authId = userId as string;
+    let reservationId: Id<"planGenerationReservations"> | null = null;
+
     try {
       parseDateOnly(args.weekStartDate);
 
-      const authId = userId as string;
       const context = await ctx.runQuery(
         api.internal.planner.getHouseholdGenerationContext,
         {
@@ -152,6 +154,14 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       ) {
         throw new ConvexError("One or more selected eaters are not in this household.");
       }
+
+      reservationId = (await ctx.runMutation(
+        api.subscriptions.reservePlanGeneration,
+        {
+          authId,
+          householdId: args.householdId,
+        },
+      )) as Id<"planGenerationReservations">;
 
       const mealProfiles =
         selectedProfiles.length > 0 ? selectedProfiles : context.profiles;
@@ -347,22 +357,36 @@ export const generateMealPlan: ReturnType<typeof action> = action({
       const mealPlanId = (await ctx.runMutation(
         api.internal.planner.saveGeneratedMealPlan,
         {
+          authId,
           householdId: args.householdId,
+          reservationId,
           weekStartDate: args.weekStartDate,
           meals,
         }
       )) as Id<"weeklyMealPlans">;
-
-      // Track plan generation for free tier limits
-      await ctx.runMutation(
-        api.subscriptions.incrementPlanGeneration,
-        { householdId: args.householdId }
-      );
+      reservationId = null;
 
       return {
         mealPlanId,
       };
     } catch (error) {
+      if (reservationId) {
+        try {
+          await ctx.runMutation(
+            api.subscriptions.releasePlanGenerationReservation,
+            {
+              authId,
+              householdId: args.householdId,
+              reservationId,
+            },
+          );
+        } catch (releaseError) {
+          console.error(
+            "Unable to release plan-generation reservation",
+            releaseError,
+          );
+        }
+      }
       if (error instanceof ConvexError) throw error;
       console.error("generateMealPlan failed", error);
       throw new ConvexError("Unable to generate a dinner plan right now. Please try again.");

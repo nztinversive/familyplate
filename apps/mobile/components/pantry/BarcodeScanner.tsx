@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
+  Linking,
   Text,
   TextInput,
   TouchableOpacity,
@@ -12,6 +14,7 @@ import {
   useCameraPermissions,
 } from "expo-camera";
 import { Ionicons } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { usePostHog } from "posthog-react-native";
 import {
   PANTRY_CATEGORIES,
@@ -20,6 +23,7 @@ import {
 } from "@/lib/pantry";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
+import { getCameraPermissionAction } from "@/lib/privacy-and-permissions";
 
 export type BarcodeScannerResult = {
   barcode: string;
@@ -169,7 +173,8 @@ export function BarcodeScanner({
   onScan: (result: BarcodeScannerResult) => void;
 }) {
   const posthog = usePostHog();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, refreshPermission] =
+    useCameraPermissions();
   const [handledBarcode, setHandledBarcode] = useState("");
   const [manualBarcode, setManualBarcode] = useState("");
   const [isLookingUp, setIsLookingUp] = useState(false);
@@ -180,6 +185,28 @@ export function BarcodeScanner({
     onCloseDisabledChange?.(isLookingUp);
     return () => onCloseDisabledChange?.(false);
   }, [isLookingUp, onCloseDisabledChange]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshPermission();
+    });
+    return () => subscription.remove();
+  }, [refreshPermission]);
+
+  const handleRequestPermission = async () => {
+    setCameraError("");
+    try {
+      if (getCameraPermissionAction(permission?.canAskAgain) === "settings") {
+        await Linking.openSettings();
+        return;
+      }
+      await requestPermission();
+    } catch {
+      setCameraError(
+        "Camera settings could not be opened. Add the item manually instead.",
+      );
+    }
+  };
 
   const handleBarcode = async (barcode: string) => {
     const trimmed = barcode.trim();
@@ -263,7 +290,7 @@ export function BarcodeScanner({
   const permissionReady = permission !== null;
 
   return (
-    <View className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
       <View className="flex-row items-center justify-between border-b border-border bg-card px-4 py-3">
         <TouchableOpacity onPress={onClose} disabled={isLookingUp}>
           <Text className="text-base text-muted-foreground">Cancel</Text>
@@ -319,10 +346,15 @@ export function BarcodeScanner({
                 </Text>
                 {!hasPermission ? (
                   <TouchableOpacity
-                    onPress={() => void requestPermission()}
+                    onPress={() => void handleRequestPermission()}
                     className="mt-4 rounded-xl bg-primary px-4 py-2.5"
                   >
-                    <Text className="font-semibold text-white">Continue</Text>
+                    <Text className="font-semibold text-white">
+                      {getCameraPermissionAction(permission?.canAskAgain) ===
+                      "settings"
+                        ? "Open Settings"
+                        : "Continue"}
+                    </Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -393,6 +425,6 @@ export function BarcodeScanner({
           </Text>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }

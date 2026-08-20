@@ -27,10 +27,12 @@ import {
   hasFamilyEntitlement,
   isRevenueCatAvailable,
   purchaseFamilyPackage,
+  resetRevenueCatIdentity,
   restoreFamilyPurchases,
   type RevenueCatPackage,
 } from "@/lib/revenuecat";
 import { getBillingPlatformConfig } from "@/lib/billing-platform";
+import { useMySubscription } from "@/lib/useMySubscription";
 
 type Profile = Doc<"userProfiles">;
 type CurrentUser = {
@@ -156,6 +158,7 @@ function isPendingInviteMember(member: Profile) {
 }
 
 export default function SettingsScreen() {
+  const subscription = useMySubscription();
   const { signOut } = useAuthActions();
   const posthog = usePostHog();
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
@@ -165,7 +168,6 @@ export default function SettingsScreen() {
     api.queries.feedback.getMyHouseholdLearningSummary,
     {},
   );
-  const subscription = useQuery(api.subscriptions.getMySubscription, {});
   const members = useQuery(
     api.queries.profiles.getProfiles,
     currentUser?.householdId
@@ -534,7 +536,19 @@ export default function SettingsScreen() {
       {
         text: "Sign Out",
         style: "destructive",
-        onPress: () => void signOut(),
+        onPress: () => {
+          void resetRevenueCatIdentity()
+            .catch((err) => {
+              Sentry.captureException(err, {
+                tags: {
+                  area: "settings",
+                  action: "reset_billing_identity_on_sign_out",
+                  platform: Platform.OS,
+                },
+              });
+            })
+            .finally(() => signOut());
+        },
       },
     ]);
   };
@@ -548,8 +562,13 @@ export default function SettingsScreen() {
         {
           text: "Reset",
           onPress: () => {
-            void clearAiConsent().then(() => {
-              Alert.alert("AI permission reset", "FamilyPlate will ask again before using AI features.");
+            void clearAiConsent(currentUser?.authId).then((cleared) => {
+              Alert.alert(
+                cleared ? "AI permission reset" : "Could not reset AI permission",
+                cleared
+                  ? "FamilyPlate will ask again before using AI features."
+                  : "Try again after your account finishes loading.",
+              );
             });
           },
         },
@@ -675,10 +694,38 @@ export default function SettingsScreen() {
             setIsDeletingAccount(true);
             try {
               await deleteAccount({});
-              await clearAiConsent();
-              await signOut();
             } catch (err) {
               Alert.alert("Could not delete account", getErrorMessage(err));
+              setIsDeletingAccount(false);
+              return;
+            }
+
+            await clearAiConsent(currentUser?.authId);
+            try {
+              await resetRevenueCatIdentity();
+            } catch (err) {
+              Sentry.captureException(err, {
+                tags: {
+                  area: "settings",
+                  action: "reset_billing_identity_after_account_deletion",
+                  platform: Platform.OS,
+                },
+              });
+            }
+            try {
+              await signOut();
+            } catch (err) {
+              Sentry.captureException(err, {
+                tags: {
+                  area: "settings",
+                  action: "sign_out_after_account_deletion",
+                  platform: Platform.OS,
+                },
+              });
+              Alert.alert(
+                "Account deleted",
+                "Your account data was deleted, but FamilyPlate could not finish signing out. Close and reopen the app before using another account.",
+              );
             } finally {
               setIsDeletingAccount(false);
             }
@@ -1782,8 +1829,7 @@ function PlanUsageCard({
       )}
       <View className="mt-4 rounded-xl bg-muted p-3">
         <Text className="text-center text-[11px] leading-4 text-muted-foreground">
-          Family subscriptions renew automatically through {billingStoreName} unless canceled
-          at least 24 hours before renewal.
+          {billingPlatform.renewalDisclosure}
         </Text>
         <View className="mt-2 flex-row justify-center gap-4">
           <TouchableOpacity onPress={() => void openUrl(TERMS_URL)}>

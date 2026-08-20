@@ -3,6 +3,7 @@ export type BillingPlatformConfig = {
   accountName: string;
   manageSubscriptionsUrl: string | null;
   subscriptionSettingsDescription: string;
+  renewalDisclosure: string;
 };
 
 const IOS_BILLING: BillingPlatformConfig = {
@@ -11,6 +12,8 @@ const IOS_BILLING: BillingPlatformConfig = {
   manageSubscriptionsUrl: "https://apps.apple.com/account/subscriptions",
   subscriptionSettingsDescription:
     "Open the App Store app, tap your account, then choose Subscriptions.",
+  renewalDisclosure:
+    "Family subscriptions renew automatically through the App Store unless canceled at least 24 hours before renewal.",
 };
 
 const ANDROID_BILLING: BillingPlatformConfig = {
@@ -20,6 +23,8 @@ const ANDROID_BILLING: BillingPlatformConfig = {
     "https://play.google.com/store/account/subscriptions?package=co.familyplate.app",
   subscriptionSettingsDescription:
     "Open Google Play, tap your profile, then choose Payments & subscriptions.",
+  renewalDisclosure:
+    "Family subscriptions renew automatically through Google Play unless canceled before the next renewal.",
 };
 
 const UNSUPPORTED_BILLING: BillingPlatformConfig = {
@@ -28,6 +33,8 @@ const UNSUPPORTED_BILLING: BillingPlatformConfig = {
   manageSubscriptionsUrl: null,
   subscriptionSettingsDescription:
     "Open FamilyPlate on iOS or Android to manage a subscription.",
+  renewalDisclosure:
+    "Family subscriptions renew automatically unless canceled before the next renewal.",
 };
 
 export function getBillingPlatformConfig(

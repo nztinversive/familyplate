@@ -12,6 +12,7 @@ function readJson(relativePath) {
 
 const rootPackage = readJson("package.json");
 const mobilePackage = readJson("apps/mobile/package.json");
+const mobileAppConfig = readJson("apps/mobile/app.json");
 const webPackage = readJson("apps/web/package.json");
 const convexPackage = readJson("packages/convex/package.json");
 const lockfile = readJson("package-lock.json");
@@ -53,10 +54,37 @@ test("locks every auth installation to the patched release", () => {
     [...new Set(installedPackages("@auth/core").map(({ version }) => version))],
     ["0.41.3"],
   );
+  assert.deepEqual(
+    installedPackages("@convex-dev/auth").map(({ packagePath }) => packagePath),
+    ["node_modules/@convex-dev/auth"],
+    "Convex Auth must stay outside the Convex functions source tree",
+  );
+  assert.deepEqual(
+    installedPackages("@auth/core").map(({ packagePath }) => packagePath),
+    ["node_modules/@auth/core"],
+    "Auth.js must stay outside the Convex functions source tree",
+  );
+});
+
+test("blocks permissions that the still-photo Android app does not need", () => {
+  assert.deepEqual(mobileAppConfig.expo.android.blockedPermissions, [
+    "android.permission.RECORD_AUDIO",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.SYSTEM_ALERT_WINDOW",
+  ]);
+  const cameraPlugin = mobileAppConfig.expo.plugins.find(
+    (plugin) => Array.isArray(plugin) && plugin[0] === "expo-camera",
+  );
+  assert.equal(cameraPlugin?.[1]?.recordAudioAndroid, false);
 });
 
 test("keeps one Expo-compatible copy of each native runtime", () => {
   const expectedVersions = {
+    "@expo/vector-icons": "15.1.1",
+    "expo-constants": "18.0.14",
+    "expo-file-system": "19.0.24",
+    "expo-font": "14.0.12",
     react: "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -93,6 +121,10 @@ test("does not replace Expo's monorepo-aware Metro defaults", () => {
 
 test("keeps root peer pins synchronized with the mobile runtime", () => {
   const expectedPins = {
+    "@expo/vector-icons": "15.1.1",
+    "expo-constants": "18.0.14",
+    "expo-file-system": "19.0.24",
+    "expo-font": "14.0.12",
     react: mobilePackage.dependencies.react,
     "react-dom": mobilePackage.dependencies["react-dom"],
     "react-native": mobilePackage.dependencies["react-native"],

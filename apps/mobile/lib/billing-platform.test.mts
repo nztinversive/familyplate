@@ -12,6 +12,7 @@ test("Android billing opens the package-scoped Google Play subscription page", (
     "https://play.google.com/store/account/subscriptions?package=co.familyplate.app",
   );
   assert.match(billing.subscriptionSettingsDescription, /Google Play/);
+  assert.doesNotMatch(billing.renewalDisclosure, /24 hours/);
 });
 
 test("iOS billing retains the App Store subscription destination", () => {
@@ -23,6 +24,7 @@ test("iOS billing retains the App Store subscription destination", () => {
     billing.manageSubscriptionsUrl,
     "https://apps.apple.com/account/subscriptions",
   );
+  assert.match(billing.renewalDisclosure, /24 hours/);
 });
 
 test("unsupported platforms do not receive a misleading store URL", () => {

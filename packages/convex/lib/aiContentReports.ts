@@ -8,7 +8,6 @@ type ReportableRecipe = {
     name: string;
     quantity: number;
     unit: string;
-    inPantry: boolean;
   }>;
   instructions: string[];
 };
@@ -30,7 +29,7 @@ export function buildAiContentSnapshot(recipe: ReportableRecipe) {
   const ingredients = recipe.ingredients
     .map(
       (ingredient) =>
-        `${ingredient.quantity} ${ingredient.unit} ${ingredient.name} (${ingredient.inPantry ? "in pantry" : "missing"})`,
+        `${ingredient.quantity} ${ingredient.unit} ${ingredient.name}`,
     )
     .join("; ");
   const instructions = recipe.instructions

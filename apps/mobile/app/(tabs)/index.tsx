@@ -63,6 +63,7 @@ export default function PantryScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [showForm, setShowForm] = useState(false);
+  const [formCloseDisabled, setFormCloseDisabled] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showSnapGroceries, setShowSnapGroceries] = useState(false);
   const [scannerCloseDisabled, setScannerCloseDisabled] = useState(false);
@@ -515,13 +516,16 @@ export default function PantryScreen() {
         visible={showForm}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={closeForm}
+        onRequestClose={() => {
+          if (!formCloseDisabled) closeForm();
+        }}
       >
         {householdId ? (
           <PantryItemForm
             householdId={householdId}
             item={editingItem}
             prefillValues={prefillValues ?? undefined}
+            onCloseDisabledChange={setFormCloseDisabled}
             onClose={closeForm}
           />
         ) : null}
@@ -551,6 +555,7 @@ export default function PantryScreen() {
         }}
       >
         <SnapGroceries
+          authId={currentUser?.authId}
           onCloseDisabledChange={setSnapGroceriesCloseDisabled}
           onClose={() => setShowSnapGroceries(false)}
           onAdd={handleSnapAdd}

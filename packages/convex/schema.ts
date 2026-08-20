@@ -57,6 +57,17 @@ export default defineSchema({
     .index("by_lsCustomerId", ["lsCustomerId"])
     .index("by_rcAppUserId", ["rcAppUserId"]),
 
+  planGenerationReservations: defineTable({
+    householdId: v.id("households"),
+    authId: v.string(),
+    countsTowardQuota: v.boolean(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_householdId", ["householdId"])
+    .index("by_householdId_and_expiresAt", ["householdId", "expiresAt"])
+    .index("by_authId", ["authId"]),
+
   agentConnections: defineTable({
     householdId: v.id("households"),
     profileId: v.id("userProfiles"),

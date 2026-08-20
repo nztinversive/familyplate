@@ -1,12 +1,50 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { readPngMetadata } from "./png-metadata.mjs";
 
 const readText = (relativePath) =>
   readFile(new URL(`../${relativePath}`, import.meta.url), "utf8");
+
+const assetUrl = (relativePath) =>
+  new URL(`../apps/mobile/store/google-play/${relativePath}`, import.meta.url);
 
 function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+async function validatePng(relativePath, expected) {
+  const filename = `apps/mobile/store/google-play/${relativePath}`;
+  const url = assetUrl(relativePath);
+  const [buffer, file] = await Promise.all([readFile(url), stat(url)]);
+  const png = readPngMetadata(buffer, filename);
+
+  assert(
+    png.width === expected.width && png.height === expected.height,
+    `${filename} must be ${expected.width} x ${expected.height}; found ${png.width} x ${png.height}.`,
+  );
+  assert(
+    file.size <= expected.maximumBytes,
+    `${filename} is ${file.size} bytes; maximum is ${expected.maximumBytes}.`,
+  );
+  assert(
+    png.bitDepth === expected.bitDepth && png.colorType === expected.colorType,
+    `${filename} must use PNG bit depth ${expected.bitDepth} and color type ${expected.colorType}; found bit depth ${png.bitDepth} and color type ${png.colorType}.`,
+  );
+  if (expected.alpha === true) {
+    assert(
+      png.hasTransparency,
+      `${filename} must contain an alpha channel or transparency data.`,
+    );
+  }
+  if (expected.alpha === false) {
+    assert(
+      !png.hasTransparency,
+      `${filename} must not contain an alpha channel or tRNS transparency data.`,
+    );
+  }
+
+  return { ...png, bytes: file.size };
 }
 
 async function readMetadataField(filename) {
@@ -86,7 +124,53 @@ assert(
   "The public deletion page must cover account and associated-data deletion.",
 );
 
+const playIcon = await validatePng("graphics/play-icon.png", {
+  width: 512,
+  height: 512,
+  maximumBytes: 1_024 * 1_024,
+  bitDepth: 8,
+  colorType: 6,
+  alpha: true,
+});
+const featureGraphic = await validatePng("graphics/feature-graphic.png", {
+  width: 1_024,
+  height: 500,
+  maximumBytes: 15 * 1_024 * 1_024,
+  bitDepth: 8,
+  colorType: 2,
+  alpha: false,
+});
+
+const screenshotDirectory = assetUrl("screenshots/en-US/phone/");
+let screenshotFiles = [];
+try {
+  screenshotFiles = (await readdir(screenshotDirectory))
+    .filter((filename) => filename.endsWith(".png"))
+    .sort();
+} catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+assert(
+  screenshotFiles.length >= 4,
+  `At least four Android phone screenshots are required; found ${screenshotFiles.length}.`,
+);
+for (const filename of screenshotFiles) {
+  await validatePng(`screenshots/en-US/phone/${filename}`, {
+    width: 1_080,
+    height: 1_920,
+    maximumBytes: 8 * 1_024 * 1_024,
+    bitDepth: 8,
+    colorType: 2,
+    alpha: false,
+  });
+}
+
 console.log("Google Play launch materials are structurally valid.");
 for (const field of Object.keys(limits)) {
   console.log(`${field}: ${listing[field].length}/${limits[field]} characters`);
 }
+console.log(`play icon: ${playIcon.width}x${playIcon.height}, alpha channel present`);
+console.log(
+  `feature graphic: ${featureGraphic.width}x${featureGraphic.height}, no alpha channel`,
+);
+console.log(`Android screenshots: ${screenshotFiles.length} at 1080x1920`);

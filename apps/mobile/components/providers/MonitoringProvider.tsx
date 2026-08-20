@@ -4,6 +4,14 @@ import { usePathname } from "expo-router";
 import { useQuery } from "convex/react";
 import { PostHogProvider, usePostHog, type PostHog } from "posthog-react-native";
 import { api } from "@familyplate/convex/_generated/api";
+import {
+  sanitizeSensitiveRoute,
+  shouldResetPostHogIdentity,
+} from "@/lib/privacy-and-permissions";
+import {
+  configureRevenueCat,
+  resetRevenueCatIdentity,
+} from "@/lib/revenuecat";
 import { Sentry } from "@/lib/sentry";
 
 const posthogKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
@@ -30,6 +38,7 @@ export function MonitoringProvider({ children }: { children: ReactNode }) {
       }}
     >
       <SentryUserTracker />
+      <RevenueCatUserTracker />
       {posthogKey ? (
         <>
           <UserAnalyticsTracker />
@@ -39,6 +48,47 @@ export function MonitoringProvider({ children }: { children: ReactNode }) {
       {children}
     </PostHogProvider>
   );
+}
+
+function RevenueCatUserTracker() {
+  const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
+  const synchronizedUserId = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (currentUser === undefined) return;
+    const nextUserId = currentUser?.authId ?? null;
+    if (synchronizedUserId.current === nextUserId) return;
+
+    let isCurrent = true;
+    async function synchronize() {
+      try {
+        if (currentUser?.authId) {
+          await configureRevenueCat({
+            appUserId: currentUser.authId,
+            email: currentUser.email,
+          });
+        } else {
+          await resetRevenueCatIdentity();
+        }
+        if (isCurrent) synchronizedUserId.current = nextUserId;
+      } catch (error) {
+        Sentry.captureException(error, {
+          tags: {
+            area: "billing",
+            action: "synchronize_revenuecat_identity",
+            platform: Platform.OS,
+          },
+        });
+      }
+    }
+
+    void synchronize();
+    return () => {
+      isCurrent = false;
+    };
+  }, [currentUser]);
+
+  return null;
 }
 
 function SentryUserTracker() {
@@ -64,12 +114,19 @@ function SentryUserTracker() {
 function UserAnalyticsTracker() {
   const currentUser = useQuery(api.queries.profiles.getCurrentUser, {});
   const posthog = usePostHog();
-  const identifiedUserId = useRef<string | null>(null);
+  const identifiedUserId = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     if (currentUser === undefined) return;
     if (!currentUser?.authId) {
       Sentry.setUser(null);
+      if (shouldResetPostHogIdentity(identifiedUserId.current, null)) {
+        try {
+          posthog.reset();
+        } catch {
+          // Monitoring should never block sign-out or app navigation.
+        }
+      }
       identifiedUserId.current = null;
       return;
     }
@@ -81,6 +138,20 @@ function UserAnalyticsTracker() {
     });
 
     if (identifiedUserId.current === currentUser.authId) return;
+
+    if (
+      shouldResetPostHogIdentity(
+        identifiedUserId.current,
+        currentUser.authId,
+      )
+    ) {
+      try {
+        posthog.reset();
+      } catch {
+        // Do not link two signed-in accounts when identity isolation fails.
+        return;
+      }
+    }
 
     try {
       posthog.identify(currentUser.authId, {
@@ -104,7 +175,7 @@ function ScreenTracker() {
 
   useEffect(() => {
     if (!pathname) return;
-    posthog.screen(pathname, {
+    posthog.screen(sanitizeSensitiveRoute(pathname), {
       app: "familyplate",
       platform: Platform.OS,
     });

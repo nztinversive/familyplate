@@ -9,8 +9,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
     "test:release-env": "node --test scripts/validate-release-env.test.mjs",
     "test:billing-platform": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/billing-platform.test.mts",
+    "test:ai-consent": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/aiConsent-storage.test.mts",
+    "test:privacy-permissions": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/privacy-and-permissions.test.mts",
+    "test:revenuecat-identity": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/revenuecat-identity.test.mts",
+    "test:week": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test lib/week.test.mts",
     "validate:release-env": "node scripts/validate-release-env.mjs",
     "eas-build-post-install": "node scripts/validate-release-env.mjs",
     "store:preview": "npm run render --workspace=@familyplate/store-preview"

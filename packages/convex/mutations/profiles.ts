@@ -220,6 +220,15 @@ export const deleteMyAccount = mutation({
       );
 
       if (otherAuthenticatedProfiles.length === 0) {
+        const planReservations = await takeForDeletion(
+          ctx.db
+            .query("planGenerationReservations")
+            .withIndex("by_householdId", (q) =>
+              q.eq("householdId", profile.householdId),
+            ),
+          "plan-generation reservation",
+          deletionBudget,
+        );
         const agentConnections = await takeForDeletion(
           ctx.db
             .query("agentConnections")
@@ -311,6 +320,9 @@ export const deleteMyAccount = mutation({
         );
         reserveDeletionWrites(deletionBudget, 1, "household");
 
+        for (const reservation of planReservations) {
+          await ctx.db.delete(reservation._id);
+        }
         for (const connection of agentConnections) {
           await ctx.db.delete(connection._id);
         }
@@ -329,6 +341,13 @@ export const deleteMyAccount = mutation({
         for (const member of householdProfiles) await ctx.db.delete(member._id);
         await ctx.db.delete(profile.householdId);
       } else {
+        const planReservations = await takeForDeletion(
+          ctx.db
+            .query("planGenerationReservations")
+            .withIndex("by_authId", (q) => q.eq("authId", authId)),
+          "plan-generation reservation",
+          deletionBudget,
+        );
         const agentConnections = await takeForDeletion(
           ctx.db
             .query("agentConnections")
@@ -392,6 +411,9 @@ export const deleteMyAccount = mutation({
         }
 
         reserveDeletionWrites(deletionBudget, 1, "profile");
+        for (const reservation of planReservations) {
+          await ctx.db.delete(reservation._id);
+        }
         for (const connection of agentConnections) {
           await ctx.db.delete(connection._id);
         }

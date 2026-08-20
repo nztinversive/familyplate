@@ -83,3 +83,23 @@ test("account deletion covers agent connections for both household paths", async
     "both last-household and remaining-household paths delete agent connections",
   );
 });
+
+test("account deletion clears plan-generation reservations in both household paths", async () => {
+  const source = await readFile(
+    new URL("../mutations/profiles.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /query\("planGenerationReservations"\)[\s\S]*?withIndex\("by_householdId"/,
+  );
+  assert.match(
+    source,
+    /query\("planGenerationReservations"\)[\s\S]*?withIndex\("by_authId"/,
+  );
+  assert.ok(
+    (source.match(/ctx\.db\.delete\(reservation\._id\)/g) ?? []).length >= 2,
+    "both last-household and remaining-household paths delete reservations",
+  );
+});

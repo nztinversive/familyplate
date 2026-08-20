@@ -41,21 +41,22 @@ Do not add ranking claims, awards, testimonials, prices, limited-time language, 
 
 ## Store assets
 
-- [ ] `MANUAL BLOCKER` Export a 512 x 512, 32-bit PNG Play Store icon with alpha, no more than 1,024 KB. Validate it independently of the launcher/adaptive icons in `app.json`.
-- [ ] `MANUAL BLOCKER` Create a 1024 x 500 JPEG or 24-bit PNG feature graphic with no alpha. Keep the primary visual and any copy centered so Play crops do not remove it.
-- [ ] `MANUAL BLOCKER` Capture at least two real Android phone screenshots. For recommendation eligibility, provide at least four 1080 x 1920 portrait screenshots at 9:16.
-- [ ] Use only the final Android build, remove unrelated notifications from the status bar, and do not reuse iPhone-framed images.
-- [ ] Keep screenshot taglines under 20 percent of each image and avoid store badges, price claims, rankings, or calls to action.
+- [x] A separate 512 x 512, 32-bit RGBA Play Store icon is in [`store/google-play/graphics/play-icon.png`](store/google-play/graphics/play-icon.png) and is checked for size, format, and transparency.
+- [x] A 1024 x 500, 24-bit RGB feature graphic with no transparency is in [`store/google-play/graphics/feature-graphic.png`](store/google-play/graphics/feature-graphic.png).
+- [x] Five 1080 x 1920 portrait screenshots captured from the signed launch-preview APK on the Android 16/API 36 emulator are in [`store/google-play/screenshots/en-US/phone`](store/google-play/screenshots/en-US/phone). The validator confirms 24-bit RGB PNGs with no alpha channel.
+- [x] The checked-in captures use the tested Android build, a clean deterministic status bar, no device frame, and no unrelated notifications.
+- [x] The captures have no taglines, store badges, price claims, rankings, or calls to action.
+- [ ] `MANUAL BLOCKER` Approve the images and repeat the visual smoke on at least one physical Android phone before upload. Replace a capture only by repeating the validator and artifact-linked QA.
 - [ ] Add concise alt text in Play Console for every asset.
 - [ ] If an asset was generated or materially edited with AI and is in scope for Play's asset declaration, apply the appropriate AI label in Play Console.
 
 Recommended phone screenshot order and alt text:
 
-1. Pantry — `Pantry screen showing household ingredients and items to use first.`
-2. Tonight — `Dinner suggestions based on ingredients already in the household pantry.`
-3. Weekly Plan — `Weekly dinner plan with meals organized by day.`
-4. Cookbook — `Saved family recipes with ingredients, servings, and cooking steps.`
-5. Grocery List — `Shared grocery list containing ingredients missing from planned meals.`
+1. Pantry — `Pantry screen with quick add, barcode scanning, grocery photo capture, and setup guidance.`
+2. Tonight — `Tonight screen with dinner mood controls and a saved dinner suggestion.`
+3. Weekly Plan — `Weekly plan screen showing the current week, household selection, and generation controls.`
+4. Cookbook — `Cookbook with family recipe creation, recently cooked meals, and AI report controls.`
+5. Privacy & Account — `Settings showing AI data sharing, legal resources, consent controls, and account deletion.`
 
 ## App access for reviewers
 
@@ -86,7 +87,8 @@ Suggested access instructions:
 - External path: the deletion page opens a specific email request to `support@familyplate.co` and explains verification, associated-data deletion, shared-household retention, and subscription cancellation.
 - [ ] `MANUAL BLOCKER` Deploy the updated web pages and verify all four legal/support URLs return HTTP 200 without authentication, geofencing, redirects to sign-in, or a certificate warning.
 - [ ] `MANUAL BLOCKER` Assign an owner to monitor deletion requests, verify account ownership without asking for a password, complete deletion, and record completion.
-- [ ] `BLOCKER` Run an account-deletion regression test against the final backend. Confirm that authentication records, the personal profile, account-linked agent connections, and other account-linked records are removed or irreversibly de-identified. Confirm the documented shared-household behavior when other authenticated members remain.
+- [x] Automated regressions cover both last-household and remaining-member deletion paths, including account-linked agent connections, creator-reference cleanup, and documented shared-household retention.
+- [ ] `MANUAL BLOCKER` Deploy the reviewed backend, then run a credentialed end-to-end deletion against the release deployment and verify authentication-provider and queued third-party cleanup completion.
 
 ### Ads
 
@@ -126,7 +128,8 @@ Complete the IARC questionnaire from the behavior of the final build, not from t
 - Declare grocery-photo recognition if Play asks about AI analysis or generation from images.
 - Provider disclosed to users: OpenAI.
 - Safety controls expected at launch: explicit AI consent, allergen/dietary constraints, food-safety warnings, safe error handling, and an in-app report/flag control on generated content.
-- [ ] `BLOCKER` Verify that a user can report offensive or unsafe generated content without leaving the app and that the report reaches a monitored review queue with enough context to investigate it.
+- [x] The app exposes an in-app report control on generated Tonight, Plan, Cookbook, and Recently Cooked content. Focused tests cover authenticated household/source validation, bounded snapshots, and duplicate-report suppression.
+- [ ] `MANUAL BLOCKER` Deploy the reviewed backend and verify a report from the release build reaches the staffed moderation queue.
 - [ ] `MANUAL BLOCKER` Document who reviews reports, how restricted content is handled, and how reports inform filtering or moderation.
 - [ ] Review every new Play Store image or video and complete the asset-specific AI label when required.
 
@@ -202,16 +205,30 @@ Required setup:
 
 ## Build and technical release gate
 
-- [ ] Merge or port all Android launch work onto the current release base without copying unrelated dirty-worktree changes.
-- [ ] Install with the repository's Node 22 requirement and a supported Java/Android toolchain.
+- [x] Port the Android launch work onto the current release base in an isolated worktree without copying unrelated dirty-worktree changes.
+- [x] Install and verify with Node 22.22.2, Java 17, Android SDK 36, and an Android 16/API 36 arm64 emulator.
 - [ ] Run `npm ci` from the repository root.
-- [ ] Run the Google Play metadata validator, web checks, mobile lint/typecheck, Convex typecheck, Expo Doctor, dependency audit, and focused automated tests.
+- [x] Run the Google Play metadata validator, web checks, mobile lint/typecheck, Convex typecheck, Expo Doctor, dependency audit, and focused automated tests. See the machine-verification record below for the exact result and the documented audit exception.
 - [ ] Produce a signed **production AAB**, not only a development APK.
 - [ ] Inspect the AAB/merged manifest for package, version name/code, target SDK, min SDK, permissions, exported components, deep links, billing library, ABIs, native libraries, and 16 KB page-size compatibility.
-- [ ] Confirm only intended permissions are present. Camera access must be user initiated and explained immediately before use.
-- [ ] Verify production environment values for Convex, OpenAI-backed server functions, PostHog, Sentry, RevenueCat Android, and app environment. No private secret belongs in an `EXPO_PUBLIC_` value.
+- [x] Confirm the signed preview APK requests only camera, billing, network-state/network, vibration, install-referrer, and the app's non-exported dynamic-receiver permission. Camera access is user initiated and preceded by an explanation.
+- [x] Validate release environment requirements without printing secret values. The production profile is intentionally blocked while the RevenueCat Android public SDK key is absent.
 - [ ] Upload the AAB to internal testing and resolve every blocking Play Console warning.
 - [ ] Run the Play pre-launch report and address crashes, ANRs, accessibility failures, security findings, unsupported devices, and layout problems.
+
+### Machine verification completed August 19, 2026
+
+- Signed launch-preview APK: local ignored artifact `artifacts/familyplate-1.16.14-preview-arm64-launch.apk`
+- SHA-256: `32eca17f1109f255915be99178225cb2d920e416e7d98548b81441ac8e4bbd78`
+- Identity: package `co.familyplate.app`, version `1.16.14` (`versionCode` 2), min SDK 24, target SDK 36, arm64-v8a
+- Signing: APK Signature Scheme v2, one RSA-2048 signer. This is a locally signed preview APK, not the production Play App Signing AAB.
+- Runtime smoke: exact APK installed and launched on Android 16/API 36; Pantry, Tonight, Weekly Plan, Cookbook, Settings/privacy, tabs, loading states, and Android Back were inspected without a crash.
+- Permission recovery: the pre-permission explanation, first denial, permanent denial, manual fallback, and `Open Settings` recovery path were exercised on the emulator.
+- Store assets: five screenshots were recaptured from this exact APK and pass `npm run validate:google-play-launch` at 1080 x 1920, 8-bit RGB, with no transparency.
+- Automated source gate: 47 focused Android/Convex regression tests pass, including billing platform routing, account-scoped AI consent, telemetry and invite-secret isolation, RevenueCat identity transitions, PNG parsing, weekly date handling, atomic plan quota enforcement, curated fallback safety, AI reporting, and deletion cleanup.
+- Independent review: no remaining source-level Android launch blocker was found after the final timezone/fallback fix.
+- Security audit: supported dependency updates removed critical findings. `npm audit --omit=dev --audit-level=high` reports 24 remaining transitive findings (13 moderate, 11 high, 0 critical) in Expo/Metro and Next build-tooling paths; its automated fixes require unsupported breaking Expo 57 or Next 16 upgrades. These require explicit release-owner risk acceptance and should not be force-upgraded blindly.
+- Release boundary: deploy the reviewed Convex backend and updated legal web pages before distributing the mobile build. A production AAB remains blocked until the RevenueCat Android key and Play/RevenueCat product setup exist.
 
 ## Test tracks and production access
 
@@ -228,7 +245,7 @@ Required setup:
 - [ ] At least one current Pixel-class device and one Samsung-class device
 - [ ] Android versions representing the minimum supported version and a current release
 - [ ] Phone layouts at default and large font/display scaling
-- [ ] Light and dark mode, gesture and three-button navigation, rotation policy, keyboard, edge-to-edge insets, and Android back behavior
+- [ ] Confirm the intentionally light-only UI stays legible when the device appearance is set to either light or dark; also test gesture and three-button navigation, rotation policy, keyboard, edge-to-edge insets, and Android back behavior
 - [ ] Fresh install, update from prior internal build, sign-out/sign-in, reinstall, and offline launch
 - [ ] Camera denied, allowed, revoked from system settings, barcode scan, grocery-photo scan, and manual fallback
 - [ ] Play purchase states listed in the subscription section
@@ -261,8 +278,8 @@ The following cannot be safely completed from repository access alone:
 5. Provider contract/settings review needed to make final Data Safety `shared` answers and exact retention statements.
 6. Legal operator name/address, jurisdiction/governing-law and dispute terms, age/eligibility choice, retention schedule, and region-specific privacy rights. The public legal copy intentionally does not invent these facts.
 7. Staffing and procedure for support, account-deletion verification, AI report moderation, security/fraud retention, and provider-deletion requests.
-8. Real Android screenshots, feature graphic approval, physical-device QA, closed-test participation, and Google review.
-9. Verification that backend deletion covers every account-linked record. Current shared-household behavior must remain consistent with the public policy.
+8. Screenshot/feature-graphic owner approval, physical-device QA, closed-test participation, and Google review. Five validator-clean emulator screenshots are ready in source.
+9. Production deployment and credentialed end-to-end verification of the tested account-deletion cleanup. Current shared-household behavior must remain consistent with the public policy.
 10. A final SDK/privacy audit of the production AAB, PostHog, Sentry, RevenueCat, OpenAI, and other provider settings.
 
 ## Official references

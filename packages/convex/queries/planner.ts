@@ -104,7 +104,14 @@ export const getMyMealPlanByWeek = query({
       .withIndex("by_householdId", (q) => q.eq("householdId", householdId))
       .collect();
 
-    const matchingPlan = plans.find((plan) => plan.weekStartDate === args.weekStartDate) ?? null;
+    const matchingPlan =
+      plans
+        .filter((plan) => plan.weekStartDate === args.weekStartDate)
+        .sort((a, b) => {
+          const activeDifference =
+            Number(b.status === "active") - Number(a.status === "active");
+          return activeDifference || b.createdAt - a.createdAt;
+        })[0] ?? null;
     if (!matchingPlan) return null;
 
     const meals = await ctx.db

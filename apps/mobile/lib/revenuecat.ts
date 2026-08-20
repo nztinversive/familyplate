@@ -4,6 +4,10 @@ import type {
   PurchasesOffering,
   PurchasesPackage,
 } from "react-native-purchases";
+import {
+  clearRevenueCatIdentity,
+  syncRevenueCatIdentity,
+} from "@/lib/revenuecat-identity";
 
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 const REVENUECAT_ANDROID_API_KEY =
@@ -12,6 +16,7 @@ const FAMILY_ENTITLEMENT_ID = "family";
 
 let configuredAppUserId: string | null = null;
 let purchasesClient: typeof import("react-native-purchases").default | null = null;
+let identityOperation: Promise<unknown> = Promise.resolve();
 
 export type RevenueCatPackage = PurchasesPackage;
 
@@ -34,6 +39,15 @@ async function getPurchasesClient() {
   return purchasesClient;
 }
 
+function serializeIdentityOperation<T>(operation: () => Promise<T>) {
+  const result = identityOperation.then(operation, operation);
+  identityOperation = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 export async function configureRevenueCat({
   appUserId,
   email,
@@ -45,24 +59,32 @@ export async function configureRevenueCat({
   if (!apiKey) return false;
   if (!appUserId) return false;
 
-  const Purchases = await getPurchasesClient();
-  const isConfigured = await Purchases.isConfigured();
-  if (!isConfigured) {
-    Purchases.configure({
+  await serializeIdentityOperation(async () => {
+    const Purchases = await getPurchasesClient();
+    await syncRevenueCatIdentity({
+      client: Purchases,
       apiKey,
-      appUserID: appUserId,
-      automaticDeviceIdentifierCollectionEnabled: false,
+      appUserId,
+      email,
     });
     configuredAppUserId = appUserId;
-  } else if (configuredAppUserId !== appUserId) {
-    await Purchases.logIn(appUserId);
-    configuredAppUserId = appUserId;
+  });
+
+  return true;
+}
+
+export async function resetRevenueCatIdentity() {
+  const apiKey = getRevenueCatApiKey();
+  if (!apiKey) {
+    configuredAppUserId = null;
+    return false;
   }
 
-  if (email) {
-    await Purchases.setEmail(email);
-  }
-
+  await serializeIdentityOperation(async () => {
+    const Purchases = await getPurchasesClient();
+    await clearRevenueCatIdentity({ client: Purchases, apiKey });
+    configuredAppUserId = null;
+  });
   return true;
 }
 

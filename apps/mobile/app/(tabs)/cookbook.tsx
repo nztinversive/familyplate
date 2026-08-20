@@ -35,6 +35,7 @@ import {
 } from "@/lib/recipeScaling";
 import { track } from "@/lib/analytics";
 import { Sentry } from "@/lib/sentry";
+import { getCurrentWeekStartDate } from "@/lib/week";
 
 type Recipe = Doc<"recipeSuggestions">;
 type RecipeIngredient = Recipe["ingredients"][number];
@@ -115,7 +116,9 @@ export default function CookbookScreen() {
   const router = useRouter();
   const posthog = usePostHog();
   const savedRecipes = useQuery(api.queries.savedRecipes.getMySavedRecipes, {});
-  const mealPlan = useQuery(api.queries.planner.getMyMealPlan, {});
+  const mealPlan = useQuery(api.queries.planner.getMyMealPlanByWeek, {
+    weekStartDate: getCurrentWeekStartDate(),
+  });
   const recentlyCooked = useQuery(api.queries.planner.getRecentlyCookedMeals, {
     limit: 5,
   });
@@ -649,6 +652,7 @@ function RecentlyCookedCard({
             {meal.recipe.source === "ai" ? (
               <View className="mt-3">
                 <ReportAiContentButton
+                  key={`cookbook-recent:${meal.recipe._id}`}
                   recipeId={meal.recipe._id}
                   sourceSurface="cookbook"
                 />
@@ -931,6 +935,7 @@ function RecipeCard({
       {recipe.source === "ai" ? (
         <View className="border-t border-border px-4 py-3">
           <ReportAiContentButton
+            key={`cookbook:${recipe._id}`}
             recipeId={recipe._id}
             sourceSurface="cookbook"
           />

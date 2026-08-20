@@ -374,7 +374,9 @@ export function CustomRecipeModal({
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (!isSubmitting) onClose();
+      }}
     >
       <SafeAreaView
         className="flex-1 bg-background"

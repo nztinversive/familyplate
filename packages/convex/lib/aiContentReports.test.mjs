@@ -26,12 +26,16 @@ test("captures bounded generated content without household profile data", () => 
     description: "A generated dinner idea.",
     ingredients: [
       { name: "beans", quantity: 2, unit: "cups", inPantry: true },
+      { name: "broth", quantity: 4, unit: "cups", inPantry: false },
     ],
     instructions: ["Simmer safely."],
   });
 
   assert.ok(snapshot.includes("Weeknight Soup"));
   assert.ok(snapshot.includes("Simmer safely"));
+  assert.ok(snapshot.includes("2 cups beans"));
+  assert.ok(snapshot.includes("4 cups broth"));
   assert.ok(snapshot.length <= MAX_AI_CONTENT_SNAPSHOT_LENGTH);
-  assert.equal(snapshot.includes("email"), false);
+  assert.equal(snapshot.includes("in pantry"), false);
+  assert.equal(snapshot.includes("missing"), false);
 });

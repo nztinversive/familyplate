@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import {
   buildGeneratedGroceryItems,
@@ -6,6 +6,7 @@ import {
   sortGroceryItems,
 } from "../lib/grocery";
 import type { Doc } from "../_generated/dataModel";
+import { getCompletedPlanUsage } from "../lib/planQuota";
 
 const ingredientValidator = v.object({
   name: v.string(),
@@ -244,7 +245,9 @@ export const getMealPlanGroceryContext = internalQuery({
 
 export const saveGeneratedMealPlan = internalMutation({
   args: {
+    authId: v.string(),
     householdId: v.id("households"),
+    reservationId: v.id("planGenerationReservations"),
     weekStartDate: v.string(),
     meals: v.array(
       v.object({
@@ -256,6 +259,24 @@ export const saveGeneratedMealPlan = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const reservation = await ctx.db.get(args.reservationId);
+    if (
+      !reservation ||
+      reservation.authId !== args.authId ||
+      reservation.householdId !== args.householdId
+    ) {
+      throw new ConvexError("Invalid plan-generation reservation.");
+    }
+    if (reservation.expiresAt <= now) {
+      throw new ConvexError(
+        "Plan generation took too long. Please try again.",
+      );
+    }
+
+    const household = await ctx.db.get(args.householdId);
+    if (!household) {
+      throw new ConvexError("Household not found.");
+    }
 
     const existingPlans = await ctx.db
       .query("weeklyMealPlans")
@@ -325,6 +346,19 @@ export const saveGeneratedMealPlan = internalMutation({
         mealType: "dinner",
         status: "planned",
         pantryDeductedAt: undefined,
+      });
+    }
+
+    await ctx.db.delete(reservation._id);
+    if (reservation.countsTowardQuota) {
+      const usage = getCompletedPlanUsage({
+        now,
+        resetAt: household.planGenerationsResetAt,
+        completed: household.planGenerationsThisMonth,
+      });
+      await ctx.db.patch(args.householdId, {
+        planGenerationsThisMonth: usage.plansUsed + 1,
+        planGenerationsResetAt: usage.windowStartedAt,
       });
     }
 

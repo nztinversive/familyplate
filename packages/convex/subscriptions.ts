@@ -1,13 +1,18 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import {
+  canReserveFreePlan,
+  countActivePlanReservations,
+  FREE_PLAN_LIMIT,
+  getCompletedPlanUsage,
+  PLAN_RESERVATION_TTL_MS,
+} from "./lib/planQuota";
 
 const MONTHLY_VARIANT_ID = "1485021";
 const ANNUAL_VARIANT_ID = "1485023";
 const TEST_VARIANT_ID = "1492777";
 const REVENUECAT_FAMILY_ENTITLEMENT_ID = "family";
-const FREE_PLAN_LIMIT = 2; // plans per month
-
 const REVENUECAT_ACTIVE_EVENTS = new Set([
   "INITIAL_PURCHASE",
   "RENEWAL",
@@ -169,8 +174,17 @@ export const handleRevenueCatWebhookEvent = internalMutation({
 });
 
 export const getMySubscription = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { timeBucket: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    // Convex queries rerun when their arguments or database dependencies change.
+    // The client advances this minute bucket periodically so time-based quota
+    // reservations and usage windows cannot leave a stale paywall on screen.
+    // Deriving the reference time from the argument also keeps bucketed query
+    // results deterministic; the Date.now fallback preserves older clients.
+    const now =
+      args.timeBucket === undefined
+        ? Date.now()
+        : Math.floor(args.timeBucket) * 60_000;
     const userId = await getAuthUserId(ctx);
     if (!userId) return { tier: "free" as const, isFamily: false, canGenerate: true, plansUsed: 0, plansLimit: FREE_PLAN_LIMIT };
 
@@ -186,6 +200,12 @@ export const getMySubscription = query({
       .withIndex("by_householdId", (q) => q.eq("householdId", profile.householdId))
       .collect();
     const household = await ctx.db.get(profile.householdId);
+    const reservations = await ctx.db
+      .query("planGenerationReservations")
+      .withIndex("by_householdId_and_expiresAt", (q) =>
+        q.eq("householdId", profile.householdId).gt("expiresAt", now),
+      )
+      .collect();
 
     const isFamily = householdProfiles.some(
       (member) =>
@@ -194,15 +214,18 @@ export const getMySubscription = query({
     );
 
     // Apply free-plan limits at the household level so members share the same quota.
-    const now = Date.now();
-    const resetAt = household?.planGenerationsResetAt ?? 0;
-    const monthMs = 30 * 24 * 60 * 60 * 1000;
-    const plansUsed = now - resetAt > monthMs ? 0 : (household?.planGenerationsThisMonth ?? 0);
+    const { plansUsed } = getCompletedPlanUsage({
+      now,
+      resetAt: household?.planGenerationsResetAt,
+      completed: household?.planGenerationsThisMonth,
+    });
+    const activeReservations = countActivePlanReservations(reservations, now);
 
     return {
       tier: isFamily ? "family" as const : "free" as const,
       isFamily,
-      canGenerate: isFamily || plansUsed < FREE_PLAN_LIMIT,
+      canGenerate:
+        isFamily || canReserveFreePlan({ plansUsed, activeReservations }),
       plansUsed,
       plansLimit: FREE_PLAN_LIMIT,
       status: profile.subscriptionStatus,
@@ -213,26 +236,86 @@ export const getMySubscription = query({
   },
 });
 
-export const incrementPlanGeneration = internalMutation({
-  args: { householdId: v.id("households") },
+export const reservePlanGeneration = internalMutation({
+  args: {
+    authId: v.string(),
+    householdId: v.id("households"),
+  },
   handler: async (ctx, args) => {
+    const profile = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_authId", (q) => q.eq("authId", args.authId))
+      .first();
+    if (!profile || profile.householdId !== args.householdId) {
+      throw new ConvexError("You do not have access to this household.");
+    }
+
     const household = await ctx.db.get(args.householdId);
-    if (!household) return;
+    if (!household) {
+      throw new ConvexError("Household not found.");
+    }
+
+    const householdProfiles = await ctx.db
+      .query("userProfiles")
+      .withIndex("by_householdId", (q) =>
+        q.eq("householdId", args.householdId),
+      )
+      .collect();
+    const isFamily = householdProfiles.some(
+      (member) =>
+        member.subscriptionTier === "family" &&
+        (member.subscriptionStatus === "active" ||
+          member.subscriptionStatus === "on_trial"),
+    );
 
     const now = Date.now();
-    const resetAt = household.planGenerationsResetAt ?? 0;
-    const monthMs = 30 * 24 * 60 * 60 * 1000;
+    const reservations = await ctx.db
+      .query("planGenerationReservations")
+      .withIndex("by_householdId_and_expiresAt", (q) =>
+        q.eq("householdId", args.householdId).gt("expiresAt", now),
+      )
+      .collect();
+    const { plansUsed } = getCompletedPlanUsage({
+      now,
+      resetAt: household.planGenerationsResetAt,
+      completed: household.planGenerationsThisMonth,
+    });
+    const activeReservations = countActivePlanReservations(reservations, now);
 
-    if (now - resetAt > monthMs) {
-      // Reset counter for new month
-      await ctx.db.patch(args.householdId, {
-        planGenerationsThisMonth: 1,
-        planGenerationsResetAt: now,
-      });
-    } else {
-      await ctx.db.patch(args.householdId, {
-        planGenerationsThisMonth: (household.planGenerationsThisMonth ?? 0) + 1,
-      });
+    if (
+      !isFamily &&
+      !canReserveFreePlan({ plansUsed, activeReservations })
+    ) {
+      throw new ConvexError(
+        `You've used ${plansUsed}/${FREE_PLAN_LIMIT} free plans this month.`,
+      );
     }
+
+    return await ctx.db.insert("planGenerationReservations", {
+      householdId: args.householdId,
+      authId: args.authId,
+      countsTowardQuota: !isFamily,
+      expiresAt: now + PLAN_RESERVATION_TTL_MS,
+      createdAt: now,
+    });
+  },
+});
+
+export const releasePlanGenerationReservation = internalMutation({
+  args: {
+    authId: v.string(),
+    householdId: v.id("households"),
+    reservationId: v.id("planGenerationReservations"),
+  },
+  handler: async (ctx, args) => {
+    const reservation = await ctx.db.get(args.reservationId);
+    if (!reservation) return;
+    if (
+      reservation.authId !== args.authId ||
+      reservation.householdId !== args.householdId
+    ) {
+      throw new ConvexError("Invalid plan-generation reservation.");
+    }
+    await ctx.db.delete(reservation._id);
   },
 });

@@ -1,6 +1,10 @@
 {
   "build": {
+    "base": {
+      "node": "22.22.2"
+    },
     "simulator": {
+      "extends": "base",
       "distribution": "internal",
       "environment": "preview",
       "ios": {
@@ -8,6 +12,7 @@
       }
     },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "environment": "preview",
@@ -16,6 +21,7 @@
       }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "environment": "preview",
       "android": {
@@ -23,6 +29,7 @@
       }
     },
     "production": {
+      "extends": "base",
       "autoIncrement": true,
       "environment": "production",
       "env": {

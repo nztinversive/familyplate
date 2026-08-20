@@ -1,9 +1,8 @@
 import "../global.css";
 import "@/lib/sentry";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -26,19 +25,17 @@ export const unstable_settings = {
 };
 
 function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <ConvexAuthProvider client={convex} storage={AsyncStorage}>
       <MonitoringProvider>
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <ThemeProvider value={DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="join/[inviteCode]" options={{ headerShown: false }} />
             <Stack.Screen name="sign-in" options={{ headerShown: false, presentation: "modal" }} />
             <Stack.Screen name="setup/household" options={{ headerShown: false }} />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style="dark" />
         </ThemeProvider>
       </MonitoringProvider>
     </ConvexAuthProvider>
